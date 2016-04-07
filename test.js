@@ -11,7 +11,7 @@ rosjs.initNode('/my_node')
     type: 'baxter_core_msgs/ListCameras'
   }, (req, resp) => {
     console.log('Handling request! ' + JSON.stringify(req));
-    resp.cameras = ['hi', 'camA', 'suckITCam'];
+    resp.cameras = ['right_hand_camera', 'left_hand_camera', 'head_camera'];
     return true;
   });
 
@@ -38,7 +38,7 @@ rosjs.initNode('/my_node')
   let pub = rosNode.advertise({
     topic: '/my_topic',
     type: 'std_msgs/String',
-    queueSize: 2,
+    queueSize: 1,
     latching: true,
     throttleMs: 100
   });
@@ -53,14 +53,14 @@ rosjs.initNode('/my_node')
     if (iter > 200) {
       iter = 0;
     }
-  }, 4);
+  }, 5);
 
   // EXP 5) Subscriber
   let sub = rosNode.subscribe({
     topic: '/my_topic',
     type: 'std_msgs/String',
     queueSize: 1,
-    throttleMs: 500},
+    throttleMs: 1000},
     (data) => {
       console.log('SUB DATA ' + data.data);
     });
