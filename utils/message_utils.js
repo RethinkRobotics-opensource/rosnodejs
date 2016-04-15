@@ -26,57 +26,80 @@ let cmakePaths = cmakePath.split(':');
 let jsMsgPath = 'share/node_js/ros';
 
 let messagePackageMap = {};
+let messagePackagePathMap = {};
 
 //-----------------------------------------------------------------------
 // Utilities for loading, finding handlers for
 // message serialization/deserialization
+//
+//  When rosjs starts, it searches through your cmakepath for generated
+//  javascript messages. It caches paths for any of the packages it finds.
+//  Then, in rosjs when you ask to use a message package we check for it
+//  in the cache and require it if found.
 //-----------------------------------------------------------------------
 
 let MessageUtils = {
-	loadMessageFiles() {
-		messagePackageMap = {};
-		cmakePaths.forEach((cmakePath) => {
-			let path_ = path.join(cmakePath, jsMsgPath);
-			if (fs.existsSync(path_)) {
-				let msgPackages = fs.readdirSync(path_);
-				msgPackages.forEach((msgPackage) => {
-					let indexPath = path.join(path_, msgPackage, '_index.js');
-					try {
-						messagePackageMap[msgPackage] = require(indexPath);
-					}
-					catch (err) {
-						log.error('Unable to include message package ' + msgPackage + ' - ' + err);
-					}
-				});
-			}
-		});
-	},
+  findMessageFiles() {
+    if (Object.keys(messagePackagePathMap).length > 0) {
+      return;
+    }
+    cmakePaths.forEach((cmakePath) => {
+      let path_ = path.join(cmakePath, jsMsgPath);
+      if (fs.existsSync(path_)) {
+        let msgPackages = fs.readdirSync(path_);
+        msgPackages.forEach((msgPackage) => {
+          let indexPath = path.join(path_, msgPackage, '_index.js');
+          messagePackagePathMap[msgPackage] = indexPath;
+        });
+      }
+    });
+  },
 
-	getHandlerForMsgType(rosDataType) {
-		let parts = rosDataType.split('/');
-		let msgPackage = parts[0];
-		let messagePackage = messagePackageMap[msgPackage];
-		if (messagePackage) {
-			let type = parts[1];
-			return messagePackage.msg[type];
-		}
-		else {
-			throw new Error('Unable to find message handler for package ' + msgPackage);
-		}
-	},
+  loadMessagePackage(msgPackage) {
+    const indexPath = messagePackagePathMap[msgPackage];
+    if (indexPath === undefined) {
+      throw new Error('Unable to find message package %s', msgPackage);
+    }
+    try {
+      messagePackageMap[msgPackage] = require(indexPath);
+    }
+    catch (err) {
+      console.error('Unable to include message package ' + msgPackage + ' - ' + err);
+      throw new Error();
+    }
+  },
 
-	getHandlerForSrvType(rosDataType) {
-		let parts = rosDataType.split('/');
-		let msgPackage = parts[0];
-		let messagePackage = messagePackageMap[msgPackage];
-		if (messagePackage) {
-			let type = parts[1];
-			return messagePackage.srv[type];
-		}
-		else {
-			throw new Error('Unable to find message handler for package ' + msgPackage);
-		}
-	}
+  getPackage(msgPackage) {
+    return messagePackageMap[msgPackage];
+  },
+
+  getHandlerForMsgType(rosDataType) {
+    let parts = rosDataType.split('/');
+    let msgPackage = parts[0];
+    let messagePackage = this.getPackage(msgPackage);
+    if (messagePackage) {
+      let type = parts[1];
+      return messagePackage.msg[type];
+    }
+    else {
+      console.error('Unable to find message package ' + msgPackage);
+      throw new Error();
+    }
+  },
+
+  getHandlerForSrvType(rosDataType) {
+    let parts = rosDataType.split('/');
+    let msgPackage = parts[0];
+    let messagePackage = this.getPackage(msgPackage);
+    if (messagePackage) {
+      let type = parts[1];
+      return messagePackage.srv[type];
+    }
+    else {
+      console.error('Unable to find message package ' + msgPackage);
+      throw new Error();
+    }
+  }
 };
 
 //-----------------------------------------------------------------------

@@ -1,29 +1,33 @@
 'use strict';
 
 let rosjs = require('./index.js');
+const std_msgs = rosjs.require('std_msgs').msg;
+const SetBool = rosjs.require('std_srvs').srv.SetBool;
 
 rosjs.initNode('/my_node')
 .then((rosNode) => {
-  console.log('GOTIT');
   // EXP 1) Service Server
   let service = rosNode.advertiseService({
-    service: '/list_cameras',
-    type: 'baxter_core_msgs/ListCameras'
+    service: '/set_bool',
+    type: 'std_srvs/SetBool'
   }, (req, resp) => {
     console.log('Handling request! ' + JSON.stringify(req));
-    resp.cameras = ['right_hand_camera', 'left_hand_camera', 'head_camera'];
+    resp.success = !req.data;
+    resp.message = 'Inverted!';
     return true;
   });
 
   // EXP 2) Service Client
   let serviceClient = rosNode.serviceClient({
-    service: '/list_cameras',
-    type: 'baxter_core_msgs/ListCameras'
+    service: '/set_bool',
+    type: 'std_srvs/SetBool'
   });
   rosNode.waitForService(serviceClient.getService(), 2000)
   .then((available) => {
     if (available) {
-      serviceClient.call({}, (resp) => {
+      const request = new SetBool.Request();
+      request.data = true;
+      serviceClient.call(request, (resp) => {
         console.log('Service response ' + JSON.stringify(resp));
       });
     }
@@ -40,15 +44,15 @@ rosjs.initNode('/my_node')
     type: 'std_msgs/String',
     queueSize: 1,
     latching: true,
-    throttleMs: 100
+    throttleMs: 9
   });
 
   let msgStart = 'my message ';
   let iter = 0;
+  const msg = new std_msgs.String();
   setInterval(() => {
-    pub.publish({
-      data: msgStart + iter
-    });
+    msg.data = msgStart + iter
+    pub.publish(msg);
     ++iter;
     if (iter > 200) {
       iter = 0;

@@ -4,11 +4,11 @@
  * @return {Buffer} a buffer containing the tcpros representation of this string
  */
 String.prototype.serialize = function() {
-	let lenBuf = new Buffer(4);
-	let thisBuf = new Buffer(this);
-	let len = thisBuf.length;
-	lenBuf.writeUInt32LE(len, 0);
-	return Buffer.concat([lenBuf, thisBuf], 4 + len);
+  let lenBuf = new Buffer(4);
+  let thisBuf = new Buffer(this);
+  let len = thisBuf.length;
+  lenBuf.writeUInt32LE(len, 0);
+  return Buffer.concat([lenBuf, thisBuf], 4 + len);
 };
 
 /**
@@ -19,21 +19,21 @@ String.prototype.serialize = function() {
  * @return {string} string pulled from buffer
  */
 String.deserialize = function(buffer) {
-	let strLen = buffer.readUInt32LE(0, true);
-	let newBufStart = strLen + 4;
-	let str = buffer.slice(4, newBufStart).toString();
-	// just setting buffer to the sliced buffer here
-	// doesn't change buffer in the calling function.
-	// e.g.
-	//  let buf; 														// [2] ['h'] ['i']
-	//  let str = String.deserialize(buf);
-	//  buf.length === 3 										// true, though expected 0
-	buffer = buffer.slice(newBufStart);
+  let strLen = buffer.readUInt32LE(0, true);
+  let newBufStart = strLen + 4;
+  let str = buffer.slice(4, newBufStart).toString();
+  // just setting buffer to the sliced buffer here
+  // doesn't change buffer in the calling function.
+  // e.g.
+  //  let buf;                             // [2] ['h'] ['i']
+  //  let str = String.deserialize(buf);
+  //  buf.length === 3                     // true, though expected 0
+  buffer = buffer.slice(newBufStart);
 
-	return {
-		data: str,
-		buffer: buffer
-	};
+  return {
+    data: str,
+    buffer: buffer
+  };
 };
 
 module.exports = String;

@@ -25,104 +25,104 @@ let MIN_PORT = 49152;
 let MAX_PORT = 65535;
 
 let getRandomPort = function() {
-	return Math.round(Math.random() * (MAX_PORT - MIN_PORT) + MIN_PORT);
+  return Math.round(Math.random() * (MAX_PORT - MIN_PORT) + MIN_PORT);
 }
 
 let NetworkUtils = {
-	/**
-	 * FIXME: should this just return ROS_IP?
-	 * get this computer's (non-internal) ip address
-	 * @param [family] {string} 'IPv4', 'IPv6', ... 'IPv4' default
-	 * @param [networkInterface] {string} network interface to use ('eth0') else finds first match
-	 */
-	getIpAddress: function(family, networkInterface) {
-		family = family || 'IPv4';
-		let interfaces = os.networkInterfaces();
-		let interfaceNames;
-		if (networkInterface && !ifaces.hasOwnProperty(networkInterface)) {
-			return null;
-		}
-		else if (networkInterface) {
-			interfaceNames = [ networkInterface ];
-		}
-		else {
-			interfaceNames = Object.keys(interfaces);
-		}
+  /**
+   * FIXME: should this just return ROS_IP?
+   * get this computer's (non-internal) ip address
+   * @param [family] {string} 'IPv4', 'IPv6', ... 'IPv4' default
+   * @param [networkInterface] {string} network interface to use ('eth0') else finds first match
+   */
+  getIpAddress: function(family, networkInterface) {
+    family = family || 'IPv4';
+    let interfaces = os.networkInterfaces();
+    let interfaceNames;
+    if (networkInterface && !ifaces.hasOwnProperty(networkInterface)) {
+      return null;
+    }
+    else if (networkInterface) {
+      interfaceNames = [ networkInterface ];
+    }
+    else {
+      interfaceNames = Object.keys(interfaces);
+    }
 
-		let ipAddress = null;
-		interfaceNames.some((ifName) => {
-		  interfaces[ifName].forEach((iface) => {
-		    if (iface.internal || family !== iface.family) {
-		      // skip over internal (i.e. 127.0.0.1) and addresses from different families
-		      return false;
-		    }
+    let ipAddress = null;
+    interfaceNames.some((ifName) => {
+      interfaces[ifName].forEach((iface) => {
+        if (iface.internal || family !== iface.family) {
+          // skip over internal (i.e. 127.0.0.1) and addresses from different families
+          return false;
+        }
 
-				ipAddress = iface.address;
-				return true;
-		  });
-		});
-		return ipAddress;
-	},
+        ipAddress = iface.address;
+        return true;
+      });
+    });
+    return ipAddress;
+  },
 
-	/**
+  /**
    * FIXME: should this just return ROS_HOSTNAME
-	 */
-	getHost() {
-		if (USE_ROS_ENV_VARS) {
-			const envVars = process.env;
-			return envVars.ROS_IP || envVars.ROS_HOSTNAME;
-		}
-		else {
-			return os.hostname();
-		}
-	},
+   */
+  getHost() {
+    if (USE_ROS_ENV_VARS) {
+      const envVars = process.env;
+      return envVars.ROS_IP || envVars.ROS_HOSTNAME;
+    }
+    else {
+      return os.hostname();
+    }
+  },
 
-	useRosEnvironmentVariables() {
-		USE_ROS_ENV_VARS = true;
-	},
+  useRosEnvironmentVariables() {
+    USE_ROS_ENV_VARS = true;
+  },
 
-	setPortRange(range) {
-		MIN_PORT = range.min;
-		MAX_PORT = range.max;
-	},
+  setPortRange(range) {
+    MIN_PORT = range.min;
+    MAX_PORT = range.max;
+  },
 
-	getFreePort() {
-		// recursive check for free port
-		// chooses random port within range [minPort, maxPort] to check
-		let _freePortCheck = (callback) => {
-			let port = getRandomPort();
-			portscanner.checkPortStatus(port, '127.0.0.1', (err, status) => {
-				// if the port is 'closed' then its not in use
-				if (status === 'closed') {
-					callback(port);
-					return;
-				}
-				//else
-				_freePortCheck(minPort, maxPort, callback);
-			});
-		};
+  getFreePort() {
+    // recursive check for free port
+    // chooses random port within range [minPort, maxPort] to check
+    let _freePortCheck = (callback) => {
+      let port = getRandomPort();
+      portscanner.checkPortStatus(port, '127.0.0.1', (err, status) => {
+        // if the port is 'closed' then its not in use
+        if (status === 'closed') {
+          callback(port);
+          return;
+        }
+        //else
+        _freePortCheck(minPort, maxPort, callback);
+      });
+    };
 
-		return new Promise((resolve, reject) => {
-			_freePortCheck(resolve);
-		});
-	},
+    return new Promise((resolve, reject) => {
+      _freePortCheck(resolve);
+    });
+  },
 
-	getAddressAndPortFromUri(uriString) {
-		let regexStr = /(?:http:\/\/|rosrpc:\/\/)?([a-zA-Z\d\-.:]+):(\d+)/;
-		let match = uriString.match(regexStr);
-		if (match.length !== 3) {
-			throw new Error ('Unable to find host and port from uri ' + uriString + ' with regex ' +  regexStr);
-		}
-		// else
-		return {
-			host: match[1],
-			port: match[2]
-		};
-	},
+  getAddressAndPortFromUri(uriString) {
+    let regexStr = /(?:http:\/\/|rosrpc:\/\/)?([a-zA-Z\d\-.:]+):(\d+)/;
+    let match = uriString.match(regexStr);
+    if (match.length !== 3) {
+      throw new Error ('Unable to find host and port from uri ' + uriString + ' with regex ' +  regexStr);
+    }
+    // else
+    return {
+      host: match[1],
+      port: match[2]
+    };
+  },
 
-	formatServiceUri(port) {
-		return 'rosrpc://' + this.getHost() + ':' + port;
-	}
+  formatServiceUri(port) {
+    return 'rosrpc://' + this.getHost() + ':' + port;
+  }
 };
 
 //------------------------------------------------------------------
