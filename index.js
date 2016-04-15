@@ -20,6 +20,8 @@
 //------------------------------------------------------------------
 
 const netUtils = require('./utils/network_utils.js');
+const msgUtils = require('./utils/message_utils.js');
+msgUtils.findMessageFiles();
 
 // these will be modules, they depend on logger which isn't initialized yet
 // though so they'll be required later (in initNode)
@@ -111,10 +113,6 @@ let Rosjs = {
     // require other necessary modules...
     RosNode = require('./lib/RosNode.js');
     NodeHandle = require('./lib/NodeHandle.js');
-    let message_utils = require('./utils/message_utils.js');
-
-    // load all message files
-    message_utils.loadMessageFiles();
 
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
@@ -122,7 +120,20 @@ let Rosjs = {
     rosNode = new RosNode(nodeName, rosMasterUri);
     return new Promise((resolve, reject) => {
       _checkMasterHelper(resolve, 0);
+    })
+    .catch((err) => {
+      log.error('Error: ' + err);
     });
+  },
+
+  require(msgPackage) {
+    let pack = msgUtils.getPackage(msgPackage);
+    if (!pack) {
+      msgUtils.loadMessagePackage(msgPackage);
+      return msgUtils.getPackage(msgPackage);
+    }
+    // else
+    return pack;
   },
 
   /**

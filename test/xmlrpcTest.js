@@ -7,6 +7,9 @@ const xmlrpc = require('xmlrpc');
 const netUtils = require('../utils/network_utils.js');
 
 describe('XmlrpcTests', () => {
+  // NOTE: make sure a roscore is not running (or something else at this address)
+  rosjs.require('std_msgs');
+  rosjs.require('std_srvs');
   let masterStub = xmlrpc.createServer({host: 'localhost', port: 11311});
   const nodeName = '/testNode';
 
