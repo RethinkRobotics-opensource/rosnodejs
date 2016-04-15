@@ -52,70 +52,64 @@ function DeserializeStream(options) {
   // the first byte in a service response is true/false service success/fail
   this._deserializeServiceResp = false;
 
-  this._serviceRespSuccess = false;
+  this._serviceRespSuccess = null;
 }
 
 DeserializeStream.prototype = {
   _transform(chunk, encoding, done) {
-    //console.log('Deserialize ' + chunk.toString('hex'));
     let pos = 0;
     let chunkLen = chunk.length;
-    //console.log('chunk start ' + chunk.toString('hex'));
-    //console.log('Chunk length ' + chunkLen);
-    //console.log('message remaining ' + (this._messageLen - this._messageConsumed));
+
     while (pos < chunkLen) {
-      //console.log('pos ' + pos);
       if (this._inBody) {
-        //console.log('consumed ' + this._messageConsumed);
-        //
         let messageRemaining = this._messageLen - this._messageConsumed;
-        // console.log('remaining ' + messageRemaining);
 
         // if the chunk is longer than the amount of the message we have left
         // just pull off what we need
         if (chunkLen >= messageRemaining + pos) {
-          //console.log('finishing message');
           let slice = chunk.slice(pos, pos + messageRemaining);
-          //let slice = new Buffer('hi');
-          //console.log('slice ' + JSON.stringify(slice));
           this._messageBuffer.push(slice);
           let concatBuf = Buffer.concat(this._messageBuffer, this._messageLen);
-          //console.log('Got entire message! at ' + Date.now());
-          //console.log(chunkLen - pos + ' bytes left in chunk');
           this.emitMessage(concatBuf);
-          //console.log(this._messageBuffer.toString());
+
+          // message finished, reset
           this._messageBuffer = [];
           pos += messageRemaining;
           this._inBody = false;
           this._messageConsumed = 0;
         }
         else {
-          //console.log('got message part');
+          // rest of the chunk does not complete the message
+          // cache it and move on
           this._messageBuffer.push(chunk.slice(pos));
-          //console.log('Got message part! Message now: ' + this._messageBuffer.toString());
-          this._messageConsumed += chunkLen;
+          this._messageConsumed += chunkLen - pos;
           pos = chunkLen;
         }
       }
       else {
         // if we're deserializing a service response, first byte is 'success'
-        if (this._deserializeServiceResp) {
+        if (this._deserializeServiceResp &&
+            this._serviceRespSuccess === null) {
           this._serviceRespSuccess = chunk.readUInt8(pos, true);
           ++pos;
         }
 
+        let bufLen = 0;
+        this._messageBuffer.forEach((bufferEntry) => {
+          bufLen += bufferEntry.length;
+        });
+
         // first 4 bytes of the message are a uint32 length field
-        if (chunkLen - pos >= 4) {
-          // console.log('reading msg length at ' + pos);
-          //console.log(chunk.slice(pos).toString('hex'));
-          //console.log('Reading length ' + chunk.slice(pos, pos+4).toString('hex'));
-          this._messageLen = chunk.readUInt32LE(pos, true);
-          //console.log('Message len ' + this._messageLen);
-          pos += 4;
+        if (chunkLen - pos >= 4 - bufLen) {
+          this._messageBuffer.push(chunk.slice(pos, pos + 4 - bufLen));
+          const buffer = Buffer.concat(this._messageBuffer, 4);
+          this._messageLen = buffer.readUInt32LE(0);
+          pos += 4 - bufLen;
+
+          this._messageBuffer = []
           // if its an empty message, there won't be any bytes left and message
           // will never be emitted -- handle that case here
           if (this._messageLen === 0 && pos === chunkLen) {
-            //console.log('got empty message!');
             this.emitMessage(new Buffer([]));
           }
           else {
@@ -123,23 +117,21 @@ DeserializeStream.prototype = {
           }
         }
         else {
-          //console.log('Not enough chunk left to read message length - parsing is done');
+          // the length field is split on a chunk
+          this._messageBuffer.push(chunk.slice(pos));
           pos = chunkLen;
         }
       }
     }
-    //console.log('message remaining at chunk end ' + (this._messageLen - this._messageConsumed));
-    //console.log('done!');
     done();
   },
 
   emitMessage(buffer) {
     if (this._deserializeServiceResp) {
-      //console.log('Service message emit');
       this.emit('message', buffer, this._serviceRespSuccess);
+      this._serviceRespSuccess = null;
     }
     else {
-      //console.log('Reg message emit');
       this.emit('message', buffer);
     }
   },
