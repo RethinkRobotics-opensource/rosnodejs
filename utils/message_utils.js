@@ -21,6 +21,9 @@ let fs = require('fs');
 let path = require('path');
 let log = require('./logger.js').createLogger();
 
+// When sourcing your workspace, CMAKE_PREFIX_PATH is AUTOMATICALLY
+// prepended with the devel directory of your workspace. Workspace
+// chaining works by continuing this path prepending.
 let cmakePath = process.env.CMAKE_PREFIX_PATH;
 let cmakePaths = cmakePath.split(':');
 let jsMsgPath = 'share/node_js/ros';
@@ -48,8 +51,12 @@ let MessageUtils = {
       if (fs.existsSync(path_)) {
         let msgPackages = fs.readdirSync(path_);
         msgPackages.forEach((msgPackage) => {
-          let indexPath = path.join(path_, msgPackage, '_index.js');
-          messagePackagePathMap[msgPackage] = indexPath;
+          // If the message package has been found in a previous workspace,
+          // don't overwrite it now. This is critical to enabling ws overlays.
+          if (!messagePackagePathMap.hasOwnProperty(msgPackage)) {
+            let indexPath = path.join(path_, msgPackage, '_index.js');
+            messagePackagePathMap[msgPackage] = indexPath;
+          }
         });
       }
     });
