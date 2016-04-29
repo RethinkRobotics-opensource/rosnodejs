@@ -47,7 +47,7 @@ function _checkMasterHelper(callback, timeout) {
     rosNode.getMasterUri()
     .then((resp) => {
       log.info('Connected to master!');
-      callback(Rosjs.getNodeHandle());
+      callback(Rosnodejs.getNodeHandle());
     })
     .catch((err, resp) => {
       if (firstCheck) {
@@ -71,7 +71,7 @@ function _validateNodeName(nodeName) {
   return nodeName;
 }
 
-let Rosjs = {
+let Rosnodejs = {
   /**
    * Initializes a ros node for this process. Only one ros node can exist per process
    * If called a second time with the same nodeName, returns a handle to that node.
@@ -152,4 +152,4 @@ let Rosjs = {
   }
 }
 
-module.exports = Rosjs;
+module.exports = Rosnodejs;

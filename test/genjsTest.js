@@ -179,7 +179,7 @@ describe('genjsTests', () => {
     });
 
     it('int64', (done) => {
-      // rosjs takes in raw buffer for 64bit integer msgs
+      // rosnodejs takes in raw buffer for 64bit integer msgs
       const intData = new Buffer([1, 2, 3, 0, 0, 0, 1, 6]);
 
       const msgBuffer = new Buffer(intData);
@@ -196,7 +196,7 @@ describe('genjsTests', () => {
     });
 
     it('uint64', (done) => {
-      // rosjs takes in raw buffer for 64bit integer msgs
+      // rosnodejs takes in raw buffer for 64bit integer msgs
       const intData = new Buffer([1, 2, 3, 0, 0, 0, 1, 6]);
 
       const msgBuffer = new Buffer(intData);
