@@ -21,6 +21,7 @@
 
 const netUtils = require('./utils/network_utils.js');
 const msgUtils = require('./utils/message_utils.js');
+const messages = require('./utils/messages.js');
 msgUtils.findMessageFiles();
 
 // these will be modules, they depend on logger which isn't initialized yet
@@ -134,6 +135,41 @@ let Rosnodejs = {
     }
     // else
     return pack;
+  },
+
+  /** get new object of the message class type for the given ROS
+   * message type
+   */
+  getMessage(type, cb) {
+    messages.getMessage(type, function(error, Message) {
+      // console.log(error, Message);
+      if (error) {
+        cb(error, null);
+      } else {
+        cb(null, new Message());
+      }
+    });
+  },
+
+  /** create message classes for all the given types */
+  use(types, callback) {
+    var Messages = [];
+    types.forEach(function(type) { 
+      messages.getMessage(type, function(error, Message) {
+        Messages.push(Message);
+        if (Messages.length === types.length) {
+          callback();
+        }
+      });
+    });
+  },
+
+  /** get message definition class from registry. Do not generate it
+   * from .msg file if it doesn't already exist. This is mostly
+   * because that would need to be async right now and we want a sync
+   * method. */
+  message(type) {
+    return messages.getMessageFromRegistry(type);
   },
 
   /**
