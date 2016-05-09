@@ -1,10 +1,10 @@
 'use strict';
 
-let rosjs = require('./index.js');
-const std_msgs = rosjs.require('std_msgs').msg;
-const SetBool = rosjs.require('std_srvs').srv.SetBool;
+let rosnodejs = require('./index.js');
+const std_msgs = rosnodejs.require('std_msgs').msg;
+const SetBool = rosnodejs.require('std_srvs').srv.SetBool;
 
-rosjs.initNode('/my_node')
+rosnodejs.initNode('/my_node')
 .then((rosNode) => {
   // EXP 1) Service Server
   let service = rosNode.advertiseService({

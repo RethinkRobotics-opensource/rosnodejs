@@ -2,14 +2,14 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const rosjs = require('../index.js');
+const rosnodejs = require('../index.js');
 const xmlrpc = require('xmlrpc');
 const netUtils = require('../utils/network_utils.js');
 
 describe('XmlrpcTests', () => {
   // NOTE: make sure a roscore is not running (or something else at this address)
-  rosjs.require('std_msgs');
-  rosjs.require('std_srvs');
+  rosnodejs.require('std_msgs');
+  rosnodejs.require('std_srvs');
   let masterStub = xmlrpc.createServer({host: 'localhost', port: 11311});
   const nodeName = '/testNode';
 
@@ -19,7 +19,7 @@ describe('XmlrpcTests', () => {
       callback(null, resp);
     });
 
-    return rosjs.initNode(nodeName);
+    return rosnodejs.initNode(nodeName);
   });
 
   it('registerSubscriber', (done) => {
@@ -41,7 +41,7 @@ describe('XmlrpcTests', () => {
       done();
     });
 
-    const nh = rosjs.nh;
+    const nh = rosnodejs.nh;
     const sub = nh.subscribe({
       topic: topic,
       type: msgType,
@@ -72,7 +72,7 @@ describe('XmlrpcTests', () => {
       done();
     });
 
-    const nh = rosjs.nh;
+    const nh = rosnodejs.nh;
     const sub = nh.subscribe({
       topic: topic,
       type: msgType,
@@ -105,7 +105,7 @@ describe('XmlrpcTests', () => {
       done();
     });
 
-    const nh = rosjs.getNodeHandle();
+    const nh = rosnodejs.getNodeHandle();
     const sub = nh.advertise({
       topic: topic,
       type: msgType,
@@ -136,7 +136,7 @@ describe('XmlrpcTests', () => {
       done();
     });
 
-    const nh = rosjs.nh;
+    const nh = rosnodejs.nh;
     const pub = nh.advertise({
       topic: topic,
       type: msgType,
@@ -176,7 +176,7 @@ describe('XmlrpcTests', () => {
       done();
     });
 
-    const nh = rosjs.nh;
+    const nh = rosnodejs.nh;
     const serv = nh.advertiseService({
       service: service,
       type: srvType
@@ -203,7 +203,7 @@ describe('XmlrpcTests', () => {
       done();
     });
 
-    const nh = rosjs.nh;
+    const nh = rosnodejs.nh;
     const serv = nh.advertiseService({
       service: service,
       type: srvType
@@ -215,7 +215,7 @@ describe('XmlrpcTests', () => {
   });
 
   afterEach(() => {
-    const nh = rosjs.nh;
+    const nh = rosnodejs.nh;
 
     // clear out any service, subs, pubs
     nh._node._services = {};

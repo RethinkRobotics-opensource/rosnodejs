@@ -36,9 +36,9 @@ let messagePackagePathMap = {};
 // Utilities for loading, finding handlers for
 // message serialization/deserialization
 //
-//  When rosjs starts, it searches through your cmakepath for generated
+//  When rosnodejs starts, it searches through your cmakepath for generated
 //  javascript messages. It caches paths for any of the packages it finds.
-//  Then, in rosjs when you ask to use a message package we check for it
+//  Then, in rosnodejs when you ask to use a message package we check for it
 //  in the cache and require it if found.
 //-----------------------------------------------------------------------
 
