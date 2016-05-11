@@ -137,22 +137,17 @@ let Rosnodejs = {
     return pack;
   },
 
-  /** get new object of the message class type for the given ROS
-   * message type
-   */
-  getMessage(type, cb) {
-    messages.getMessage(type, function(error, Message) {
-      // console.log(error, Message);
-      if (error) {
-        cb(error, null);
-      } else {
-        cb(null, new Message());
-      }
+  /** create message classes and services classes for all the given
+   * types before calling callback */
+  use(messages, services, callback) {
+    const self = this;
+    this._useMessages(messages, function() {
+      self._useServices(services, callback);
     });
   },
 
   /** create message classes for all the given types */
-  use(types, callback) {
+  _useMessages(types, callback) {
     var Messages = [];
     types.forEach(function(type) { 
       messages.getMessage(type, function(error, Message) {
@@ -164,12 +159,34 @@ let Rosnodejs = {
     });
   },
 
+  /** create message classes for all the given types */
+  _useServices(types, callback) {
+    var count = types.length;
+    types.forEach(function(type) { 
+      messages.getServiceRequest(type, function() {
+        messages.getServiceResponse(type, function() {
+          if (--count == 0) {
+            callback();
+          }
+        });
+      });
+    });
+  },
+
   /** get message definition class from registry. Do not generate it
    * from .msg file if it doesn't already exist. This is mostly
    * because that would need to be async right now and we want a sync
    * method. */
   message(type) {
-    return messages.getMessageFromRegistry(type);
+    return messages.getFromRegistry(type, "message");
+  },
+
+  serviceRequest(type) {
+    return messages.getFromRegistry(type, "request");
+  },
+
+  serviceResponse(type) {
+    return messages.getFromRegistry(type, "response");
   },
 
   /**

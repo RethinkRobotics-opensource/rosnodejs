@@ -23,6 +23,7 @@ module.exports = {
         }
         else if (err || resp[0] !== 1) {
           log.warn('Some other error during %s: %s, %j', method, err, resp);
+          log.warn((new Error()).stack);
           reject(err, resp);
         }
         else {

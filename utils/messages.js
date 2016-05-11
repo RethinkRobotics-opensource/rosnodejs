@@ -14,8 +14,8 @@ messages.getMessage = function(messageType, callback) {
   this.getMessageFromPackage(messageType, "message", callback);
 }
 
-messages.getMessageFromRegistry = function(messageType) {
-  return getMessageFromRegistry(messageType, "message");
+messages.getFromRegistry = function(messageType, type) {
+  return getMessageFromRegistry(messageType, type);
 }
 
 messages.getServiceRequest = function(messageType, callback) {
