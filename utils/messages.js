@@ -10,25 +10,38 @@ var messages = exports;
 
 var registry = {};
 
-messages.getMessage = function(messageType, callback) {
-  this.getMessageFromPackage(messageType, "message", callback);
-}
+// ---------------------------------------------------------
+// exported functions
 
+/** get message handler class from registry */
 messages.getFromRegistry = function(messageType, type) {
   return getMessageFromRegistry(messageType, type);
 }
 
-messages.getServiceRequest = function(messageType, callback) {
-  this.getMessageFromPackage(messageType, "request", callback);
+/** ensure the handler for this message type is in the registry,
+ * create it if it doesn't exist */
+messages.getMessage = function(messageType, callback) {
+  getMessageFromPackage(messageType, "message", callback);
 }
 
-messages.getServiceResponse = function(messageType, callback) {
-  this.getMessageFromPackage(messageType, "response", callback);
+/** ensure the handler for requests for this service type is in the
+ * registry, create it if it doesn't exist */
+messages.getServiceRequest = function(messageType, callback) {
+  getMessageFromPackage(messageType, "request", callback);
 }
+
+/** ensure the handler for responses for this service type is in the
+ * registry, create it if it doesn't exist */
+messages.getServiceResponse = function(messageType, callback) {
+  getMessageFromPackage(messageType, "response", callback);
+}
+
+// ---------------------------------------------------------
+// private functions
 
 /* get message or service definition class */
-messages.getMessageFromPackage = function(messageType, type, callback) {
-  var that = this;
+function getMessageFromPackage(messageType, type, callback) {
+  // var that = this;
 
   var packageName = getPackageNameFromMessageType(messageType);
   var messageName = getMessageNameFromMessageType(messageType);
@@ -43,62 +56,64 @@ messages.getMessageFromPackage = function(messageType, type, callback) {
       } else {
         filePath = path.join(directory, 'srv', messageName + '.srv');
       }
-      that.getMessageFromFile(messageType, filePath, type, callback);
+      getMessageFromFile(messageType, filePath, type, callback);
     });
   }
 };
 
-messages.getMessageFromFile = function(messageType, filePath, type, callback) {
-  var message = getMessageFromRegistry(messageType);
-  if (message) {
-    callback(null, message);
-  }
-  else {
-    var packageName = getPackageNameFromMessageType(messageType)
+function getMessageFromFile(messageType, filePath, type, callback) {
+    var message = getMessageFromRegistry(messageType);
+    if (message) {
+      callback(null, message);
+    }
+    else {
+      var packageName = getPackageNameFromMessageType(messageType)
       , messageName = getMessageNameFromMessageType(messageType);
 
-    var details = {
-      messageType : messageType
-    , messageName : messageName
-    , packageName : packageName
-    };
+      var details = {
+        messageType : messageType
+        , messageName : messageName
+        , packageName : packageName
+      };
 
-    this.parseMessageFile(filePath, details, type, function(error, details) {
-      if (error) {
-        callback(error);
-      } else {
-        message = buildMessageClass(details);
-        setMessageInRegistry(messageType, type, message);
-        callback(null, message);
-      }
-    });
-  }
-};
+      parseMessageFile(
+        filePath, details, type, function(error, details) {
+          if (error) {
+            callback(error);
+          } else {
+            message = buildMessageClass(details);
+            setMessageInRegistry(messageType, type, message);
+            callback(null, message);
+          }
+        });
+    }
+  };
 
-messages.parseMessageFile = function(fileName, details, type, callback) {
+function parseMessageFile(fileName, details, type, callback) {
   details = details || {};
   fs.readFile(fileName, 'utf8', function(error, content) {
     if (error) {
       return callback(error);
     }
     else {
-      extractFields(content, details, type, function(error, constants, fields) {
-        if (error) {
-          callback(error);
-        }
-        else {
-          details.constants = constants;
-          details.fields    = fields;
-          details.md5       = calculateMD5(details);
-          // details.md5       = calculateMD5(content);
-          callback(null, details);
-        }
-      });
+      extractFields(
+        content, details, type, function(error, constants, fields) {
+          if (error) {
+            callback(error);
+          }
+          else {
+            details.constants = constants;
+            details.fields    = fields;
+            details.md5       = calculateMD5(details);
+            callback(null, details);
+          }
+        });
     }
   })
 };
 
-// ---------------------------------------------------------
+// -------------------------------
+// functions relating to handler class
 
 function calculateMD5(details) {
   var message = '';
@@ -285,6 +300,9 @@ function buildValidator (details) {
   return validator;
 }
 
+/** Construct the class definition for the given message type. The
+ * resulting class holds the data and has the methods required for
+ * use with ROS, incl. serialization, deserialization, and md5sum. */
 function buildMessageClass(details) {
   function Message(values) {
     if (!(this instanceof Message)) {
@@ -320,9 +338,10 @@ function buildMessageClass(details) {
   };
   Message.constants   = Message.prototype.constants   = details.constants;
   Message.fields      = Message.prototype.fields      = details.fields;
-  Message.serialize   = Message.prototype.serialize   = function(obj) {
-    return serializeMessage(obj);
-  }
+  Message.serialize   = Message.prototype.serialize   = 
+    function(obj, bufferInfo) {
+      return serializeMessage(obj, bufferInfo);
+    }
   Message.deserialize = Message.prototype.deserialize = function(buffer) {
     var obj = deserializeMessage(buffer, Message);
     return obj;
@@ -331,6 +350,8 @@ function buildMessageClass(details) {
 
   return Message;
 }
+
+// ---------------------------------------------------------
 
 function getMessageFromRegistry(messageType, type) {
   return registry[messageType + "-" + type];
@@ -355,7 +376,6 @@ function normalizeMessageType(messageType, packageName) {
   var normalizedMessageType = messageType;
   if (messageType == "Header") {
     normalizedMessageType = getMessageType("std_msgs", messageType);   
-    // normalizedMessageType = getMessageType(null, messageType);
   } else if (messageType.match(isNormalizedMessageType) === null) {
     normalizedMessageType = getMessageType(packageName, messageType);
   }
@@ -369,17 +389,18 @@ function getMessageNameFromMessageType(messageType) {
 }
 
 // ---------------------------------------------------------
+// Serialize
 
-function serializeMessage(message) {
+function serializeMessage(message, bufferInfo) {
   var bufferSize   = fieldsUtil.getMessageSize(message);
   var buffer       = new Buffer(bufferSize);
 
   serializeInnerMessage(message, buffer, 0);
 
-  return {
-    buffer: [buffer],
-    length: bufferSize
-  };
+  bufferInfo.buffer = [buffer];
+  bufferInfo.length = bufferSize;
+
+  return bufferInfo;
 }
 
 function serializeInnerMessage(message, buffer, bufferOffset) {
@@ -414,6 +435,9 @@ function serializeInnerMessage(message, buffer, bufferOffset) {
     }
   });
 }
+
+// ---------------------------------------------------------
+// Deserialize
 
 function deserializeMessage(buffer, messageType) {
   var message            = new messageType();

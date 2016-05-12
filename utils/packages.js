@@ -2,9 +2,6 @@ var fs          = require('fs')
   , path        = require('path')
   , walker      = require('walker');
 
-var environment = require('./environment');
-
-var packageCache = [];
 
 function walk(directory, symlinks) {
   var noSubDirs = [];
@@ -79,7 +76,8 @@ function findPackageInDirectory(directory, packageName, callback) {
     })
     .on('end', function() {
       if (!found) {
-        var error = new Error('ENOTFOUND - Package ' + packageName + ' not found');
+        var error = 
+          new Error('ENOTFOUND - Package ' + packageName + ' not found');
         error.name = 'PackageNotFoundError';
         callback(error);
       }
@@ -88,34 +86,40 @@ function findPackageInDirectory(directory, packageName, callback) {
 
 function findPackageInDirectoryChain(directories, packageName, callback) {
   if (directories.length < 1) {
-    var error = new Error('ENOTFOUND - Package ' + packageName + ' not found');
+    var error = 
+      new Error('ENOTFOUND - Package ' + packageName + ' not found');
     error.name = 'PackageNotFoundError';
     callback(error);
   }
   else {
-    findPackageInDirectory(directories.shift(), packageName, function(error, directory) {
-      if (error) {
-        if (error.name === 'PackageNotFoundError') {
-          // Recursive call, try in next directory
-          return findPackageInDirectoryChain(directories, packageName, callback);
+    findPackageInDirectory(
+      directories.shift(), packageName, function(error, directory) {
+        if (error) {
+          if (error.name === 'PackageNotFoundError') {
+            // Recursive call, try in next directory
+            return findPackageInDirectoryChain(directories, 
+                                               packageName, callback);
+          }
+          else {
+            callback(error);
+          }
         }
         else {
-          callback(error);
+          callback(null, directory);
         }
-      }
-      else {
-        callback(null, directory);
-      }
-    });
+      });
   }
 }
+
+// ---------------------------------------------------------
 
 // Implements the same crawling algorithm as rospack find
 // See http://ros.org/doc/api/rospkg/html/rospack.html
 // packages = {};
 exports.findPackage = function(packageName, callback) {
-  var rosRoot = environment.getRosRoot();
-  var rosPackagePaths = environment.getRosPackagePaths();
+  var rosRoot = process.env.ROS_ROOT;
+  var packagePath = process.env.ROS_PACKAGE_PATH
+  var rosPackagePaths = packagePath.split(':')
   var directories = [rosRoot].concat(rosPackagePaths);
   return findPackageInDirectoryChain(directories, packageName, callback);
 }

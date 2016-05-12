@@ -80,46 +80,47 @@ fields.parsePrimitive = function(fieldType, fieldValue) {
   return parsedValue;
 };
 
-fields.serializePrimitive = function(fieldType, fieldValue, buffer, bufferOffset) {
-  if (fieldType === 'bool') {
-    buffer.writeUInt8(fieldValue, bufferOffset);
+fields.serializePrimitive = 
+  function(fieldType, fieldValue, buffer, bufferOffset) {
+    if (fieldType === 'bool') {
+      buffer.writeUInt8(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'int8' || fieldType === 'byte') {
+      buffer.writeInt8(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'uint8' || fieldType === 'char') {
+      buffer.writeUInt8(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'int16') {
+      buffer.writeInt16LE(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'uint16') {
+      buffer.writeUInt16LE(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'int32') {
+      buffer.writeInt32LE(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'uint32') {
+      buffer.writeUInt32LE(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'int64') {
+      throwUnsupportedInt64Exception();
+    }
+    else if (fieldType === 'uint64') {
+      throwUnsupportedInt64Exception();
+    }
+    else if (fieldType === 'float32') {
+      buffer.writeFloatLE(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'float64') {
+      buffer.writeDoubleLE(fieldValue, bufferOffset);
+    }
+    else if (fieldType === 'string') {
+      buffer.writeUInt32LE(fieldValue.length, bufferOffset);
+      bufferOffset += 4;
+      buffer.write(fieldValue, bufferOffset, 'ascii');
+    }
   }
-  else if (fieldType === 'int8' || fieldType === 'byte') {
-    buffer.writeInt8(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'uint8' || fieldType === 'char') {
-    buffer.writeUInt8(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'int16') {
-    buffer.writeInt16LE(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'uint16') {
-    buffer.writeUInt16LE(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'int32') {
-    buffer.writeInt32LE(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'uint32') {
-    buffer.writeUInt32LE(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'int64') {
-    throwUnsupportedInt64Exception();
-  }
-  else if (fieldType === 'uint64') {
-    throwUnsupportedInt64Exception();
-  }
-  else if (fieldType === 'float32') {
-    buffer.writeFloatLE(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'float64') {
-    buffer.writeDoubleLE(fieldValue, bufferOffset);
-  }
-  else if (fieldType === 'string') {
-    buffer.writeUInt32LE(fieldValue.length, bufferOffset);
-    bufferOffset += 4;
-    buffer.write(fieldValue, bufferOffset, 'ascii');
-  }
-}
 
 fields.deserializePrimitive = function(fieldType, buffer, bufferOffset) {
   var fieldValue = null;
@@ -158,7 +159,6 @@ fields.deserializePrimitive = function(fieldType, buffer, bufferOffset) {
     fieldValue = buffer.readDoubleLE(bufferOffset);
   }
   else if (fieldType === 'string') {
-    // console.log("fields string", bufferOffset, buffer.toString("ascii"));
     var fieldLength = buffer.readUInt32LE(bufferOffset)
       , fieldStart  = bufferOffset + 4
       , fieldEnd    = fieldStart + fieldLength
