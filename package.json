@@ -9,7 +9,8 @@
     "js"
   ],
   "scripts": {
-    "test": "mocha --recursive",
+    "test": "mocha --recursive --grep gennodejsTest --invert",
+    "gennodejsTest": "mocha test/gennodejsTest",
     "flatten": "node flatten.js"
   },
   "author": "chris smith",
