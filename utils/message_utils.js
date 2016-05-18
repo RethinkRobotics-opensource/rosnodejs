@@ -21,6 +21,7 @@ let fs = require('fs');
 let path = require('path');
 let utils = require('util');
 let log = require('./logger.js').createLogger();
+const messages = require('./messages.js');
 
 // When sourcing your workspace, CMAKE_PREFIX_PATH is AUTOMATICALLY
 // prepended with the devel directory of your workspace. Workspace
@@ -205,10 +206,16 @@ let MessageUtils = {
     if (messagePackage) {
       let type = parts[1];
       return messagePackage.msg[type];
-    }
-    else {
-      console.error('Unable to find message package ' + msgPackage);
-      throw new Error();
+    } else {
+      // console.log("get message from registry");
+      let type = messages.getFromRegistry(rosDataType, "message");
+      if (type) {
+        // console.log("got message from registry", type);
+        return new type();
+      } else {
+        console.error('Unable to find message package ' + msgPackage);
+        throw new Error();
+      }
     }
   },
 
@@ -219,10 +226,21 @@ let MessageUtils = {
     if (messagePackage) {
       let type = parts[1];
       return messagePackage.srv[type];
-    }
-    else {
-      console.error('Unable to find message package ' + msgPackage);
-      throw new Error();
+    } else {
+      // console.log("get service from registry");
+      let request = messages.getFromRegistry(rosDataType, "request");
+      let response = messages.getFromRegistry(rosDataType, "response");
+      if (request && response) {
+        return { 
+          // Request: new request(),
+          // Response: new response()
+          Request: request,
+          Response: response
+        };
+      } else {
+        console.error('Unable to find message package ' + msgPackage);
+        throw new Error();
+      }
     }
   }
 };
