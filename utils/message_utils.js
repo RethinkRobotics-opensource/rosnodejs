@@ -28,7 +28,7 @@ const messages = require('./messages.js');
 // chaining works by continuing this path prepending.
 let cmakePath = process.env.CMAKE_PREFIX_PATH;
 let cmakePaths = cmakePath.split(':');
-let jsMsgPath = path.join('share', 'node_js', 'ros');
+let jsMsgPath = path.join('share', 'gennodejs', 'ros');
 
 let messagePackageMap = {};
 let messagePackagePathMap = {};
