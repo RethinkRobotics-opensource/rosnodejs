@@ -7,21 +7,16 @@ const SetBool = rosnodejs.require('std_srvs').srv.SetBool;
 rosnodejs.initNode('/my_node')
 .then((rosNode) => {
   // EXP 1) Service Server
-  let service = rosNode.advertiseService({
-    service: '/set_bool',
-    type: 'std_srvs/SetBool'
-  }, (req, resp) => {
-    console.log('Handling request! ' + JSON.stringify(req));
-    resp.success = !req.data;
-    resp.message = 'Inverted!';
-    return true;
+  let service = rosNode.advertiseService('/set_bool', SetBool,
+    (req, resp) => {
+      console.log('Handling request! ' + JSON.stringify(req));
+      resp.success = !req.data;
+      resp.message = 'Inverted!';
+      return true;
   });
 
   // EXP 2) Service Client
-  let serviceClient = rosNode.serviceClient({
-    service: '/set_bool',
-    type: 'std_srvs/SetBool'
-  });
+  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
   rosNode.waitForService(serviceClient.getService(), 2000)
   .then((available) => {
     if (available) {
@@ -39,13 +34,13 @@ rosnodejs.initNode('/my_node')
   });
 
   // EXP 4) Publisher
-  let pub = rosNode.advertise({
-    topic: '/my_topic',
-    type: 'std_msgs/String',
-    queueSize: 1,
-    latching: true,
-    throttleMs: 9
-  });
+  let pub = rosNode.advertise( '/my_topic', std_msgs.String,
+    {
+      queueSize: 1,
+      latching: true,
+      throttleMs: 9
+    }
+  );
 
   let msgStart = 'my message ';
   let iter = 0;
@@ -60,12 +55,16 @@ rosnodejs.initNode('/my_node')
   }, 5);
 
   // EXP 5) Subscriber
-  let sub = rosNode.subscribe({
-    topic: '/my_topic',
-    type: 'std_msgs/String',
-    queueSize: 1,
-    throttleMs: 1000},
+  let sub = rosNode.subscribe('/my_topic', 'std_msgs/String',
     (data) => {
       console.log('SUB DATA ' + data.data);
-    });
+    },
+    {
+      queueSize: 1,
+      throttleMs: 1000
+    }
+  );
+})
+.catch((err) => {
+  console.log(err);
 });

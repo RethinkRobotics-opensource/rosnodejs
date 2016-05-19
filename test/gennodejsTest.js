@@ -4,7 +4,7 @@ const chai = require('chai');
 const expect = chai.expect;
 const msgUtils = require('../utils/message_utils.js');
 
-describe('genjsTests', () => {
+describe('gennodejsTests', () => {
   msgUtils.findMessageFiles();
   msgUtils.loadMessagePackage('std_msgs');
   msgUtils.loadMessagePackage('test_msgs');

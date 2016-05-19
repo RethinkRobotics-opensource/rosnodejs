@@ -149,8 +149,10 @@ let Rosnodejs = {
   /** create message classes for all the given types */
   _useMessages(types, callback) {
     var Messages = [];
-    types.forEach(function(type) { 
+    types.forEach(function(type) {
+      console.log('get message type! ' + type);
       messages.getMessage(type, function(error, Message) {
+        console.log('got it!');
         Messages.push(Message);
         if (Messages.length === types.length) {
           callback();
@@ -162,9 +164,11 @@ let Rosnodejs = {
   /** create message classes for all the given types */
   _useServices(types, callback) {
     var count = types.length;
-    types.forEach(function(type) { 
+    types.forEach(function(type) {
+      console.log('get service type! ' + type);
       messages.getServiceRequest(type, function() {
         messages.getServiceResponse(type, function() {
+          console.log('got it!');
           if (--count == 0) {
             callback();
           }

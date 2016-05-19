@@ -227,18 +227,18 @@ let MessageUtils = {
       let type = parts[1];
       return messagePackage.srv[type];
     } else {
-      // console.log("get service from registry");
+      // console.log("get service %s from registry", rosDataType);
       let request = messages.getFromRegistry(rosDataType, "request");
       let response = messages.getFromRegistry(rosDataType, "response");
       if (request && response) {
-        return { 
+        return {
           // Request: new request(),
           // Response: new response()
           Request: request,
           Response: response
         };
       } else {
-        console.error('Unable to find message package ' + msgPackage);
+        console.error('Unable to find service package %s: %j %j', msgPackage, request, response);
         throw new Error();
       }
     }

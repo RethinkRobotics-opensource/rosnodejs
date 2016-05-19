@@ -243,7 +243,7 @@ function extractFields(content, details, type, callback) {
     } else {
       // response
       lines = lines.slice(divider+1);
-    }    
+    }
   }
 
   async.forEachSeries(lines, parseLine, function(error) {
@@ -338,7 +338,7 @@ function buildMessageClass(details) {
   };
   Message.constants   = Message.prototype.constants   = details.constants;
   Message.fields      = Message.prototype.fields      = details.fields;
-  Message.serialize   = Message.prototype.serialize   = 
+  Message.serialize   = Message.prototype.serialize   =
     function(obj, bufferInfo) {
       return serializeMessage(obj, bufferInfo);
     }
@@ -358,6 +358,7 @@ function getMessageFromRegistry(messageType, type) {
 }
 
 function setMessageInRegistry(messageType, type, message) {
+  console.log('add %s to registry', messageType);
   registry[messageType + "-" + type] = message;
 }
 
@@ -375,7 +376,7 @@ var isNormalizedMessageType = /.*\/.*$/;
 function normalizeMessageType(messageType, packageName) {
   var normalizedMessageType = messageType;
   if (messageType == "Header") {
-    normalizedMessageType = getMessageType("std_msgs", messageType);   
+    normalizedMessageType = getMessageType("std_msgs", messageType);
   } else if (messageType.match(isNormalizedMessageType) === null) {
     normalizedMessageType = getMessageType(packageName, messageType);
   }
@@ -406,7 +407,7 @@ function serializeMessage(message, bufferInfo) {
 function serializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {
     var fieldValue = message[field.name];
-    
+
     if (fieldsUtil.isPrimitive(field.type)) {
       fieldsUtil.serializePrimitive(
         field.type, fieldValue, buffer, bufferOffset);
