@@ -8,8 +8,6 @@ var packages   = require('./packages')
 
 var messages = exports;
 
-var registry = {};
-
 // ---------------------------------------------------------
 // exported functions
 
@@ -18,23 +16,117 @@ messages.getFromRegistry = function(messageType, type) {
   return getMessageFromRegistry(messageType, type);
 }
 
+messages.getPackageFromRegistry = function(packagename) {
+  return registry[packagename];
+}
+
 /** ensure the handler for this message type is in the registry,
  * create it if it doesn't exist */
 messages.getMessage = function(messageType, callback) {
-  getMessageFromPackage(messageType, "message", callback);
+  getMessageFromPackage(messageType, ["msg"], callback);
 }
 
 /** ensure the handler for requests for this service type is in the
  * registry, create it if it doesn't exist */
 messages.getServiceRequest = function(messageType, callback) {
-  getMessageFromPackage(messageType, "request", callback);
+  getMessageFromPackage(messageType, ["srv", "Request"], callback);
 }
 
 /** ensure the handler for responses for this service type is in the
  * registry, create it if it doesn't exist */
 messages.getServiceResponse = function(messageType, callback) {
-  getMessageFromPackage(messageType, "response", callback);
+  getMessageFromPackage(messageType, ["srv", "Response"], callback);
 }
+
+// ---------------------------------------------------------
+// Registry
+
+var registry = {};
+/* 
+   registry looks like:
+  { 'packagename': 
+    {
+      msg: { 
+        'String': classdef,
+        'Pose': classdef,
+        ...
+      },
+      srv: { Request: 
+             {
+               'SetBool': classdef,
+               ...
+             },
+             Response: 
+             {
+               'SetBool': classdef,
+               ...
+             }
+           }
+    },
+    'packagename2': {..}
+  };
+*/
+
+/**
+   @param messageType is the ROS message or service type, e.g.
+   'std_msgs/String'
+   @param type is from the set 
+   [["msg"], ["srv","Request"], ["srv","Response"]]
+*/
+function getMessageFromRegistry(messageType, type) {
+  var packageName = getPackageNameFromMessageType(messageType);
+  var messageName = getMessageNameFromMessageType(messageType);
+  var packageSection = registry[packageName];
+  if (!packageSection) {
+    return undefined;
+  }
+  var section = registry[packageName][type[0]]; // msg or srv sub-object
+  if (!section) {
+    return undefined;
+  }
+  if (type.length == 1) {
+    // message
+    return section[messageName];
+  } else {
+    // service
+    if (!section[messageName]) {
+      return undefined;
+    }
+    return section[messageName][type[1]];
+  }
+}
+
+/** 
+    @param messageType is the ROS message or service type, e.g.
+    'std_msgs/String'
+    @param type is from the set 
+    [["msg"], ["srv","Request"], ["srv","Response"]]
+    @param message is the message class definition 
+*/
+function setMessageInRegistry(messageType, type, message) {
+  var packageName = getPackageNameFromMessageType(messageType);
+  var messageName = getMessageNameFromMessageType(messageType);
+
+  if (!registry[packageName]) {
+    registry[packageName] = { msg: {}, srv: {}};
+  }
+
+  var kind = type[0]; // "msg" or "srv"
+  if (kind == "msg") {
+    // message
+    registry[packageName][kind][messageName] = message;
+
+  } else {
+    // service
+    if (!registry[packageName][kind][messageName]) {
+      registry[packageName][kind][messageName] = {};
+    }
+
+    var serviceType = type[1]; // "Request" or "Response"
+    registry[packageName][kind][messageName][serviceType] = message;    
+  }
+}
+
 
 // ---------------------------------------------------------
 // private functions
@@ -42,7 +134,6 @@ messages.getServiceResponse = function(messageType, callback) {
 /* get message or service definition class */
 function getMessageFromPackage(messageType, type, callback) {
   // var that = this;
-
   var packageName = getPackageNameFromMessageType(messageType);
   var messageName = getMessageNameFromMessageType(messageType);
   var message = getMessageFromRegistry(messageType, type);
@@ -51,18 +142,15 @@ function getMessageFromPackage(messageType, type, callback) {
   } else {
     packages.findPackage(packageName, function(error, directory) {
       var filePath;
-      if (type == "message") {
-        filePath = path.join(directory, 'msg', messageName + '.msg');
-      } else {
-        filePath = path.join(directory, 'srv', messageName + '.srv');
-      }
+      var kind = type[0];
+      filePath = path.join(directory, kind, messageName + '.' + kind);
       getMessageFromFile(messageType, filePath, type, callback);
     });
   }
 };
 
 function getMessageFromFile(messageType, filePath, type, callback) {
-    var message = getMessageFromRegistry(messageType);
+    var message = getMessageFromRegistry(messageType, type);
     if (message) {
       callback(null, message);
     }
@@ -236,9 +324,9 @@ function extractFields(content, details, type, callback) {
 
   var lines = content.split('\n');
 
-  if (type != "message") {
+  if (type[0] != "msg") {
     var divider = lines.indexOf("---");
-    if (type == "request") {
+    if (type[1] == "Request") {
       lines = lines.slice(0, divider);
     } else {
       // response
@@ -352,15 +440,6 @@ function buildMessageClass(details) {
 }
 
 // ---------------------------------------------------------
-
-function getMessageFromRegistry(messageType, type) {
-  return registry[messageType + "-" + type];
-}
-
-function setMessageInRegistry(messageType, type, message) {
-  console.log('add %s to registry', messageType);
-  registry[messageType + "-" + type] = message;
-}
 
 function getMessageType(packageName, messageName) {
   return packageName ? packageName + '/' + messageName

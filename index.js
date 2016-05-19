@@ -88,7 +88,8 @@ let Rosnodejs = {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
-      throw new Error('Unable to initialize node [' + nodeName + '] - node [' + rosNode.getNodeName() + '] already exists');
+      throw new Error('Unable to initialize node [' + nodeName + '] - node [' 
+                      + rosNode.getNodeName() + '] already exists');
     }
 
     // FIXME: validate nodeName -- MUST START WITH '/'
@@ -119,8 +120,11 @@ let Rosnodejs = {
     // resolve when connection to master is established
     let checkMasterTimeout =  0;
     rosNode = new RosNode(nodeName, rosMasterUri);
+
     return new Promise((resolve, reject) => {
-      _checkMasterHelper(resolve, 0);
+      this.use(options.messages, options.services).then(() => {
+        _checkMasterHelper(resolve, 0);
+      });
     })
     .catch((err) => {
       log.error('Error: ' + err);
@@ -128,6 +132,14 @@ let Rosnodejs = {
   },
 
   require(msgPackage) {
+    // check our registry of on-demand generate message definition
+    var fromRegistry = messages.getPackageFromRegistry(msgPackage);
+    if (fromRegistry) {
+      return fromRegistry;
+    }
+
+    // if we can't find it in registry, check for gennodejs
+    // pre-compiled versions
     let pack = msgUtils.getPackage(msgPackage);
     if (!pack) {
       msgUtils.loadMessagePackage(msgPackage);
@@ -139,58 +151,52 @@ let Rosnodejs = {
 
   /** create message classes and services classes for all the given
    * types before calling callback */
-  use(messages, services, callback) {
+  use(messages, services) {
     const self = this;
-    this._useMessages(messages, function() {
-      self._useServices(services, callback);
+    return new Promise((resolve, reject) => {
+      self._useMessages(messages)
+        .then(() => {
+          return self._useServices(services);
+        }).then(() => {
+          resolve();
+        });
     });
   },
 
   /** create message classes for all the given types */
-  _useMessages(types, callback) {
-    var Messages = [];
-    types.forEach(function(type) {
-      console.log('get message type! ' + type);
-      messages.getMessage(type, function(error, Message) {
-        console.log('got it!');
-        Messages.push(Message);
-        if (Messages.length === types.length) {
-          callback();
-        }
-      });
-    });
-  },
-
-  /** create message classes for all the given types */
-  _useServices(types, callback) {
+  _useMessages(types) {
+    if (!types || types.length == 0) {
+      return Promise.resolve();
+    }
     var count = types.length;
-    types.forEach(function(type) {
-      console.log('get service type! ' + type);
-      messages.getServiceRequest(type, function() {
-        messages.getServiceResponse(type, function() {
-          console.log('got it!');
+    return new Promise((resolve, reject) => {
+      types.forEach(function(type) { 
+        messages.getMessage(type, function(error, Message) {
           if (--count == 0) {
-            callback();
+            resolve();
           }
         });
       });
     });
   },
-
-  /** get message definition class from registry. Do not generate it
-   * from .msg file if it doesn't already exist. This is mostly
-   * because that would need to be async right now and we want a sync
-   * method. */
-  message(type) {
-    return messages.getFromRegistry(type, "message");
-  },
-
-  serviceRequest(type) {
-    return messages.getFromRegistry(type, "request");
-  },
-
-  serviceResponse(type) {
-    return messages.getFromRegistry(type, "response");
+  
+  /** create message classes for all the given types */
+  _useServices(types) {
+    if (!types || types.length == 0) {
+      return Promise.resolve();
+    }
+    var count = types.length;
+    return new Promise((resolve, reject) => {
+      types.forEach(function(type) { 
+        messages.getServiceRequest(type, function() {
+          messages.getServiceResponse(type, function() {
+            if (--count == 0) {
+              resolve();
+            }
+          });
+        });
+      });
+    });
   },
 
   /**
