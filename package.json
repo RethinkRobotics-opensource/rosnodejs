@@ -4,9 +4,7 @@
   "description": "Native ROS for nodejs",
   "main": "index.js",
   "keywords": [
-    "ros",
-    "node",
-    "js"
+    "ros"
   ],
   "scripts": {
     "test": "mocha --recursive --grep gennodejsTest --invert",
@@ -15,14 +13,18 @@
   },
   "author": "chris smith",
   "license": "Apache-2.0",
+  "repository" : {
+    "type" : "git",
+    "url" : "git://github.com/RethinkRobotics-opensource/rosnodejs"
+  },
   "devDependencies": {
     "chai": "^3.5.0",
     "mocha": "^2.4.5"
   },
   "dependencies": {
-    "moment": "^2.12.0",
-    "portscanner": "^1.0.0",
-    "xmlrpc": "^1.3.1",
+    "moment": "2.12.0",
+    "portscanner": "1.0.0",
+    "xmlrpc": "1.3.1",
     "walker"        : "1.0.7",
     "md5"           : "2.1.0",
     "async"         : "0.1.22"
