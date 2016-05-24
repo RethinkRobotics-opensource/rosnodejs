@@ -3,7 +3,7 @@
 let rosnodejs = require('./index.js');
 
 rosnodejs.initNode('/my_node', {
-  messages: ['std_msgs/String'], 
+  messages: ['std_msgs/String'],
   services: ['std_srvs/SetBool']
 }).then((rosNode) => {
 
@@ -31,7 +31,7 @@ rosnodejs.initNode('/my_node', {
         if (available) {
           const request = new SetBool.Request();
           request.data = true;
-          serviceClient.call(request, (resp) => {
+          serviceClient.call(request).then((resp) => {
             console.log('Service response ' + JSON.stringify(resp));
           });
         } else {
@@ -56,14 +56,14 @@ rosnodejs.initNode('/my_node', {
 
   // EXP 5) Subscriber
   let sub = rosNode.subscribe(
-    '/my_topic', 
+    '/my_topic',
     'std_msgs/String',
     (data) => {
       console.log('SUB DATA ', data, data.data);
     },
     {queueSize: 1,
      throttleMs: 1000});
-  
+
   let msgStart = 'my message ';
   let iter = 0;
   setInterval(() => {

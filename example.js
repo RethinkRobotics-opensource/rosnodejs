@@ -16,14 +16,20 @@ rosnodejs.initNode('/my_node')
   });
 
   // EXP 2) Service Client
-  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
+  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool', {persist: true});
   rosNode.waitForService(serviceClient.getService(), 2000)
   .then((available) => {
     if (available) {
       const request = new SetBool.Request();
       request.data = true;
-      serviceClient.call(request, (resp) => {
+      serviceClient.call(request).then((resp) => {
         console.log('Service response ' + JSON.stringify(resp));
+      })
+      .then(() => {
+        request.data = false;
+        serviceClient.call(request).then((resp) => {
+          console.log('Service response 2 ' + JSON.stringify(resp));
+        });
       });
     }
   });
