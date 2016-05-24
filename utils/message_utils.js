@@ -184,7 +184,7 @@ let MessageUtils = {
   loadMessagePackage(msgPackage) {
     const indexPath = messagePackagePathMap[msgPackage];
     if (indexPath === undefined) {
-      throw new Error('Unable to find message package %s', msgPackage);
+      throw new Error('Unable to find message package ' + msgPackage);
     }
     try {
       messagePackageMap[msgPackage] = require(indexPath);
@@ -225,17 +225,17 @@ let MessageUtils = {
       let type = parts[1];
       return messagePackage.srv[type];
     } else {
-      let request = 
+      let request =
         messages.getFromRegistry(rosDataType, ["srv", "Request"]);
-      let response = 
+      let response =
         messages.getFromRegistry(rosDataType, ["srv", "Response"]);
       if (request && response) {
-        return { 
+        return {
           Request: request,
           Response: response
         };
       } else {
-        console.error('Unable to find service package %s: %j %j', 
+        console.error('Unable to find service package %s: %j %j',
                       msgPackage, request, response);
         throw new Error();
       }

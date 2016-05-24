@@ -22,6 +22,7 @@
 const netUtils = require('./utils/network_utils.js');
 const msgUtils = require('./utils/message_utils.js');
 const messages = require('./utils/messages.js');
+const util = require('util');
 msgUtils.findMessageFiles();
 
 // these will be modules, they depend on logger which isn't initialized yet
@@ -72,6 +73,16 @@ function _validateNodeName(nodeName) {
   return nodeName;
 }
 
+/**
+ * Appends a random string of numeric characters to the end
+ * of the node name. Follows rospy logic.
+ * @param nodeName {string} string to anonymize
+ * @return {string} anonymized nodeName
+ */
+function _anonymizeNodeName(nodeName) {
+  return util.format('%s_%s_%s', nodeName, process.pid, Date.now());
+}
+
 let Rosnodejs = {
   /**
    * Initializes a ros node for this process. Only one ros node can exist per process
@@ -81,6 +92,12 @@ let Rosnodejs = {
    * @return {Promise} resolved when connection to master is established
    */
   initNode(nodeName, options) {
+    options = options || {};
+    if (options.anonymous) {
+      nodeName = _anonymizeNodeName(nodeName);
+      console.log('anonymous node name ' + nodeName);
+    }
+
     nodeName = _validateNodeName(nodeName);
 
     if (rosNode !== null) {
@@ -88,12 +105,10 @@ let Rosnodejs = {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
-      throw new Error('Unable to initialize node [' + nodeName + '] - node [' 
+      throw new Error('Unable to initialize node [' + nodeName + '] - node ['
                       + rosNode.getNodeName() + '] already exists');
     }
 
-    // FIXME: validate nodeName -- MUST START WITH '/'
-    options = options || {};
     let rosMasterUri = process.env.ROS_MASTER_URI;
     if (options.rosMasterUri) {
       rosMasterUri = options.rosMasterUri;
@@ -170,7 +185,7 @@ let Rosnodejs = {
     }
     var count = types.length;
     return new Promise((resolve, reject) => {
-      types.forEach(function(type) { 
+      types.forEach(function(type) {
         messages.getMessage(type, function(error, Message) {
           if (--count == 0) {
             resolve();
@@ -179,7 +194,7 @@ let Rosnodejs = {
       });
     });
   },
-  
+
   /** create message classes for all the given types */
   _useServices(types) {
     if (!types || types.length == 0) {
@@ -187,7 +202,7 @@ let Rosnodejs = {
     }
     var count = types.length;
     return new Promise((resolve, reject) => {
-      types.forEach(function(type) { 
+      types.forEach(function(type) {
         messages.getServiceRequest(type, function() {
           messages.getServiceResponse(type, function() {
             if (--count == 0) {
