@@ -16,8 +16,8 @@
  */
 
 'use strict';
-let bunyan = require('bunyan');
-let util = require('util');
+const bunyan = require('bunyan');
+const util = require('util');
 
 //-----------------------------------------------------------------------
 
@@ -83,12 +83,11 @@ class Logger {
         throw new Error('Unable to create method %s', method);
       }
       this[method] = this._logger[method].bind(this._logger);
-      this[method]('adding method %s', method);
     });
   }
 
   /**
-   * Attaches throttled logging functions to this object for each method
+   * Attaches throttled logging functions to this object for each level method
    * (info, debug, etc)
    * e.g.
    *  logger.infoThrottle(1000, 'Hi');
