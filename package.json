@@ -1,6 +1,6 @@
 {
   "name": "rosnodejs",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Native ROS for nodejs",
   "main": "index.js",
   "keywords": [
