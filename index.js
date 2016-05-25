@@ -95,7 +95,6 @@ let Rosnodejs = {
     options = options || {};
     if (options.anonymous) {
       nodeName = _anonymizeNodeName(nodeName);
-      console.log('anonymous node name ' + nodeName);
     }
 
     nodeName = _validateNodeName(nodeName);
