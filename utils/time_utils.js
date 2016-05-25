@@ -29,7 +29,7 @@ module.exports = {
     var secs = Math.floor(date / 1000);
     var nsecs = date % 1000 * 1000000;
     return {'secs': secs, 'nsecs': nsecs};
-  }
+  },
 
   now() {
     return this.dateToRosTime(Date.now());

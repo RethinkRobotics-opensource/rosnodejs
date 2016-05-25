@@ -55,14 +55,7 @@ class Logger {
     this._throttledLogs = new Set();
     this._onceLogs = new Set();
 
-    // this.trace = this._logger.trace.bind(this._logger);
-    // this.debug = this._logger.debug.bind(this._logger);
-    // this.info = this._logger.info.bind(this._logger);
-    // this.warn = this._logger.warn.bind(this._logger);
-    // this.error = this._logger.error.bind(this._logger);
-    // this.fatal = this._logger.fatal.bind(this._logger);
-
-    let logMethods = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
+    const logMethods = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
     this._createLogMethods(logMethods);
     this._createThrottleLogMethods(logMethods);
     this._createOnceLogMethods(logMethods);
@@ -80,6 +73,10 @@ class Logger {
     return this._name;
   }
 
+  /**
+   * Binds to bunyan logger's method for each method (info, debug, etc)
+   * @param methods {Set.<String>}
+   */
   _createLogMethods(methods) {
     methods.forEach((method) => {
       if (this.hasOwnProperty(method)) {
@@ -90,6 +87,26 @@ class Logger {
     });
   }
 
+  /**
+   * Attaches throttled logging functions to this object for each method
+   * (info, debug, etc)
+   * e.g.
+   *  logger.infoThrottle(1000, 'Hi');
+   *  logger.debugThrottle(1000, 'Hi');
+   * Logs are throttled by a String key taken from the second argument (first
+   * should always be throttle time in ms). So if you're logging something with
+   * variable values, using format strings should be preferred since it will
+   * throttle appropriately while composition will not.
+   * e.g.
+   *   let i = 0;
+   *   setInterval(() => {
+   *     logger.infoThrottle(1000, 'Counter: %d', i); // prints once second
+   *     logger.infoThrottle(1000, 'Counter: ' + i);  // prints twice a second
+   *     ++i;
+   *   }, 500);
+   *
+   * @param methods {Set.<String>}
+   */
   _createThrottleLogMethods(methods) {
     methods.forEach((method) => {
       let throttleMethod = method + 'Throttle';
