@@ -20,7 +20,7 @@
 let fs = require('fs');
 let path = require('path');
 let utils = require('util');
-let log = require('./logger.js').createLogger();
+let loggingManager = require('./log/logging.js');
 const messages = require('./messages.js');
 
 // When sourcing your workspace, CMAKE_PREFIX_PATH is AUTOMATICALLY
@@ -32,6 +32,8 @@ let jsMsgPath = path.join('share', 'gennodejs', 'ros');
 
 let messagePackageMap = {};
 let messagePackagePathMap = {};
+
+let logger;
 
 //-----------------------------------------------------------------------
 // Utilities for loading, finding handlers for
@@ -190,8 +192,7 @@ let MessageUtils = {
       messagePackageMap[msgPackage] = require(indexPath);
     }
     catch (err) {
-      console.error('Unable to include message package ' + msgPackage + ' - ' + err);
-      throw new Error();
+      throw new Error('Unable to include message package ' + msgPackage + ' - ' + err);
     }
   },
 
@@ -211,8 +212,7 @@ let MessageUtils = {
       if (type) {
         return new type();
       } else {
-        console.error('Unable to find message package ' + msgPackage);
-        throw new Error();
+        throw new Error('Unable to find message package ' + msgPackage);
       }
     }
   },
@@ -235,9 +235,7 @@ let MessageUtils = {
           Response: response
         };
       } else {
-        console.error('Unable to find service package %s: %j %j',
-                      msgPackage, request, response);
-        throw new Error();
+        throw new Error('Unable to find service package ' + msgPackage + '. Request: ' + !!request + ', Response: ' + !!response);
       }
     }
   }

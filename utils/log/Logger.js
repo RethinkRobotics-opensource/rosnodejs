@@ -17,32 +17,22 @@
 
 'use strict';
 const bunyan = require('bunyan');
-const util = require('util');
 
 //-----------------------------------------------------------------------
 
-let defaultFormatter = function(name, msg, level) {
-  let now =  moment().format('YYYY-MM-DD HH:mm:ss.SSSZZ');
-  let timeMsg = '[' + nameFromLevel[level] + '] ' + now + ': ' + msg;
-  if (name) {
-    return '[' + name + ']' + timeMsg;
-  }
-  return timeMsg;
-};
-
-let logger;
-let loggerMap = {};
-
-//-----------------------------------------------------------------------
-
+/**
+ * Logger is a minimal wrapper around a bunyan logger. It adds useful methods
+ * to throttle/limit logging.
+ * @class Logger
+ */
 class Logger {
   constructor(options) {
     options = options || {};
 
     this._name = options.name;
 
-    if (options.parent) {
-      this._logger = options.parent.child(options);
+    if (options.$parent) {
+      this._logger = options.$parent.child(options.childOptions);
     }
     else {
       this._logger = bunyan.createLogger({
@@ -71,6 +61,16 @@ class Logger {
 
   getName() {
     return this._name;
+  }
+
+  addStream(stream) {
+    this._logger.addStream(stream);
+  }
+
+  child(options) {
+    options = options || {};
+    options.$parent = this._logger;
+    return new Logger(options);
   }
 
   /**
@@ -217,48 +217,4 @@ class Logger {
 
 //-----------------------------------------------------------------------
 
-module.exports = {
-  init(options) {
-    if (!logger) {
-      logger = new Logger(options);
-    }
-  },
-
-  createLogger(options) {
-    // initialize 'global' logger if needed
-    if (!logger) {
-      this.init();
-    }
-
-    options = options || {};
-    let loggerName = options.name;
-    if (!loggerName) {
-      loggerName = 'DefaultLogger';
-    }
-
-    // if this logger doesn't exist yet, actually create it
-    // with provided options
-    // otherwise, we'll just return the existing logger
-    if (!loggerMap.hasOwnProperty(loggerName)) {
-      // have this new logger use the 'global' logger's streams
-      options.streams = logger._streams;
-
-      // use the 'global' logger's level if not specified
-      if (!options.hasOwnProperty('level')) {
-        options.level = logger.getLevel();
-      }
-
-      // add the logger to the map
-      loggerMap[loggerName] = new Logger(options);
-    }
-    return loggerMap[loggerName];
-  },
-
-  getLogger(loggerName) {
-    return logger; //Map[loggerName];
-  },
-
-  getLoggers() {
-    return Object.keys(loggerMap);
-  }
-};
+module.exports = Logger;

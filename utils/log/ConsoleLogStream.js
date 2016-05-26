@@ -16,9 +16,8 @@
  */
 
 'use strict';
-const timeUtils = require('../time_utils.js');
 
-let RosgraphLogMsg;
+const bunyan = require('bunyan');
 
 class ConsoleLogStream {
   constructor(options) {
@@ -60,4 +59,4 @@ class ConsoleLogStream {
   }
 };
 
-module.exports = RosLogStream;
+module.exports = ConsoleLogStream;

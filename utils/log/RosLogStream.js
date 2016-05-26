@@ -24,6 +24,7 @@ let RosgraphLogMsg;
 class RosLogStream {
   constructor(nh, rosgraphLogMsg, options) {
     RosgraphLogMsg = rosgraphLogMsg;
+    options = options || {};
 
     let queueSize = 100;
     if (options.hasOwnProperty('queueSize')) {
@@ -64,7 +65,7 @@ class RosLogStream {
         // being used as a raw stream
         msg.header.stamp = timeUtils.dateToRosTime(rec.time);
 
-        msg.name = rec.scope;
+        msg.name = rec.name;
         msg.level = this._getRosLogLevel(rec.level);
         const formattedMsg = this._formatter(rec);
         if (typeof formattedMsg === 'string' || formattedMsg instanceof String) {
@@ -75,6 +76,7 @@ class RosLogStream {
           return;
         }
       }
+      //console.log('ROSOUT: %j', msg);
       this._rosoutPub.publish(msg);
     }
   }

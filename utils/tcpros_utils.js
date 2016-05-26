@@ -84,7 +84,7 @@ let TcprosUtils = {
       let matchResult = field.match(/^(\w+)=(.+)/m);
       // invalid connection header
       if (!matchResult) {
-        console.error('Invalid connection header!');
+        console.error('Invalid connection header while parsing field %s', field);
         return null;
       }
       // else

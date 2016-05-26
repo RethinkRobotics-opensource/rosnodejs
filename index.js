@@ -23,11 +23,14 @@ const netUtils = require('./utils/network_utils.js');
 const msgUtils = require('./utils/message_utils.js');
 const messages = require('./utils/messages.js');
 const util = require('util');
+const RosLogStream = require('./utils/log/RosLogStream.js');
+const ConsoleLogStream = require('./utils/log/ConsoleLogStream.js');
+const LogFormatter = require('./utils/log/LogFormatter.js');
 msgUtils.findMessageFiles();
 
 // these will be modules, they depend on logger which isn't initialized yet
 // though so they'll be required later (in initNode)
-let logger = null;
+let loggingManager = null;
 let RosNode = null;
 let NodeHandle = null;
 
@@ -48,12 +51,12 @@ function _checkMasterHelper(callback, timeout) {
     // else
     rosNode.getMasterUri()
     .then((resp) => {
-      log.info('Connected to master!');
-      callback(Rosnodejs.getNodeHandle());
+      log.infoOnce('Connected to master!');
+      callback();
     })
     .catch((err, resp) => {
       if (firstCheck) {
-        log.warn('Unable to connect to master. ' + err);
+        log.warnOnce('Unable to connect to master. ' + err);
         firstCheck = false;
       }
       _checkMasterHelper(callback, 500);
@@ -122,9 +125,20 @@ let Rosnodejs = {
     }
 
     // setup logger
-    logger = require('./utils/logger.js');
-    logger.init(options.logger);
-    log = logger.createLogger();
+    loggingManager = require('./utils/log/logging.js');
+    if (!options.hasOwnProperty('logging')) {
+      options.logging =  {
+        streams: [
+          {
+            type: 'raw',
+            stream: new ConsoleLogStream({formatter: LogFormatter.ROS}),
+            level: 'info'
+          }
+        ]
+      };
+    }
+    loggingManager.init(options.logging);
+    log = loggingManager.getLogger();
 
     // require other necessary modules...
     RosNode = require('./lib/RosNode.js');
@@ -137,7 +151,15 @@ let Rosnodejs = {
 
     return new Promise((resolve, reject) => {
       this.use(options.messages, options.services).then(() => {
-        _checkMasterHelper(resolve, 0);
+
+        const connectedToMasterCallback = () => {
+          if (!options.skipRosOut) {
+            loggingManager.addStream({type: 'raw', level: 'debug', stream: new RosLogStream(this.getNodeHandle(), this.require('rosgraph_msgs').msg.Log)});
+          }
+          resolve(this.getNodeHandle());
+        };
+
+        _checkMasterHelper(connectedToMasterCallback, 0);
       });
     })
     .catch((err) => {
