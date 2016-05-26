@@ -70,6 +70,24 @@ let TcprosUtils = {
     return Serialize(buffer);
   },
 
+  parseTcpRosHeader(header) {
+    let info = {};
+    while (header.length !== 0) {
+      let item = String.deserialize(header);
+      let field = item.data;
+      header = item.buffer;
+      let matchResult = field.match(/^(\w+)=(.+)/m);
+      // invalid connection header
+      if (!matchResult) {
+        console.error('Invalid connection header!');
+        return null;
+      }
+      // else
+      info[matchResult[1]] = matchResult[2];
+    }
+    return info;
+  },
+
   parseSubHeader(header) {
     let i = 0;
     let info = {};
