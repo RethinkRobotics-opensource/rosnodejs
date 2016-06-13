@@ -4,6 +4,7 @@
 module.exports = {
   call(client, method, data, resolve, reject, log, timeout) {
     log.debug('Calling method ' + method +': ' + data);
+
     if (timeout === undefined) {
       timeout = 0;
     }

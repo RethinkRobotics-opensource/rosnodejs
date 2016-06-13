@@ -23,19 +23,13 @@ messages.getPackageFromRegistry = function(packagename) {
 /** ensure the handler for this message type is in the registry,
  * create it if it doesn't exist */
 messages.getMessage = function(messageType, callback) {
-  getMessageFromPackage(messageType, ["msg"], callback);
+  getMessageFromPackage(messageType, "msg", callback);
 }
 
 /** ensure the handler for requests for this service type is in the
  * registry, create it if it doesn't exist */
-messages.getServiceRequest = function(messageType, callback) {
-  getMessageFromPackage(messageType, ["srv", "Request"], callback);
-}
-
-/** ensure the handler for responses for this service type is in the
- * registry, create it if it doesn't exist */
-messages.getServiceResponse = function(messageType, callback) {
-  getMessageFromPackage(messageType, ["srv", "Response"], callback);
+messages.getService = function(messageType, callback) {
+  getMessageFromPackage(messageType, "srv", callback);
 }
 
 // ---------------------------------------------------------
@@ -71,7 +65,7 @@ var registry = {};
    @param messageType is the ROS message or service type, e.g.
    'std_msgs/String'
    @param type is from the set 
-   [["msg"], ["srv","Request"], ["srv","Response"]]
+   [["msg"], ["srv","Request"], ["srv","Response"] 
 */
 function getMessageFromRegistry(messageType, type) {
   var packageName = getPackageNameFromMessageType(messageType);
@@ -99,11 +93,12 @@ function getMessageFromRegistry(messageType, type) {
 /** 
     @param messageType is the ROS message or service type, e.g.
     'std_msgs/String'
-    @param type is from the set 
-    [["msg"], ["srv","Request"], ["srv","Response"]]
     @param message is the message class definition 
+    @param type is from the set "msg", "srv"
+    @param (optional) subtype \in { "Request", "Response" }
 */
-function setMessageInRegistry(messageType, type, message) {
+function setMessageInRegistry(messageType, message, type, subtype) {
+
   var packageName = getPackageNameFromMessageType(messageType);
   var messageName = getMessageNameFromMessageType(messageType);
 
@@ -111,19 +106,17 @@ function setMessageInRegistry(messageType, type, message) {
     registry[packageName] = { msg: {}, srv: {}};
   }
 
-  var kind = type[0]; // "msg" or "srv"
-  if (kind == "msg") {
+  if (type == "msg") {
     // message
-    registry[packageName][kind][messageName] = message;
-
+    registry[packageName][type][messageName] = message;
   } else {
     // service
-    if (!registry[packageName][kind][messageName]) {
-      registry[packageName][kind][messageName] = {};
+    if (!registry[packageName][type][messageName]) {
+      registry[packageName][type][messageName] = {};
     }
 
-    var serviceType = type[1]; // "Request" or "Response"
-    registry[packageName][kind][messageName][serviceType] = message;    
+    var serviceType = subtype; // "Request" or "Response"
+    registry[packageName][type][messageName][serviceType] = message;    
   }
 }
 
@@ -133,49 +126,46 @@ function setMessageInRegistry(messageType, type, message) {
 
 /* get message or service definition class */
 function getMessageFromPackage(messageType, type, callback) {
-  // var that = this;
   var packageName = getPackageNameFromMessageType(messageType);
   var messageName = getMessageNameFromMessageType(messageType);
-  var message = getMessageFromRegistry(messageType, type);
-  if (message) {
-    callback(null, message);
-  } else {
-    packages.findPackage(packageName, function(error, directory) {
-      var filePath;
-      var kind = type[0];
-      filePath = path.join(directory, kind, messageName + '.' + kind);
-      getMessageFromFile(messageType, filePath, type, callback);
-    });
-  }
+  packages.findPackage(packageName, function(error, directory) {
+    var filePath;
+    filePath = path.join(directory, type, messageName + '.' + type);
+    getMessageFromFile(messageType, filePath, type, callback);
+  });
 };
 
 function getMessageFromFile(messageType, filePath, type, callback) {
-    var message = getMessageFromRegistry(messageType, type);
-    if (message) {
-      callback(null, message);
-    }
-    else {
-      var packageName = getPackageNameFromMessageType(messageType)
-      , messageName = getMessageNameFromMessageType(messageType);
-
-      var details = {
-        messageType : messageType
-        , messageName : messageName
-        , packageName : packageName
-      };
-
-      parseMessageFile(
-        filePath, details, type, function(error, details) {
-          if (error) {
-            callback(error);
-          } else {
-            message = buildMessageClass(details);
-            setMessageInRegistry(messageType, type, message);
-            callback(null, message);
-          }
-        });
-    }
+  var packageName = getPackageNameFromMessageType(messageType)
+  , messageName = getMessageNameFromMessageType(messageType);
+  
+  var details = {
+    messageType : messageType
+    , messageName : messageName
+    , packageName : packageName
   };
+
+  parseMessageFile(
+    filePath, details, type, function(error, details) {
+      if (error) {
+        callback(error);
+      } else {
+        if (type == "msg") {
+          message = buildMessageClass(details);
+          setMessageInRegistry(messageType, message, type);
+          callback(null, message);
+        } else if (type == "srv") {
+          request = buildMessageClass(details.request);
+          response = buildMessageClass(details.response);
+          setMessageInRegistry(messageType, request, type, "Request");
+          setMessageInRegistry(messageType, response, type, "Response");
+          callback(null, message);
+        } else {
+          console.log("unknown service", type);
+        }
+      }
+    });
+};
 
 function parseMessageFile(fileName, details, type, callback) {
   details = details || {};
@@ -185,15 +175,34 @@ function parseMessageFile(fileName, details, type, callback) {
     }
     else {
       extractFields(
-        content, details, type, function(error, constants, fields) {
+        content, details, type, function(error, aggregate) {
           if (error) {
             callback(error);
-          }
-          else {
-            details.constants = constants;
-            details.fields    = fields;
-            details.md5       = calculateMD5(details);
-            callback(null, details);
+          } else {
+            if (type == "msg") {
+              details.constants = aggregate[0].constants;
+              details.fields    = aggregate[0].fields;
+              details.md5       = calculateMD5(details, "msg");
+              callback(null, details);
+            } else if (type == "srv") {
+              // services combine the two message types to compute the
+              // md5sum
+              var rtv = {
+                // we need to clone what's already there in details
+                // into the sub-objects
+                request: JSON.parse(JSON.stringify(details)),
+                response: JSON.parse(JSON.stringify(details))
+              };
+              rtv.request.constants = aggregate[0].constants;
+              rtv.request.fields = aggregate[0].fields;
+              rtv.response.constants = aggregate[1].constants;
+              rtv.response.fields = aggregate[1].fields;
+              rtv.request.md5 = rtv.response.md5 = calculateMD5(rtv, "srv");
+              callback(null, rtv);
+            } else {
+              console.log("parseMessageFile:", "Unknown type: ", type);
+              callback("unknown type", null);
+            }
           }
         });
     }
@@ -203,145 +212,175 @@ function parseMessageFile(fileName, details, type, callback) {
 // -------------------------------
 // functions relating to handler class
 
-function calculateMD5(details) {
-  var message = '';
+function calculateMD5(details, type) {
 
-  var constants = details.constants.map(function(field) {
-    return field.type + ' ' + field.name + '=' + field.value;
-  }).join('\n');
-
-  var fields = details.fields.map(function(field) {
-    if (field.messageType) {
-      return field.messageType.md5 + ' ' + field.name;
+  /* get the text for one part of the type definition to compute the
+     md5sum over */
+  function getMD5text(part) {
+    var message = '';
+    var constants = part.constants.map(function(field) {
+      return field.type + ' ' + field.name + '=' + field.value;
+    }).join('\n');
+    
+    var fields = part.fields.map(function(field) {
+      if (field.messageType) {
+        return field.messageType.md5 + ' ' + field.name;
+      }
+      else {
+        return field.type + ' ' + field.name;
+      }
+    }).join('\n');
+    
+    message += constants;
+    if (message.length > 0 && fields.length > 0) {
+      message += "\n";
     }
-    else {
-      return field.type + ' ' + field.name;
-    }
-  }).join('\n');
-
-  message += constants;
-  if (message.length > 0 && fields.length > 0) {
-    message += "\n";
+    message += fields;
+    return message;
   }
-  message += fields;
 
-  return md5(message);
+  // depending on type, compose the right md5text to compute md5sum
+  // over: Services just concatenate the individual message text (with
+  // *no* new line in between)
+  var text;
+  if (type == "msg") {
+    text = getMD5text(details);
+  } else if (type == "srv") {
+    text = getMD5text(details.request);
+    text += getMD5text(details.response);   
+  } else {
+    console.log("calculateMD5: Unknown type", type);
+    return null;
+  }
+
+  return md5(text);
 }
 
 function extractFields(content, details, type, callback) {
-  var constants = []
+  function parsePart(lines, callback) {
+    var constants = []
     , fields    = []
     ;
 
-  var parseLine = function(line, callback) {
-    line = line.trim();
+    var parseLine = function(line, callback) {
+      line = line.trim();
 
-    var lineEqualIndex   = line.indexOf('=')
+      var lineEqualIndex   = line.indexOf('=')
       , lineCommentIndex = line.indexOf('#')
       ;
-    if (lineEqualIndex === -1
-      || lineCommentIndex=== -1
-      || lineEqualIndex>= lineCommentIndex)
-    {
-      line = line.replace(/#.*/, '');
-    }
+      if (lineEqualIndex === -1
+          || lineCommentIndex=== -1
+          || lineEqualIndex>= lineCommentIndex)
+      {
+        line = line.replace(/#.*/, '');
+      }
 
-    if (line === '') {
-      callback();
-    }
-    else {
-      var firstSpace = line.indexOf(' ')
+      if (line === '') {
+        callback();
+      }
+      else {
+        var firstSpace = line.indexOf(' ')
         , fieldType  = line.substring(0, firstSpace)
         , field      = line.substring(firstSpace + 1)
         , equalIndex = field.indexOf('=')
         , fieldName  = field.trim()
         ;
 
-      if (equalIndex !== -1) {
-        fieldName = field.substring(0, equalIndex).trim();
-        var constant = field.substring(equalIndex + 1, field.length).trim();
-        var parsedConstant = fieldsUtil.parsePrimitive(fieldType, constant);
+        if (equalIndex !== -1) {
+          fieldName = field.substring(0, equalIndex).trim();
+          var constant = field.substring(equalIndex + 1, field.length).trim();
+          var parsedConstant = fieldsUtil.parsePrimitive(fieldType, constant);
 
-        constants.push({
-          name        : fieldName
-        , type        : fieldType
-        , value       : parsedConstant
-        , index       : fields.length
-        , messageType : null
-        });
-        callback();
-      }
-      else {
-        if (fieldsUtil.isPrimitive(fieldType)) {
-          fields.push({
-            name        : fieldName.trim()
-          , type        : fieldType
-          , index       : fields.length
-          , messageType : null
+          constants.push({
+            name        : fieldName
+            , type        : fieldType
+            , value       : parsedConstant
+            , index       : fields.length
+            , messageType : null
           });
           callback();
         }
-        else if (fieldsUtil.isArray(fieldType)) {
-          var arrayType = fieldsUtil.getTypeOfArray(fieldType);
-          if (fieldsUtil.isMessage(arrayType)) {
-            fieldType = normalizeMessageType(fieldType, details.packageName);
-            arrayType = normalizeMessageType(arrayType, details.packageName);
-            messages.getMessage(arrayType, function(error, messageType) {
-              fields.push({
-                name        : fieldName.trim()
+        else {
+          if (fieldsUtil.isPrimitive(fieldType)) {
+            fields.push({
+              name        : fieldName.trim()
               , type        : fieldType
               , index       : fields.length
-              , messageType : messageType
+              , messageType : null
+            });
+            callback();
+          }
+          else if (fieldsUtil.isArray(fieldType)) {
+            var arrayType = fieldsUtil.getTypeOfArray(fieldType);
+            if (fieldsUtil.isMessage(arrayType)) {
+              fieldType = normalizeMessageType(fieldType, details.packageName);
+              arrayType = normalizeMessageType(arrayType, details.packageName);
+              messages.getMessage(arrayType, function(error, messageType) {
+                fields.push({
+                  name        : fieldName.trim()
+                  , type        : fieldType
+                  , index       : fields.length
+                  , messageType : messageType
+                });
+                callback();
+              });
+            }
+            else {
+              fields.push({
+                name        : fieldName.trim()
+                , type        : fieldType
+                , index       : fields.length
+                , messageType : null
+              });
+              callback();
+            }
+          }
+          else if (fieldsUtil.isMessage(fieldType)) {
+            fieldType = normalizeMessageType(fieldType, details.packageName);
+            messages.getMessage(fieldType, function(error, messageType) {
+              fields.push({
+                name        : fieldName.trim()
+                , type        : fieldType
+                , index       : fields.length
+                , messageType : messageType
               });
               callback();
             });
           }
-          else {
-            fields.push({
-              name        : fieldName.trim()
-            , type        : fieldType
-            , index       : fields.length
-            , messageType : null
-            });
-            callback();
-          }
-        }
-        else if (fieldsUtil.isMessage(fieldType)) {
-          fieldType = normalizeMessageType(fieldType, details.packageName);
-          messages.getMessage(fieldType, function(error, messageType) {
-            fields.push({
-              name        : fieldName.trim()
-            , type        : fieldType
-            , index       : fields.length
-            , messageType : messageType
-            });
-            callback();
-          });
         }
       }
     }
+
+    async.forEachSeries(lines, parseLine, function(error) {
+      if (error) {
+        callback(error);
+      }
+      else {
+        callback(null, {constants: constants, fields: fields});
+      }
+    });
   }
+    
+
+
 
   var lines = content.split('\n');
 
-  if (type[0] != "msg") {
-    var divider = lines.indexOf("---");
-    if (type[1] == "Request") {
-      lines = lines.slice(0, divider);
-    } else {
-      // response
-      lines = lines.slice(divider+1);
+  // break into parts:
+  var parts = lines.reduce(function(memo, line) {
+    if (line == "---") {
+      // new part starts
+      memo.push([]);
+    } else if (line != "") {
+      memo[memo.length - 1].push(line);
     }
-  }
-
-  async.forEachSeries(lines, parseLine, function(error) {
-    if (error) {
-      callback(error);
-    }
-    else {
-      callback(null, constants, fields);
-    }
+    return memo;
+  }, [[]]);
+ 
+  async.map(parts, parsePart, function(err, aggregate) {
+    callback(err, aggregate);
   });
+
 };
 
 function camelCase(underscoreWord, lowerCaseFirstLetter) {
@@ -357,6 +396,7 @@ function camelCase(underscoreWord, lowerCaseFirstLetter) {
 }
 
 function buildValidator (details) {
+
   function validator (candidate, strict) {
     return Object.keys(candidate).every(function(property) {
       var valid = true;
@@ -393,8 +433,9 @@ function buildValidator (details) {
  * use with ROS, incl. serialization, deserialization, and md5sum. */
 function buildMessageClass(details) {
   function Message(values) {
+    // console.log("buildMessageClass, new", details, values);
     if (!(this instanceof Message)) {
-      return new Message(init);
+      return new Message(values);
     }
 
     var that = this;
@@ -404,15 +445,18 @@ function buildMessageClass(details) {
         that[field.name] = field.value || null;
       });
     }
-    if (details.fields) {
-      details.fields.forEach(function(field) {
-        that[field.name] = field.value || null;
-      });
-    }
 
-    if (values) {
-      Object.keys(values).forEach(function(name) {
-        that[name] = values[name];
+    if (details.fields) {
+      details.fields.forEach(function(field) {       
+        // console.log("buildMessageClass", details, field, values);
+        if (field.messageType) {
+          // sub-message class
+          that[field.name] = 
+            new (field.messageType)(values ? values[field.name] : undefined);
+        } else {
+          // simple value
+          that[field.name] = values ? values[field.name] : (field.value || null);
+        }
       });
     }
   };
@@ -424,7 +468,8 @@ function buildMessageClass(details) {
   Message.md5sum      = Message.prototype.md5sum      = function() {
     return this.md5;
   };
-  Message.constants   = Message.prototype.constants   = details.constants;
+  Message.Constants = Message.constants   
+    = Message.prototype.constants   = details.constants;
   Message.fields      = Message.prototype.fields      = details.fields;
   Message.serialize   = Message.prototype.serialize   =
     function(obj, bufferInfo) {
