@@ -136,7 +136,7 @@ let Rosnodejs = {
     rosNode = new RosNode(nodeName, rosMasterUri);
 
     return new Promise((resolve, reject) => {
-      this.use(options.messages, options.services).then(() => {
+      this.use(options.messages, options.services, options.actions).then(() => {
         _checkMasterHelper(resolve, 0);
       });
     })
@@ -165,15 +165,13 @@ let Rosnodejs = {
 
   /** create message classes and services classes for all the given
    * types before calling callback */
-  use(messages, services) {
+  use(messages, services, actions) {
     const self = this;
     return new Promise((resolve, reject) => {
       self._useMessages(messages)
-        .then(() => {
-          return self._useServices(services);
-        }).then(() => {
-          resolve();
-        });
+        .then(() => { return self._useServices(services); })
+        .then(() => { return self._useActions(actions); })
+        .then(() => { resolve(); });
     });
   },
 
@@ -194,7 +192,7 @@ let Rosnodejs = {
     });
   },
 
-  /** create message classes for all the given types */
+  /** create service classes for all the given types */
   _useServices(types) {
     if (!types || types.length == 0) {
       return Promise.resolve();
@@ -208,6 +206,23 @@ let Rosnodejs = {
               resolve();
             }
           });
+        });
+      });
+    });
+  },
+
+  /** create action classes for all the given types */
+  _useActions(types) {
+    if (!types || types.length == 0) {
+      return Promise.resolve();
+    }
+    var count = types.length;
+    return new Promise((resolve, reject) => {
+      types.forEach(function(type) {
+        messages.getAction(type, function() {
+          if (--count == 0) {
+            resolve();
+          }
         });
       });
     });
