@@ -248,6 +248,15 @@ let Rosnodejs = {
 
   get nh() {
     return new NodeHandle(rosNode);
+  },
+
+  get log() {
+    return log;
+  }
+
+  get logStreams() {
+    console: ConsoleLogStream,
+    ros:     RosLogStream
   }
 }
 

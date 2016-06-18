@@ -76,7 +76,7 @@ module.exports = {
     }
   },
 
-  createLogger(options) {
+  _createLogger(options) {
     // initialize 'global' logger if needed
     if (!logger) {
       // default options
@@ -107,7 +107,7 @@ module.exports = {
     else if (!loggerMap.hasOwnProperty(loggerName)) {
       options = options || {};
       options.name = loggerName;
-      return this.createLogger(options);
+      return this._createLogger(options);
     }
     // else
     return loggerMap[loggerName];
