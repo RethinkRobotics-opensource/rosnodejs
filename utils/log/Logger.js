@@ -67,6 +67,10 @@ class Logger {
     this._logger.addStream(stream);
   }
 
+  clearStreams() {
+    this._logger.streams = [];
+  }
+
   child(options) {
     options = options || {};
     options.$parent = this._logger;

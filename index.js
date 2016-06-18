@@ -26,16 +26,19 @@ const util = require('util');
 const RosLogStream = require('./utils/log/RosLogStream.js');
 const ConsoleLogStream = require('./utils/log/ConsoleLogStream.js');
 const LogFormatter = require('./utils/log/LogFormatter.js');
+const RosNode = require('./lib/RosNode.js');
+const NodeHandle = require('./lib/NodeHandle.js');
+const Logging = require('./lib/Logging.js');
+
 msgUtils.findMessageFiles();
 
 // these will be modules, they depend on logger which isn't initialized yet
 // though so they'll be required later (in initNode)
-let loggingManager = null;
-let RosNode = null;
-let NodeHandle = null;
+// let RosNode = null;
+// let NodeHandle = null;
 
 // will be initialized through call to initNode
-let log = null;
+let log = Logging.getLogger();
 let rosNode = null;
 let firstCheck = true;
 
@@ -124,26 +127,6 @@ let Rosnodejs = {
       netUtils.setPortRange(options.portRange);
     }
 
-    // setup logger
-    loggingManager = require('./utils/log/logging.js');
-    if (!options.hasOwnProperty('logging')) {
-      options.logging =  {
-        streams: [
-          {
-            type: 'raw',
-            stream: new ConsoleLogStream({formatter: LogFormatter.ROS}),
-            level: 'info'
-          }
-        ]
-      };
-    }
-    loggingManager.init(options.logging);
-    log = loggingManager.getLogger();
-
-    // require other necessary modules...
-    RosNode = require('./lib/RosNode.js');
-    NodeHandle = require('./lib/NodeHandle.js');
-
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
     let checkMasterTimeout =  0;
@@ -153,9 +136,7 @@ let Rosnodejs = {
       this.use(options.messages, options.services).then(() => {
 
         const connectedToMasterCallback = () => {
-          if (!options.skipRosOut) {
-            loggingManager.addStream({type: 'raw', level: 'debug', stream: new RosLogStream(this.getNodeHandle(), this.require('rosgraph_msgs').msg.Log)});
-          }
+          Logging.initializeOptions(this, options.logging);
           resolve(this.getNodeHandle());
         };
 
@@ -251,12 +232,14 @@ let Rosnodejs = {
   },
 
   get log() {
-    return log;
-  }
+    return Logging;
+  },
 
   get logStreams() {
-    console: ConsoleLogStream,
-    ros:     RosLogStream
+    return {
+      console: ConsoleLogStream,
+      ros:     RosLogStream
+    }
   }
 }
 

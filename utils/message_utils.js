@@ -20,7 +20,7 @@
 let fs = require('fs');
 let path = require('path');
 let utils = require('util');
-let loggingManager = require('./log/logging.js');
+let loggingManager = require('../lib/Logging.js');
 const messages = require('./messages.js');
 
 // When sourcing your workspace, CMAKE_PREFIX_PATH is AUTOMATICALLY

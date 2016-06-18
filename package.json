@@ -7,7 +7,7 @@
     "ros"
   ],
   "scripts": {
-    "test": "mocha --recursive --grep gennodejsTest --invert",
+    "test": "mocha test/directory.js",
     "gennodejsTest": "mocha test/gennodejsTest",
     "flatten": "node flatten.js"
   },
