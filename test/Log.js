@@ -3,6 +3,7 @@
 const chai = require('chai');
 const expect = chai.expect;
 const bunyan = require('bunyan');
+const xmlrpc = require('xmlrpc');
 const rosnodejs = require('../index.js');
 
 /** setup pipe to stdout **/
@@ -263,6 +264,101 @@ describe('Logging', () => {
     reset();
     testLogger.trace(message);
     expect(outputCapture.get().msg).to.have.string(message);
+  });
+
+  describe('Rosout', () => {
+    let masterStub;
+    before((done) => {
+      masterStub = xmlrpc.createServer({host: 'localhost', port: 11311}, () => { done(); });
+    });
+
+    after((done) => {
+      masterStub.close(() => { done(); });
+    });
+
+    beforeEach(() => {
+      let pubInfo = null;
+      let subInfo = null;
+
+      masterStub.on('getUri', (err, params, callback) => {
+        const resp = [ 1, '', 'localhost:11311/' ]
+        callback(null, resp);
+      });
+
+      masterStub.on('registerSubscriber', (err, params, callback) => {
+        subInfo = params[3];
+        //console.log('sub reg ' + params);
+        //console.log(pubInfo);
+
+        const resp =  [1, 'You did it!', []];
+        if (pubInfo) {
+          resp[2].push(pubInfo);
+        }
+        callback(null, resp);
+      });
+
+      masterStub.on('unregisterSubscriber', (err, params, callback) => {
+        const resp =  [1, 'You did it!', subInfo ? 1 : 0];
+        callback(null, resp);
+        subInfo = null;
+      });
+
+      masterStub.on('registerPublisher', (err, params, callback) => {
+        //console.log('pub reg');
+        pubInfo = params[3];
+        const resp =  [1, 'You did it!', []];
+        if (subInfo) {
+          resp[2].push(pubInfo);
+          let subAddrParts = subInfo.replace('http://', '').split(':');
+          let client = xmlrpc.createClient({host: subAddrParts[0], port: subAddrParts[1]});
+          let data = [1, topic, [pubInfo]];
+          client.methodCall('publisherUpdate', data, (err, response) => { });
+        }
+        callback(null, resp);
+      });
+
+      masterStub.on('unregisterPublisher', (err, params, callback) => {
+        const resp =  [1, 'You did it!', pubInfo ? 1 : 0];
+        callback(null, resp);
+        pubInfo = null;
+      });
+
+      rosnodejs.log.setLevel('info');
+      return rosnodejs.initNode('/testNode');
+    });
+
+    afterEach(() => {
+      const nh = rosnodejs.nh;
+
+      // clear out any service, subs, pubs
+      nh._node._services = {};
+      nh._node._subscribers = {};
+      nh._node._publishers = {};
+
+      // remove any master api handlers we set up
+      masterStub.removeAllListeners();
+    });
+
+    it('Check Publishing', (done) => {
+      const message = 'This is my message';
+      let intervalId = null;
+
+      const rosoutCallback = (msg) => {
+        expect(msg.msg).to.have.string(message);
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+          intervalId = null;
+          done();
+        }
+      };
+
+      const nh = rosnodejs.nh;
+      const sub = nh.subscribe('/rosout', 'rosgraph_msgs/Log', rosoutCallback);
+
+      intervalId = setInterval(() => {
+        rosnodejs.log.info(message);
+      }, 50);
+    });
   });
 
 });

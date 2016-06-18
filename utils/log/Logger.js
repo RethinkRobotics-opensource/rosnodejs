@@ -71,12 +71,6 @@ class Logger {
     this._logger.streams = [];
   }
 
-  child(options) {
-    options = options || {};
-    options.$parent = this._logger;
-    return new Logger(options);
-  }
-
   /**
    * Binds to bunyan logger's method for each method (info, debug, etc)
    * @param methods {Set.<String>}

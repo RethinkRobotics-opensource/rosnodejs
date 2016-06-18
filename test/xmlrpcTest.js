@@ -18,12 +18,8 @@ describe('Protocol Test', () => {
   });
 
   after((done) => {
-    if (masterStub.httpServer.listening) {
-      masterStub.close(() => { done(); });
-    }
-    else {
-      done();
-    }
+    masterStub.close(() => { done(); });
+    done();
   });
 
   describe('Xmlrpc', () => {
