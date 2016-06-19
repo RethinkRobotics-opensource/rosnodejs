@@ -17,7 +17,9 @@
 
 'use strict';
 
-let SerializationUtils = require('./serialization_utils.js');
+const ros_msg_utils = require('ros_msg_utils');
+const base_serializers = ros_msg_utils.Serializer;
+const SerializationUtils = require('./serialization_utils.js');
 let PrependLength = SerializationUtils.PrependLength;
 let Serialize = SerializationUtils.Serialize;
 let Deserialize = SerializationUtils.Deserialize;
@@ -34,40 +36,60 @@ let latchingPrefix = 'latching=';
 
 //-----------------------------------------------------------------------
 
+function serializeStringFields(fields) {
+  let length = 0;
+  fields.forEach((field) => {
+    length += (field.length + 4);
+  });
+  let buffer = new Buffer(4 + length);
+  let offset = base_serializers.uint32(length, buffer, 0);
+
+  fields.forEach((field) => {
+    offset = base_serializers.string(field, buf, offset);
+  });
+  return buffer;
+}
+
+//-----------------------------------------------------------------------
+
 let TcprosUtils = {
 
   createSubHeader(callerId, md5sum, topic, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let topi = String(topicPrefix + topic);
-    let typ = String(typePrefix + type);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), topi.serialize(), typ.serialize()]);
-    return Serialize(buffer);
+    let fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      topicPrefix + topic,
+      typePrefix + type
+    ];
+    return serializeStringFields(fields);
   },
 
   createPubHeader(callerId, md5sum, type, latching) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let typ = String(typePrefix + type);
-    let latch = String(latchingPrefix + latching);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), typ.serialize(), latch.serialize()]);
-    return Serialize(buffer);
+    let fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      typePrefix + type,
+      latchingPrefix + latching
+    ];
+    return serializeStringFields(fields);
   },
 
   createServiceClientHeader(callerId, service, md5sum, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let servic = String(servicePrefix + service);
-    let md5 = String(md5Prefix + md5sum);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), servic.serialize()]);
-    return Serialize(buffer);
+    let field = [
+      callerIdPrefix + callerId,
+      servicePrefix + service,
+      md5Prefix + md5sum
+    ];
+    return serializeStringFields(fields);
   },
 
   createServiceServerHeader(callerId, md5sum, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let typ = String(typePrefix + type);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), typ.serialize()]);
-    return Serialize(buffer);
+    let fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      typePrefix + type
+    ];
+    return serializeStringFields(fields);
   },
 
   parseSubHeader(header) {
