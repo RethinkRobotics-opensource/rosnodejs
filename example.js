@@ -30,6 +30,12 @@ rosnodejs.initNode('/my_node')
         serviceClient.call(request).then((resp) => {
           rosnodejs.log.info('Service response 2 ' + JSON.stringify(resp));
         });
+      })
+      .then(() => {
+        let serviceClient2 = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
+        serviceClient2.call(request).then((resp) => {
+          rosnodejs.log.info('Non persistent response ' + JSON.stringify(resp));
+        })
       });
     }
   });

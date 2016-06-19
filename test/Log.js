@@ -340,19 +340,20 @@ describe('Logging', () => {
     });
 
     it('Check Publishing', (done) => {
+      const nh = rosnodejs.nh;
       const message = 'This is my message';
       let intervalId = null;
 
       const rosoutCallback = (msg) => {
         expect(msg.msg).to.have.string(message);
         if (intervalId !== null) {
+          nh.unsubscribe('/rosout');
           clearInterval(intervalId);
           intervalId = null;
           done();
         }
       };
 
-      const nh = rosnodejs.nh;
       const sub = nh.subscribe('/rosout', 'rosgraph_msgs/Log', rosoutCallback);
 
       intervalId = setInterval(() => {
