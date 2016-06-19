@@ -38,6 +38,16 @@ messages.getServiceResponse = function(messageType, callback) {
   getMessageFromPackage(messageType, ["srv", "Response"], callback);
 }
 
+/** ensure the handlers for this action type (goal, result, and
+ * feedback) are in the registry, create them if they don't exist */
+messages.getAction = function(messageType, callback) {
+  getMessageFromPackage(messageType, ["action", "Goal"], function() {
+    getMessageFromPackage(messageType, ["action", "Result"], function() {
+      getMessageFromPackage(messageType, ["action", "Feedback"], callback);
+    });
+  });
+}
+
 // ---------------------------------------------------------
 // Registry
 
@@ -61,7 +71,11 @@ var registry = {};
                'SetBool': classdef,
                ...
              }
-           }
+           },
+      action: { Goal: ..,
+                Result: ..,
+                Feedback: ..
+              }
     },
     'packagename2': {..}
   };
@@ -104,25 +118,26 @@ function getMessageFromRegistry(messageType, type) {
     @param message is the message class definition 
 */
 function setMessageInRegistry(messageType, type, message) {
+
   var packageName = getPackageNameFromMessageType(messageType);
   var messageName = getMessageNameFromMessageType(messageType);
 
   if (!registry[packageName]) {
-    registry[packageName] = { msg: {}, srv: {}};
+    registry[packageName] = { msg: {}, srv: {}, action: {}};
   }
 
-  var kind = type[0]; // "msg" or "srv"
+  var kind = type[0]; // "msg" or "srv" or "action"
   if (kind == "msg") {
     // message
     registry[packageName][kind][messageName] = message;
 
   } else {
-    // service
+    // service or action
     if (!registry[packageName][kind][messageName]) {
       registry[packageName][kind][messageName] = {};
     }
 
-    var serviceType = type[1]; // "Request" or "Response"
+    var serviceType = type[1]; // "Request" or "Response", or "Goal", "Result", "Feedback"
     registry[packageName][kind][messageName][serviceType] = message;    
   }
 }
@@ -324,13 +339,32 @@ function extractFields(content, details, type, callback) {
 
   var lines = content.split('\n');
 
-  if (type[0] != "msg") {
+  if (type[0] == "srv") {
     var divider = lines.indexOf("---");
     if (type[1] == "Request") {
+      // request
       lines = lines.slice(0, divider);
     } else {
       // response
       lines = lines.slice(divider+1);
+    }
+  }
+
+  if (type[0] == "action") {
+    var divider = lines.indexOf("---");
+    if (type[1] == "Goal") {
+      // goal
+      lines = lines.slice(0, divider);
+    } else {
+      var afterFirst = lines.slice(divider+1);
+      var divider2 = afterFirst.indexOf("---");
+      if (type[1] == "Result") {
+        // result
+        lines = afterFirst.slice(0, divider2);
+      } else {
+        // feedback
+        lines = afterFirst.slice(divider2+1);       
+      }
     }
   }
 
