@@ -18,7 +18,7 @@
 'use strict';
 
 const ros_msg_utils = require('ros_msg_utils');
-const base_serializers = ros_msg_utils.Serializer;
+const base_serializers = ros_msg_utils.Serialize;
 const SerializationUtils = require('./serialization_utils.js');
 let PrependLength = SerializationUtils.PrependLength;
 let Serialize = SerializationUtils.Serialize;
@@ -45,7 +45,7 @@ function serializeStringFields(fields) {
   let offset = base_serializers.uint32(length, buffer, 0);
 
   fields.forEach((field) => {
-    offset = base_serializers.string(field, buf, offset);
+    offset = base_serializers.string(field, buffer, offset);
   });
   return buffer;
 }
@@ -75,7 +75,7 @@ let TcprosUtils = {
   },
 
   createServiceClientHeader(callerId, service, md5sum, type) {
-    let field = [
+    let fields = [
       callerIdPrefix + callerId,
       servicePrefix + service,
       md5Prefix + md5sum

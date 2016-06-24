@@ -16,14 +16,26 @@ rosnodejs.initNode('/my_node')
   });
 
   // EXP 2) Service Client
-  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
+  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool', {persist: true});
   rosNode.waitForService(serviceClient.getService(), 2000)
   .then((available) => {
     if (available) {
       const request = new SetBool.Request();
       request.data = true;
-      serviceClient.call(request, (resp) => {
+      serviceClient.call(request).then((resp) => {
         console.log('Service response ' + JSON.stringify(resp));
+      })
+      .then(() => {
+        request.data = false;
+        return serviceClient.call(request).then((resp) => {
+          console.log('Service response 2 ' + JSON.stringify(resp));
+        });
+      })
+      .then(() => {
+        let serviceClient2 = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
+        serviceClient2.call(request).then((resp) => {
+          console.log('Non persistent response ' + JSON.stringify(resp));
+        })
       });
     }
   });
@@ -66,5 +78,7 @@ rosnodejs.initNode('/my_node')
   );
 })
 .catch((err) => {
-  console.log(err);
+  console.log('GOGOOAIYS:\n', err.stack);
+  //console.log(err);
+  throw err;
 });
