@@ -36,13 +36,14 @@ describe('gennodejsTests', () => {
     const msgInstance = new stdMsgString();
     msgInstance.data = msgData;
 
-    let bufferInfo = {buffer: [], length: 0};
-    const buf1 = Buffer.concat(stdMsgString.serialize(msgInstance, bufferInfo).buffer);
+    let instanceBuffer = new Buffer(stdMsgString.getMessageSize(msgInstance));
+    stdMsgString.serialize(msgInstance, instanceBuffer, 0);
 
-    bufferInfo = {buffer: [], length: 0};
-    const buf2 = Buffer.concat(stdMsgString.serialize({data: msgData}, bufferInfo).buffer);
+    let jsonMsg = {data: msgData};
+    let jsonBuffer = new Buffer(stdMsgString.getMessageSize(jsonMsg));
+    stdMsgString.serialize(jsonMsg, jsonBuffer, 0);
 
-    expect(buf1.equals(buf2)).to.be.true;
+    expect(instanceBuffer.equals(jsonBuffer)).to.be.true;
 
     done();
   });
@@ -51,27 +52,24 @@ describe('gennodejsTests', () => {
     it('string', (done) => {
       const stdMsgString = msgUtils.getHandlerForMsgType('std_msgs/String');
       const msgData = 'chatter';
-
+      const msgSize = 4 + msgData.length;
       // manually serialize string msg
-      const msgDataBuffer = new Buffer(msgData);
-      const msgLen = msgDataBuffer.length;
-      const msgLenBuffer = new Buffer(4);
-      msgLenBuffer.writeUInt32LE(msgLen);
-      const fullMsg = Buffer.concat([msgLenBuffer, msgDataBuffer]);
+      const fullMsg = new Buffer(msgSize);
+      fullMsg.writeUInt32LE(msgData.length);
+      fullMsg.write(msgData, 4);
 
       // auto serialize
       const msg = new stdMsgString();
       msg.data = msgData;
 
-      let bufferInfo = {buffer: [], length: 0};
-      bufferInfo = stdMsgString.serialize(msg, bufferInfo);
-      const fullMsg2 = Buffer.concat(bufferInfo.buffer);
+      const fullMsg2 = new Buffer(stdMsgString.getMessageSize(msg));
+      stdMsgString.serialize(msg, fullMsg2, 0);
 
       // expect equality
       expect(fullMsg.equals(fullMsg2)).to.be.true;
 
       // deserialize msg buffer - should equal original msgData
-      expect(stdMsgString.deserialize(fullMsg2).data.data).to.equal(msgData);
+      expect(stdMsgString.deserialize(fullMsg2, [0]).data).to.equal(msgData);
 
       done();
     });
@@ -82,13 +80,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(1);
       msgBuffer.writeInt8(intData);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(1);
       const Int8 = msgUtils.getHandlerForMsgType('std_msgs/Int8');
-      Int8.serialize({data: intData}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Int8.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(Int8.deserialize(msgBuffer2).data.data).to.equal(intData);
+      expect(Int8.deserialize(msgBuffer2, [0]).data).to.equal(intData);
 
       done();
     });
@@ -99,13 +96,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(1);
       msgBuffer.writeInt8(data);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(1);
       const UInt8 = msgUtils.getHandlerForMsgType('std_msgs/UInt8');
-      UInt8.serialize({data: data}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      UInt8.serialize({data: data}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(UInt8.deserialize(msgBuffer2).data.data).to.equal(data);
+      expect(UInt8.deserialize(msgBuffer2, [0]).data).to.equal(data);
 
       done();
     });
@@ -116,13 +112,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(2);
       msgBuffer.writeInt16LE(intData);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(2);
       const Int16 = msgUtils.getHandlerForMsgType('std_msgs/Int16');
-      Int16.serialize({data: intData}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Int16.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(Int16.deserialize(msgBuffer2).data.data).to.equal(intData);
+      expect(Int16.deserialize(msgBuffer2, [0]).data).to.equal(intData);
 
       done();
     });
@@ -133,13 +128,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(2);
       msgBuffer.writeUInt16LE(data);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(2);
       const UInt16 = msgUtils.getHandlerForMsgType('std_msgs/UInt16');
-      UInt16.serialize({data: data}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      UInt16.serialize({data: data}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(UInt16.deserialize(msgBuffer2).data.data).to.equal(data);
+      expect(UInt16.deserialize(msgBuffer2, [0]).data).to.equal(data);
 
       done();
     });
@@ -150,13 +144,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(4);
       msgBuffer.writeInt32LE(intData);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(4);
       const Int32 = msgUtils.getHandlerForMsgType('std_msgs/Int32');
-      Int32.serialize({data: intData}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Int32.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(Int32.deserialize(msgBuffer2).data.data).to.equal(intData);
+      expect(Int32.deserialize(msgBuffer2, [0]).data).to.equal(intData);
 
       done();
     });
@@ -167,13 +160,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(4);
       msgBuffer.writeUInt32LE(data);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(4);
       const UInt32 = msgUtils.getHandlerForMsgType('std_msgs/UInt32');
-      UInt32.serialize({data: data}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      UInt32.serialize({data: data}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(UInt32.deserialize(msgBuffer2).data.data).to.equal(data);
+      expect(UInt32.deserialize(msgBuffer2, [0]).data).to.equal(data);
 
       done();
     });
@@ -184,13 +176,12 @@ describe('gennodejsTests', () => {
 
       const msgBuffer = new Buffer(intData);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(8);
       const Int64 = msgUtils.getHandlerForMsgType('std_msgs/Int64');
-      Int64.serialize({data: intData}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Int64.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(Int64.deserialize(msgBuffer2).data.data.equals(intData)).to.be.true;
+      expect(intData.equals(Int64.deserialize(msgBuffer2, [0]).data)).to.be.true;
 
       done();
     });
@@ -201,13 +192,12 @@ describe('gennodejsTests', () => {
 
       const msgBuffer = new Buffer(intData);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(8);
       const UInt64 = msgUtils.getHandlerForMsgType('std_msgs/UInt64');
-      UInt64.serialize({data: intData}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      UInt64.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(UInt64.deserialize(msgBuffer2).data.data.equals(intData)).to.be.true;
+      expect(intData.equals(UInt64.deserialize(msgBuffer2, [0]).data)).to.be.true;
 
       done();
     });
@@ -218,13 +208,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(4);
       msgBuffer.writeFloatLE(data);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(4);
       const Float32 = msgUtils.getHandlerForMsgType('std_msgs/Float32');
-      Float32.serialize({data: data}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Float32.serialize({data: data}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(Float32.deserialize(msgBuffer2).data.data).to.be.closeTo(data, 0.0005);
+      expect(Float32.deserialize(msgBuffer2, [0]).data).to.be.closeTo(data, 0.0005);
 
       done();
     });
@@ -235,13 +224,12 @@ describe('gennodejsTests', () => {
       const msgBuffer = new Buffer(8);
       msgBuffer.writeDoubleLE(data);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(8);
       const Float32 = msgUtils.getHandlerForMsgType('std_msgs/Float64');
-      Float32.serialize({data: data}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Float32.serialize({data: data}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(Float32.deserialize(msgBuffer2).data.data).to.be.closeTo(data, 0.0000005);
+      expect(Float32.deserialize(msgBuffer2, [0]).data).to.be.closeTo(data, 0.0000005);
 
       done();
     });
@@ -253,13 +241,12 @@ describe('gennodejsTests', () => {
       msgBuffer.writeInt32LE(time.secs)
       msgBuffer.writeInt32LE(time.nsecs, 4);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(8);
       const Time = msgUtils.getHandlerForMsgType('std_msgs/Time');
-      Time.serialize({data: time}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Time.serialize({data: time}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      const deserializedTime = Time.deserialize(msgBuffer2).data.data;
+      const deserializedTime = Time.deserialize(msgBuffer2, [0]).data;
       expect(deserializedTime.secs).to.equal(time.secs);
       expect(deserializedTime.nsecs).to.equal(time.nsecs);
 
@@ -273,13 +260,12 @@ describe('gennodejsTests', () => {
       msgBuffer.writeInt32LE(duration.secs)
       msgBuffer.writeInt32LE(duration.nsecs, 4);
 
-      let bufferInfo = {buffer: [], length: 0};
+      const msgBuffer2 =  new Buffer(8);
       const Duration = msgUtils.getHandlerForMsgType('std_msgs/Duration');
-      Duration.serialize({data: duration}, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      Duration.serialize({data: duration}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      const deserializedDuration = Duration.deserialize(msgBuffer2).data.data;
+      const deserializedDuration = Duration.deserialize(msgBuffer2, [0]).data;
       expect(deserializedDuration.secs).to.equal(duration.secs);
       expect(deserializedDuration.nsecs).to.equal(duration.nsecs);
 
@@ -306,11 +292,10 @@ describe('gennodejsTests', () => {
       baseType.string_field = BaseType.Constants.STRING_CONSTANT;
       baseType.num_field = BaseType.Constants.NUMERIC_CONSTANT_A;
 
-      let bufferInfo = {buffer: [], length: 0};
-      BaseType.serialize(baseType, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(BaseType.getMessageSize(baseType));
+      BaseType.serialize(baseType, msgBuffer, 0);
 
-      const deserializedMsg = BaseType.deserialize(msgBuffer).data;
+      const deserializedMsg = BaseType.deserialize(msgBuffer, [0]);
 
       expect(deserializedMsg.string_field).to.equal(baseType.string_field);
       expect(deserializedMsg.num_field).to.equal(baseType.num_field);
@@ -331,12 +316,11 @@ describe('gennodejsTests', () => {
         expect(item).to.equal(0);
       });
 
-      let bufferInfo = {buffer: [], length: 0};
-      CLA.serialize(cla, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(CLA.getMessageSize(cla));
+      CLA.serialize(cla, msgBuffer, 0);
       expect(msgBuffer.length).to.equal(claArrLen);
 
-      const deserializedMsg = CLA.deserialize(msgBuffer).data;
+      const deserializedMsg = CLA.deserialize(msgBuffer, [0]);
       expect(deserializedMsg.array_field.length).to.equal(claArrLen);
 
       const BTCLA = msgUtils.getHandlerForMsgType('test_msgs/BaseTypeConstantLengthArray');
@@ -351,12 +335,11 @@ describe('gennodejsTests', () => {
         expect(item).to.be.an.instanceof(BaseType);
       });
 
-      bufferInfo = {buffer: [], length: 0};
-      BTCLA.serialize(btcla, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer2 = new Buffer(BTCLA.getMessageSize(btcla));
+      BTCLA.serialize(btcla, msgBuffer2, 0);
       expect(msgBuffer2.length).to.equal(25);
 
-      const deserializedMsg2 = BTCLA.deserialize(msgBuffer2).data;
+      const deserializedMsg2 = BTCLA.deserialize(msgBuffer2, [0]);
       expect(deserializedMsg2.array_field.length).to.equal(btclaArrLen);
       deserializedMsg2.array_field.forEach((item) => {
         expect(item).to.be.an.instanceof(BaseType);
@@ -372,9 +355,8 @@ describe('gennodejsTests', () => {
       expect(vla.array_field).to.be.a('Array');
       expect(vla.array_field.length).to.equal(0);
 
-      let bufferInfo = {buffer: [], length: 0};
-      VLA.serialize(vla, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(VLA.getMessageSize(vla));
+      VLA.serialize(vla, msgBuffer, 0);
       expect(msgBuffer.length).to.equal(4);
 
       const val = 12;
@@ -385,12 +367,11 @@ describe('gennodejsTests', () => {
         expect(item).to.equal(val);
       });
 
-      bufferInfo = {buffer: [], length: 0};
-      VLA.serialize(vla, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer2 = new Buffer(VLA.getMessageSize(vla));
+      VLA.serialize(vla, msgBuffer2, 0);
       expect(msgBuffer2.length).to.equal(arrLen + 4);
 
-      const deserializedMsg = VLA.deserialize(msgBuffer2).data;
+      const deserializedMsg = VLA.deserialize(msgBuffer2, [0]);
       expect(deserializedMsg.array_field.length).to.equal(arrLen);
       deserializedMsg.array_field.forEach((item) => {
         expect(item).to.be.a('number');
@@ -404,20 +385,18 @@ describe('gennodejsTests', () => {
       expect(btvla.array_field).to.be.a('Array');
       expect(btvla.array_field.length).to.equal(0);
 
-      bufferInfo = {buffer: [], length: 0};
-      VLA.serialize(btvla, bufferInfo);
-      const msgBuffer3 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer3 = new Buffer(VLA.getMessageSize(btvla));
+      VLA.serialize(btvla, msgBuffer3, 0);
       expect(msgBuffer3.length).to.equal(4);
 
       const arrLen2 = 4;
       btvla.array_field = new Array(arrLen2).fill(new BaseType());
 
-      bufferInfo = {buffer: [], length: 0};
-      BTVLA.serialize(btvla, bufferInfo);
-      const msgBuffer4 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer4 = new Buffer(BTVLA.getMessageSize(btvla));
+      BTVLA.serialize(btvla, msgBuffer4, 0);
       expect(msgBuffer4.length).to.equal(24);
 
-      const deserializedMsg2 = BTVLA.deserialize(msgBuffer4).data;
+      const deserializedMsg2 = BTVLA.deserialize(msgBuffer4, [0]);
       expect(deserializedMsg2.array_field.length).to.equal(arrLen2);
       deserializedMsg2.array_field.forEach((item) => {
         expect(item).to.be.an.instanceof(BaseType);
@@ -442,12 +421,11 @@ describe('gennodejsTests', () => {
       const dataField = 'JUNK';
       bsRequest.data = dataField;
       bsRequest.op = BSRequest.Constants.OP_LEFT_PAD;
-      let bufferInfo = {buffer: [], length: 0};
-      BSRequest.serialize(bsRequest, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(BSRequest.getMessageSize(bsRequest));
+      BSRequest.serialize(bsRequest, msgBuffer, 0);
       expect(msgBuffer.length).to.equal(20);
 
-      const deserializedRequest = BSRequest.deserialize(msgBuffer).data;
+      const deserializedRequest = BSRequest.deserialize(msgBuffer, [0]);
       expect(deserializedRequest).to.be.an.instanceof(BSRequest);
       expect(deserializedRequest.data).to.equal(dataField);
       expect(deserializedRequest.op).to.equal(BSRequest.Constants.OP_LEFT_PAD);
@@ -458,12 +436,11 @@ describe('gennodejsTests', () => {
       expect(bsResponse.result).to.be.a('string');
 
       bsResponse.result = BSResponse.Constants.RES_NULL;
-      bufferInfo = {buffer: [], length: 0};
-      BSResponse.serialize(bsResponse, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer2 = new Buffer(BSResponse.getMessageSize(bsResponse));
+      BSResponse.serialize(bsResponse, msgBuffer2, 0);
       expect(msgBuffer2.length).to.equal(8);
 
-      const deserializedResponse = BSResponse.deserialize(msgBuffer2).data;
+      const deserializedResponse = BSResponse.deserialize(msgBuffer2, [0]);
       expect(deserializedResponse).to.be.an.instanceof(BSResponse);
       expect(deserializedResponse.result).to.equal(BSResponse.Constants.RES_NULL);
 
@@ -483,12 +460,11 @@ describe('gennodejsTests', () => {
       expect(tsRequest.input).to.be.an.instanceof(BaseType);
       tsRequest.input.string_field = BaseType.Constants.STRING_CONSTANT;
 
-      let bufferInfo = {buffer: [], length: 0};
-      TSRequest.serialize(tsRequest, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(TSRequest.getMessageSize(tsRequest));
+      TSRequest.serialize(tsRequest, msgBuffer, 0);
       expect(msgBuffer.length).to.equal(10);
 
-      const deserializedRequest = TSRequest.deserialize(msgBuffer).data;
+      const deserializedRequest = TSRequest.deserialize(msgBuffer, [0]);
       expect(deserializedRequest).to.be.an.instanceof(TSRequest);
       expect(deserializedRequest.input).to.be.an.instanceof(BaseType);
 
@@ -496,12 +472,11 @@ describe('gennodejsTests', () => {
       const tsResponse =  new TSResponse();
       expect(tsResponse).to.be.empty;
 
-      bufferInfo = {buffer: [], length: 0};
-      TSResponse.serialize(tsResponse, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer2 = new Buffer(TSResponse.getMessageSize(tsResponse));
+      TSResponse.serialize(tsResponse, msgBuffer2, 0);
       expect(msgBuffer2.length).to.equal(0);
 
-      const deserializedRequest2 = TSResponse.deserialize(msgBuffer2).data;
+      const deserializedRequest2 = TSResponse.deserialize(msgBuffer2, [0]);
       expect(deserializedRequest2).to.be.an.instanceof(TSResponse);
       expect(deserializedRequest2).to.be.empty;
 
@@ -527,11 +502,10 @@ describe('gennodejsTests', () => {
       stdMsg.header = header;
       stdMsg.time_field = time;
 
-      let bufferInfo = {buffer: [], length: 0};
-      StdMsg.serialize(stdMsg, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(StdMsg.getMessageSize(stdMsg));
+      StdMsg.serialize(stdMsg, msgBuffer, 0);
 
-      const deserializedMsg = StdMsg.deserialize(msgBuffer).data;
+      const deserializedMsg = StdMsg.deserialize(msgBuffer, [0]);
       expect(deserializedMsg.header.seq).to.equal(seq);
       expect(deserializedMsg.header.stamp.secs).to.equal(time.secs);
       expect(deserializedMsg.header.stamp.nsecs).to.equal(time.nsecs);
@@ -554,12 +528,11 @@ describe('gennodejsTests', () => {
       const hRequest = new HRequest();
       expect(hRequest).to.be.empty;
 
-      let bufferInfo = {buffer: [], length: 0};
-      HRequest.serialize(hRequest, bufferInfo);
-      const msgBuffer = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer = new Buffer(HRequest.getMessageSize(hRequest));
+      HRequest.serialize(hRequest, msgBuffer, 0);
       expect(msgBuffer.length).to.equal(0);
 
-      const deserializedRequest = HRequest.deserialize(msgBuffer).data;
+      const deserializedRequest = HRequest.deserialize(msgBuffer, [0]);
       expect(deserializedRequest).to.be.an.instanceof(HRequest);
       expect(hRequest).to.be.empty;
 
@@ -570,12 +543,11 @@ describe('gennodejsTests', () => {
       hResponse.header_response.seq = seq;
       hResponse.header_response.frame_id = frameId;
 
-      bufferInfo = {buffer: [], length: 0};
-      HResponse.serialize(hResponse, bufferInfo);
-      const msgBuffer2 = Buffer.concat(bufferInfo.buffer);
+      const msgBuffer2 = new Buffer(HResponse.getMessageSize(hResponse));
+      HResponse.serialize(hResponse, msgBuffer2, 0);
       expect(msgBuffer2.length).to.equal(20);
 
-      const deserializedRequest2 = HResponse.deserialize(msgBuffer2).data;
+      const deserializedRequest2 = HResponse.deserialize(msgBuffer2, [0]);
       expect(deserializedRequest2).to.be.an.instanceof(HResponse);
       expect(deserializedRequest2.header_response).to.be.an.instanceof(Header);
       expect(deserializedRequest2.header_response.seq).to.equal(seq);
