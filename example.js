@@ -9,28 +9,40 @@ rosnodejs.initNode('/my_node')
   // EXP 1) Service Server
   let service = rosNode.advertiseService('/set_bool', SetBool,
     (req, resp) => {
-      console.log('Handling request! ' + JSON.stringify(req));
+      rosnodejs.log.info('Handling request! ' + JSON.stringify(req));
       resp.success = !req.data;
       resp.message = 'Inverted!';
       return true;
   });
 
   // EXP 2) Service Client
-  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
+  let serviceClient = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool', {persist: true});
   rosNode.waitForService(serviceClient.getService(), 2000)
   .then((available) => {
     if (available) {
       const request = new SetBool.Request();
       request.data = true;
-      serviceClient.call(request, (resp) => {
-        console.log('Service response ' + JSON.stringify(resp));
+      serviceClient.call(request).then((resp) => {
+        rosnodejs.log.info('Service response ' + JSON.stringify(resp));
+      })
+      .then(() => {
+        request.data = false;
+        serviceClient.call(request).then((resp) => {
+          rosnodejs.log.info('Service response 2 ' + JSON.stringify(resp));
+        });
+      })
+      .then(() => {
+        let serviceClient2 = rosNode.serviceClient('/set_bool', 'std_srvs/SetBool');
+        serviceClient2.call(request).then((resp) => {
+          rosnodejs.log.info('Non persistent response ' + JSON.stringify(resp));
+        })
       });
     }
   });
 
   // EXP 3) Params
   rosNode.setParam('~junk', {'hi': 2}).then(() => {
-    rosNode.getParam('~junk').then((val) => { console.log('Got Param!!! ' + JSON.stringify(val)); });
+    rosNode.getParam('~junk').then((val) => { rosnodejs.log.info('Got Param!!! ' + JSON.stringify(val)); });
   });
 
   // EXP 4) Publisher
@@ -57,7 +69,7 @@ rosnodejs.initNode('/my_node')
   // EXP 5) Subscriber
   let sub = rosNode.subscribe('/my_topic', 'std_msgs/String',
     (data) => {
-      console.log('SUB DATA ' + data.data);
+      rosnodejs.log.info('SUB DATA ' + data.data);
     },
     {
       queueSize: 1,
@@ -66,5 +78,5 @@ rosnodejs.initNode('/my_node')
   );
 })
 .catch((err) => {
-  console.log(err);
+  rosnodejs.log.info(err);
 });

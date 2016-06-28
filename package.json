@@ -7,7 +7,7 @@
     "ros"
   ],
   "scripts": {
-    "test": "mocha --recursive --grep gennodejsTest --invert",
+    "test": "mocha test/directory.js",
     "gennodejsTest": "mocha test/gennodejsTest",
     "flatten": "node flatten.js"
   },
@@ -27,6 +27,7 @@
     "xmlrpc": "1.3.1",
     "walker"        : "1.0.7",
     "md5"           : "2.1.0",
-    "async"         : "0.1.22"
+    "async"         : "0.1.22",
+    "bunyan": "1.8.1"
   }
 }

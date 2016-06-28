@@ -31,6 +31,7 @@ let topicPrefix = 'topic=';
 let servicePrefix = 'service=';
 let typePrefix = 'type=';
 let latchingPrefix = 'latching=';
+let persistentPrefix = 'persistent=';
 
 //-----------------------------------------------------------------------
 
@@ -54,11 +55,15 @@ let TcprosUtils = {
     return Serialize(buffer);
   },
 
-  createServiceClientHeader(callerId, service, md5sum, type) {
+  createServiceClientHeader(callerId, service, md5sum, type, persistent) {
     let caller = String(callerIdPrefix + callerId);
     let servic = String(servicePrefix + service);
     let md5 = String(md5Prefix + md5sum);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), servic.serialize()]);
+    let buffers = [caller.serialize(), md5.serialize(), servic.serialize()];
+    if (persistent) {
+      buffers.push(String(persistentPrefix + '1').serialize());
+    }
+    let buffer = Buffer.concat(buffers);
     return Serialize(buffer);
   },
 
@@ -79,7 +84,7 @@ let TcprosUtils = {
       let matchResult = field.match(/^(\w+)=(.+)/m);
       // invalid connection header
       if (!matchResult) {
-        console.error('Invalid connection header!');
+        console.error('Invalid connection header while parsing field %s', field);
         return null;
       }
       // else

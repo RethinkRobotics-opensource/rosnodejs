@@ -23,16 +23,22 @@ const netUtils = require('./utils/network_utils.js');
 const msgUtils = require('./utils/message_utils.js');
 const messages = require('./utils/messages.js');
 const util = require('util');
+const RosLogStream = require('./utils/log/RosLogStream.js');
+const ConsoleLogStream = require('./utils/log/ConsoleLogStream.js');
+const LogFormatter = require('./utils/log/LogFormatter.js');
+const RosNode = require('./lib/RosNode.js');
+const NodeHandle = require('./lib/NodeHandle.js');
+const Logging = require('./lib/Logging.js');
+
 msgUtils.findMessageFiles();
 
 // these will be modules, they depend on logger which isn't initialized yet
 // though so they'll be required later (in initNode)
-let logger = null;
-let RosNode = null;
-let NodeHandle = null;
+// let RosNode = null;
+// let NodeHandle = null;
 
 // will be initialized through call to initNode
-let log = null;
+let log = Logging.getLogger();
 let rosNode = null;
 let firstCheck = true;
 
@@ -48,12 +54,12 @@ function _checkMasterHelper(callback, timeout) {
     // else
     rosNode.getMasterUri()
     .then((resp) => {
-      log.info('Connected to master!');
-      callback(Rosnodejs.getNodeHandle());
+      log.infoOnce('Connected to master!');
+      callback();
     })
     .catch((err, resp) => {
       if (firstCheck) {
-        log.warn('Unable to connect to master. ' + err);
+        log.warnOnce('Unable to connect to master. ' + err);
         firstCheck = false;
       }
       _checkMasterHelper(callback, 500);
@@ -121,15 +127,6 @@ let Rosnodejs = {
       netUtils.setPortRange(options.portRange);
     }
 
-    // setup logger
-    logger = require('./utils/logger.js');
-    logger.init(options.logger);
-    log = logger.createLogger();
-
-    // require other necessary modules...
-    RosNode = require('./lib/RosNode.js');
-    NodeHandle = require('./lib/NodeHandle.js');
-
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
     let checkMasterTimeout =  0;
@@ -137,7 +134,13 @@ let Rosnodejs = {
 
     return new Promise((resolve, reject) => {
       this.use(options.messages, options.services).then(() => {
-        _checkMasterHelper(resolve, 0);
+
+        const connectedToMasterCallback = () => {
+          Logging.initializeOptions(this, options.logging);
+          resolve(this.getNodeHandle());
+        };
+
+        _checkMasterHelper(connectedToMasterCallback, 0);
       });
     })
     .catch((err) => {
@@ -226,6 +229,17 @@ let Rosnodejs = {
 
   get nh() {
     return new NodeHandle(rosNode);
+  },
+
+  get log() {
+    return Logging;
+  },
+
+  get logStreams() {
+    return {
+      console: ConsoleLogStream,
+      ros:     RosLogStream
+    }
   }
 }
 
