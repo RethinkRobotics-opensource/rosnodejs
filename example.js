@@ -78,5 +78,5 @@ rosnodejs.initNode('/my_node')
   );
 })
 .catch((err) => {
-  rosnodejs.log.info(err);
+  rosnodejs.log.error(err);
 });

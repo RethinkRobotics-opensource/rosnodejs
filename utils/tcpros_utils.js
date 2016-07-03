@@ -17,7 +17,9 @@
 
 'use strict';
 
-let SerializationUtils = require('./serialization_utils.js');
+const ros_msg_utils = require('ros_msg_utils');
+const base_serializers = ros_msg_utils.Serialize;
+const SerializationUtils = require('./serialization_utils.js');
 let PrependLength = SerializationUtils.PrependLength;
 let Serialize = SerializationUtils.Serialize;
 let Deserialize = SerializationUtils.Deserialize;
@@ -35,44 +37,63 @@ let persistentPrefix = 'persistent=';
 
 //-----------------------------------------------------------------------
 
+function serializeStringFields(fields) {
+  let length = 0;
+  fields.forEach((field) => {
+    length += (field.length + 4);
+  });
+  let buffer = new Buffer(4 + length);
+  let offset = base_serializers.uint32(length, buffer, 0);
+
+  fields.forEach((field) => {
+    offset = base_serializers.string(field, buffer, offset);
+  });
+  return buffer;
+}
+
+//-----------------------------------------------------------------------
+
 let TcprosUtils = {
 
   createSubHeader(callerId, md5sum, topic, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let topi = String(topicPrefix + topic);
-    let typ = String(typePrefix + type);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), topi.serialize(), typ.serialize()]);
-    return Serialize(buffer);
+    let fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      topicPrefix + topic,
+      typePrefix + type
+    ];
+    return serializeStringFields(fields);
   },
 
   createPubHeader(callerId, md5sum, type, latching) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let typ = String(typePrefix + type);
-    let latch = String(latchingPrefix + latching);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), typ.serialize(), latch.serialize()]);
-    return Serialize(buffer);
+    let fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      typePrefix + type,
+      latchingPrefix + latching
+    ];
+    return serializeStringFields(fields);
   },
 
   createServiceClientHeader(callerId, service, md5sum, type, persistent) {
-    let caller = String(callerIdPrefix + callerId);
-    let servic = String(servicePrefix + service);
-    let md5 = String(md5Prefix + md5sum);
-    let buffers = [caller.serialize(), md5.serialize(), servic.serialize()];
+    let fields = [
+      callerIdPrefix + callerId,
+      servicePrefix + service,
+      md5Prefix + md5sum
+    ];
     if (persistent) {
-      buffers.push(String(persistentPrefix + '1').serialize());
+      fields.push(persistentPrefix + '1');
     }
-    let buffer = Buffer.concat(buffers);
-    return Serialize(buffer);
+    return serializeStringFields(fields);
   },
 
   createServiceServerHeader(callerId, md5sum, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let typ = String(typePrefix + type);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), typ.serialize()]);
-    return Serialize(buffer);
+    let fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      typePrefix + type
+    ];
+    return serializeStringFields(fields);
   },
 
   parseTcpRosHeader(header) {
@@ -208,6 +229,60 @@ let TcprosUtils = {
     }
     // else
     return null;
+  },
+
+  serializeMessage(MessageClass, message, prependMessageLength) {
+    if (prependMessageLength === undefined) {
+      prependMessageLength = true;
+    }
+
+    const msgSize = MessageClass.getMessageSize(message);
+    let msgBuffer;
+    let offset = 0;
+    if (prependMessageLength) {
+      msgBuffer = new Buffer(msgSize + 4);
+      base_serializers.uint32(msgSize, msgBuffer, 0);
+      offset = 4;
+    }
+    else {
+      msgBuffer = new Buffer(msgSize);
+    }
+
+    MessageClass.serialize(message, msgBuffer, offset);
+
+    return msgBuffer;
+  },
+
+  serializeServiceResponse(ResponseClass, response, success, prependResponseInfo) {
+    let responseBuffer;
+    if (prependResponseInfo || prependResponseInfo === undefined) {
+
+      if (success) {
+        const respSize = ResponseClass.getMessageSize(response);
+        responseBuffer = new Buffer(respSize + 5);
+
+        base_serializers.uint8(1, responseBuffer, 0)
+        base_serializers.uint32(respSize, responseBuffer, 1);
+        ResponseClass.serialize(response, responseBuffer, 5);
+      }
+      else {
+        const errorMessage = 'Unable to handle service call';
+        const errLen = errorMessage.length;
+        // FIXME: check that we don't need the extra 4 byte str len here
+        responseBuffer = new Buffer(5 + errLen);
+        base_serializers.uint8(0, responseBuffer, 0);
+        base_serializers.string(errorMessage, responseBuffer, 1);
+      }
+    }
+    else {
+      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
+    }
+
+    return responseBuffer;
+  },
+
+  deserializeMessage(MessageClass, messageBuffer) {
+    return MessageClass.deserialize(messageBuffer, [0]);
   }
 };
 

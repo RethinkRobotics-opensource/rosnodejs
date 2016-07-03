@@ -17,6 +17,8 @@
 
 'use strict';
 const util = require('util');
+const ros_msg_utils = require('ros_msg_utils');
+const base_serializers = ros_msg_utils.Serialize
 const Transform = require('stream').Transform;
 
 //-----------------------------------------------------------------------
@@ -126,7 +128,7 @@ DeserializeStream.prototype = {
     done();
   },
 
-  emitMessage(buffer) {  
+  emitMessage(buffer) {
     if (this._deserializeServiceResp) {
       this.emit('message', buffer, this._serviceRespSuccess);
       this._serviceRespSuccess = null;
@@ -149,6 +151,10 @@ function PrependLength(buffer, len) {
   let lenBuf = new Buffer(4);
   lenBuf.writeUInt32LE(len, 0);
   return Buffer.concat([lenBuf, buffer], buffer.length + 4);
+}
+
+function serializeString(str) {
+
 }
 
 //-----------------------------------------------------------------------

@@ -42,21 +42,21 @@ messages.getServiceResponse = function(messageType, callback) {
 // Registry
 
 var registry = {};
-/* 
+/*
    registry looks like:
-  { 'packagename': 
+  { 'packagename':
     {
-      msg: { 
+      msg: {
         'String': classdef,
         'Pose': classdef,
         ...
       },
-      srv: { Request: 
+      srv: { Request:
              {
                'SetBool': classdef,
                ...
              },
-             Response: 
+             Response:
              {
                'SetBool': classdef,
                ...
@@ -70,7 +70,7 @@ var registry = {};
 /**
    @param messageType is the ROS message or service type, e.g.
    'std_msgs/String'
-   @param type is from the set 
+   @param type is from the set
    [["msg"], ["srv","Request"], ["srv","Response"]]
 */
 function getMessageFromRegistry(messageType, type) {
@@ -96,12 +96,12 @@ function getMessageFromRegistry(messageType, type) {
   }
 }
 
-/** 
+/**
     @param messageType is the ROS message or service type, e.g.
     'std_msgs/String'
-    @param type is from the set 
+    @param type is from the set
     [["msg"], ["srv","Request"], ["srv","Response"]]
-    @param message is the message class definition 
+    @param message is the message class definition
 */
 function setMessageInRegistry(messageType, type, message) {
   var packageName = getPackageNameFromMessageType(messageType);
@@ -123,7 +123,7 @@ function setMessageInRegistry(messageType, type, message) {
     }
 
     var serviceType = type[1]; // "Request" or "Response"
-    registry[packageName][kind][messageName][serviceType] = message;    
+    registry[packageName][kind][messageName][serviceType] = message;
   }
 }
 
@@ -427,13 +427,13 @@ function buildMessageClass(details) {
   Message.constants   = Message.prototype.constants   = details.constants;
   Message.fields      = Message.prototype.fields      = details.fields;
   Message.serialize   = Message.prototype.serialize   =
-    function(obj, bufferInfo) {
-      return serializeMessage(obj, bufferInfo);
+    function(obj, buffer, bufferOffset) {
+      return serializeInnerMessage(obj, bufferInfo);
     }
-  Message.deserialize = Message.prototype.deserialize = function(buffer) {
-    var obj = deserializeMessage(buffer, Message);
-    return obj;
-  }
+  Message.deserialize = Message.prototype.deserialize =
+    function(buffer, bufferOffset) {
+      return deserializeInnerMessage(new Message(), buffer, bufferOffset);
+    }
   Message.prototype.validate    = buildValidator(details);
 
   return Message;
@@ -471,16 +471,8 @@ function getMessageNameFromMessageType(messageType) {
 // ---------------------------------------------------------
 // Serialize
 
-function serializeMessage(message, bufferInfo) {
-  var bufferSize   = fieldsUtil.getMessageSize(message);
-  var buffer       = new Buffer(bufferSize);
-
-  serializeInnerMessage(message, buffer, 0);
-
-  bufferInfo.buffer = [buffer];
-  bufferInfo.length = bufferSize;
-
-  return bufferInfo;
+function serializeMessage(message, buffer, bufferOffset) {
+  return serializeInnerMessage(message, buffer, bufferOffset);
 }
 
 function serializeInnerMessage(message, buffer, bufferOffset) {

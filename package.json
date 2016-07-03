@@ -9,6 +9,7 @@
   "scripts": {
     "test": "mocha test/directory.js",
     "gennodejsTest": "mocha test/gennodejsTest",
+    "perfTest": "mocha serializationTest",
     "flatten": "node flatten.js"
   },
   "author": "chris smith",
