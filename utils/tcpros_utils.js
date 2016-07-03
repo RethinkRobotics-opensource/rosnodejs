@@ -225,6 +225,60 @@ let TcprosUtils = {
     }
     // else
     return null;
+  },
+
+  serializeMessage(MessageClass, message, prependMessageLength) {
+    if (prependMessageLength === undefined) {
+      prependMessageLength = true;
+    }
+
+    const msgSize = MessageClass.getMessageSize(message);
+    let msgBuffer;
+    let offset = 0;
+    if (prependMessageLength) {
+      msgBuffer = new Buffer(msgSize + 4);
+      base_serializers.uint32(msgSize, msgBuffer, 0);
+      offset = 4;
+    }
+    else {
+      msgBuffer = new Buffer(msgSize);
+    }
+
+    MessageClass.serialize(message, msgBuffer, offset);
+
+    return msgBuffer;
+  },
+
+  serializeServiceResponse(ResponseClass, response, success, prependResponseInfo) {
+    let responseBuffer;
+    if (prependResponseInfo || prependResponseInfo === undefined) {
+
+      if (success) {
+        const respSize = ResponseClass.getMessageSize(response);
+        responseBuffer = new Buffer(respSize + 5);
+
+        base_serializers.uint8(1, responseBuffer, 0)
+        base_serializers.uint32(respSize, responseBuffer, 1);
+        ResponseClass.serialize(response, responseBuffer, 5);
+      }
+      else {
+        const errorMessage = 'Unable to handle service call';
+        const errLen = errorMessage.length;
+        // FIXME: check that we don't need the extra 4 byte str len here
+        responseBuffer = new Buffer(5 + errLen);
+        base_serializers.uint8(0, responseBuffer, 0);
+        base_serializers.string(errorMessage, responseBuffer, 1);
+      }
+    }
+    else {
+      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
+    }
+
+    return responseBuffer;
+  },
+
+  deserializeMessage(MessageClass, messageBuffer) {
+    return MessageClass.deserialize(messageBuffer, [0]);
   }
 };
 

@@ -8,6 +8,7 @@ describe('gennodejsTests', () => {
   msgUtils.findMessageFiles();
   msgUtils.loadMessagePackage('std_msgs');
   msgUtils.loadMessagePackage('test_msgs');
+  msgUtils.loadMessagePackage('actionlib_msgs');
 
   it('basic', (done) => {
     let stringMsg;
@@ -48,7 +49,7 @@ describe('gennodejsTests', () => {
     done();
   });
 
-  describe('parse builtins', () => {
+  describe('builtins', () => {
     it('string', (done) => {
       const stdMsgString = msgUtils.getHandlerForMsgType('std_msgs/String');
       const msgData = 'chatter';
@@ -71,6 +72,26 @@ describe('gennodejsTests', () => {
       // deserialize msg buffer - should equal original msgData
       expect(stdMsgString.deserialize(fullMsg2, [0]).data).to.equal(msgData);
 
+      expect((new stdMsgString()).data).to.equal('');
+
+      done();
+    });
+
+    it('bool', (done) => {
+      const data = true;
+
+      const msgBuffer = new Buffer(1);
+      msgBuffer.writeInt8(true);
+
+      const msgBuffer2 =  new Buffer(1);
+      const Bool = msgUtils.getHandlerForMsgType('std_msgs/Bool');
+      Bool.serialize({data: data}, msgBuffer2, 0);
+
+      expect(msgBuffer.equals(msgBuffer2)).to.be.true;
+      expect(Bool.deserialize(msgBuffer2, [0]).data).to.equal(data);
+
+      expect((new Bool()).data).to.equal(false);
+
       done();
     });
 
@@ -86,6 +107,8 @@ describe('gennodejsTests', () => {
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(Int8.deserialize(msgBuffer2, [0]).data).to.equal(intData);
+
+      expect((new Int8()).data).to.equal(0);
 
       done();
     });
@@ -103,6 +126,8 @@ describe('gennodejsTests', () => {
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(UInt8.deserialize(msgBuffer2, [0]).data).to.equal(data);
 
+      expect((new UInt8()).data).to.equal(0);
+
       done();
     });
 
@@ -118,6 +143,8 @@ describe('gennodejsTests', () => {
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(Int16.deserialize(msgBuffer2, [0]).data).to.equal(intData);
+
+      expect((new Int16()).data).to.equal(0);
 
       done();
     });
@@ -135,6 +162,8 @@ describe('gennodejsTests', () => {
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(UInt16.deserialize(msgBuffer2, [0]).data).to.equal(data);
 
+      expect((new UInt16()).data).to.equal(0);
+
       done();
     });
 
@@ -150,6 +179,8 @@ describe('gennodejsTests', () => {
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(Int32.deserialize(msgBuffer2, [0]).data).to.equal(intData);
+
+      expect((new Int32()).data).to.equal(0);
 
       done();
     });
@@ -167,6 +198,8 @@ describe('gennodejsTests', () => {
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(UInt32.deserialize(msgBuffer2, [0]).data).to.equal(data);
 
+      expect((new UInt32()).data).to.equal(0);
+
       done();
     });
 
@@ -182,6 +215,8 @@ describe('gennodejsTests', () => {
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(intData.equals(Int64.deserialize(msgBuffer2, [0]).data)).to.be.true;
+
+      expect((new Int64()).data).to.equal(0);
 
       done();
     });
@@ -199,6 +234,8 @@ describe('gennodejsTests', () => {
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(intData.equals(UInt64.deserialize(msgBuffer2, [0]).data)).to.be.true;
 
+      expect((new UInt64()).data).to.equal(0);
+
       done();
     });
 
@@ -215,6 +252,8 @@ describe('gennodejsTests', () => {
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(Float32.deserialize(msgBuffer2, [0]).data).to.be.closeTo(data, 0.0005);
 
+      expect((new Float32()).data).to.be.closeTo(0.0, 0.0005);
+
       done();
     });
 
@@ -230,6 +269,8 @@ describe('gennodejsTests', () => {
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
       expect(Float32.deserialize(msgBuffer2, [0]).data).to.be.closeTo(data, 0.0000005);
+
+      expect((new Float32()).data).to.be.closeTo(0.0, 0.0000005);
 
       done();
     });
@@ -250,6 +291,8 @@ describe('gennodejsTests', () => {
       expect(deserializedTime.secs).to.equal(time.secs);
       expect(deserializedTime.nsecs).to.equal(time.nsecs);
 
+      expect((new Time()).data).to.deep.equal({secs: 0, nsecs: 0});
+
       done();
     });
 
@@ -268,6 +311,8 @@ describe('gennodejsTests', () => {
       const deserializedDuration = Duration.deserialize(msgBuffer2, [0]).data;
       expect(deserializedDuration.secs).to.equal(duration.secs);
       expect(deserializedDuration.nsecs).to.equal(duration.nsecs);
+
+      expect((new Duration()).data).to.deep.equal({secs: 0, nsecs: 0});
 
       done();
     });
@@ -289,8 +334,11 @@ describe('gennodejsTests', () => {
       expect(BaseType.Constants.STRING_CONSTANT).to.equal('hello');
 
       const baseType = new BaseType();
+      expect(BaseType.getMessageSize(baseType)).to.equal(5);
       baseType.string_field = BaseType.Constants.STRING_CONSTANT;
       baseType.num_field = BaseType.Constants.NUMERIC_CONSTANT_A;
+      let newlen = 5 + BaseType.Constants.STRING_CONSTANT.length;
+      expect(BaseType.getMessageSize(baseType)).to.equal(newlen);
 
       const msgBuffer = new Buffer(BaseType.getMessageSize(baseType));
       BaseType.serialize(baseType, msgBuffer, 0);
@@ -303,6 +351,62 @@ describe('gennodejsTests', () => {
       done();
     });
 
+    it('initialization', () => {
+      const BaseType = msgUtils.getHandlerForMsgType('test_msgs/BaseType');
+
+      let baseType = new BaseType();
+      expect(baseType.string_field).to.be.empty;
+      expect(baseType.num_field).to.equal(0);
+
+      const stringField = 'AnInTeReStInGVaLuE';
+      const numField = 12345;
+
+      baseType = new BaseType({
+        string_field: stringField,
+        num_field: numField
+      });
+
+      expect(baseType.string_field).to.equal(stringField);
+      expect(baseType.num_field).to.equal(numField);
+
+      const stringField2 = 'Woahh, they changed it';
+      baseType.string_field = stringField2;
+
+      baseType = new BaseType(baseType);
+      expect(baseType.string_field).to.equal(stringField2);
+      expect(baseType.num_field).to.equal(numField);
+
+      const BaseTypeVariableLengthArray = msgUtils.getHandlerForMsgType('test_msgs/BaseTypeVariableLengthArray');
+      let instance1 = new BaseTypeVariableLengthArray();
+
+      expect(instance1.array_field).to.deep.equal([]);
+
+      instance1.array_field.push(baseType);
+      expect(instance1.array_field[0]).to.equal(baseType);
+
+      let instance2 = new BaseTypeVariableLengthArray(instance1);
+      expect(instance1.array_field).to.equal(instance2.array_field);
+
+      const BasicService = msgUtils.getHandlerForSrvType('test_msgs/BasicService');
+      let basicServiceReq = new BasicService.Request();
+
+      expect(basicServiceReq.data).to.equal('');
+      expect(basicServiceReq.op).to.equal('');
+
+      basicServiceReq = new BasicService.Request({data: stringField, op: stringField2});
+
+      expect(basicServiceReq.data).to.equal(stringField);
+      expect(basicServiceReq.op).to.equal(stringField2);
+
+      let basicServiceResp = new BasicService.Response();
+
+      expect(basicServiceResp.result).to.equal('');
+
+      basicServiceResp = new BasicService.Response({result: stringField});
+
+      expect(basicServiceResp.result).to.equal(stringField);
+    });
+
     it('constant length arrays', (done) => {
       const CLA = msgUtils.getHandlerForMsgType('test_msgs/ConstantLengthArray');
 
@@ -310,6 +414,7 @@ describe('gennodejsTests', () => {
       const claArrLen = 10;
       expect(cla.array_field).to.be.a('Array');
       expect(cla.array_field.length).to.equal(claArrLen);
+      expect(CLA.getMessageSize(cla)).to.equal(claArrLen);
 
       cla.array_field.forEach((item) => {
         expect(item).to.be.a('number');
@@ -330,6 +435,7 @@ describe('gennodejsTests', () => {
       const btclaArrLen = 5;
       expect(btcla.array_field).to.be.a('Array');
       expect(btcla.array_field.length).to.equal(btclaArrLen);
+      expect(BTCLA.getMessageSize(btcla)).to.equal(25);
 
       btcla.array_field.forEach((item) => {
         expect(item).to.be.an.instanceof(BaseType);
@@ -354,10 +460,10 @@ describe('gennodejsTests', () => {
       const vla = new VLA();
       expect(vla.array_field).to.be.a('Array');
       expect(vla.array_field.length).to.equal(0);
+      expect(VLA.getMessageSize(vla)).to.equal(4);
 
-      const msgBuffer = new Buffer(VLA.getMessageSize(vla));
+      const msgBuffer = new Buffer(4);
       VLA.serialize(vla, msgBuffer, 0);
-      expect(msgBuffer.length).to.equal(4);
 
       const val = 12;
       const arrLen = 7;
@@ -367,9 +473,9 @@ describe('gennodejsTests', () => {
         expect(item).to.equal(val);
       });
 
+      expect(VLA.getMessageSize(vla)).to.equal(arrLen + 4);
       const msgBuffer2 = new Buffer(VLA.getMessageSize(vla));
       VLA.serialize(vla, msgBuffer2, 0);
-      expect(msgBuffer2.length).to.equal(arrLen + 4);
 
       const deserializedMsg = VLA.deserialize(msgBuffer2, [0]);
       expect(deserializedMsg.array_field.length).to.equal(arrLen);
@@ -384,6 +490,7 @@ describe('gennodejsTests', () => {
       const btvla = new BTVLA();
       expect(btvla.array_field).to.be.a('Array');
       expect(btvla.array_field.length).to.equal(0);
+      expect(BTVLA.getMessageSize(btvla)).to.equal(4);
 
       const msgBuffer3 = new Buffer(VLA.getMessageSize(btvla));
       VLA.serialize(btvla, msgBuffer3, 0);
@@ -392,9 +499,10 @@ describe('gennodejsTests', () => {
       const arrLen2 = 4;
       btvla.array_field = new Array(arrLen2).fill(new BaseType());
 
+      expect(BTVLA.getMessageSize(btvla)).to.equal(24);
+
       const msgBuffer4 = new Buffer(BTVLA.getMessageSize(btvla));
       BTVLA.serialize(btvla, msgBuffer4, 0);
-      expect(msgBuffer4.length).to.equal(24);
 
       const deserializedMsg2 = BTVLA.deserialize(msgBuffer4, [0]);
       expect(deserializedMsg2.array_field.length).to.equal(arrLen2);
@@ -410,6 +518,11 @@ describe('gennodejsTests', () => {
 
       expect(BasicService).to.have.property('Request');
       expect(BasicService).to.have.property('Response');
+      expect(BasicService).to.have.property('md5sum');
+      expect(BasicService.md5sum).to.be.a('function');
+
+      expect(BasicService.md5sum()).to.not.equal(BasicService.Request.md5sum());
+      expect(BasicService.md5sum()).to.not.equal(BasicService.Response.md5sum());
 
       const BSRequest = BasicService.Request;
       expect(BSRequest.Constants.OP_REVERSE).to.equal('reverse');
@@ -417,13 +530,16 @@ describe('gennodejsTests', () => {
       const bsRequest = new BSRequest();
       expect(bsRequest.data).to.be.a('string');
       expect(bsRequest.op).to.be.a('string');
+      expect(BSRequest.getMessageSize(bsRequest)).to.equal(8);
 
       const dataField = 'JUNK';
       bsRequest.data = dataField;
       bsRequest.op = BSRequest.Constants.OP_LEFT_PAD;
+      let newlen = 8 + bsRequest.data.length + bsRequest.op.length;
+      expect(BSRequest.getMessageSize(bsRequest)).to.equal(newlen);
+
       const msgBuffer = new Buffer(BSRequest.getMessageSize(bsRequest));
       BSRequest.serialize(bsRequest, msgBuffer, 0);
-      expect(msgBuffer.length).to.equal(20);
 
       const deserializedRequest = BSRequest.deserialize(msgBuffer, [0]);
       expect(deserializedRequest).to.be.an.instanceof(BSRequest);
@@ -457,9 +573,12 @@ describe('gennodejsTests', () => {
       expect(TSResponse).to.be.a('function');
 
       const tsRequest = new TSRequest();
+      expect(TSRequest.getMessageSize(tsRequest)).to.equal(5);
       expect(tsRequest.input).to.be.an.instanceof(BaseType);
       tsRequest.input.string_field = BaseType.Constants.STRING_CONSTANT;
 
+      let newlen = 5 + BaseType.Constants.STRING_CONSTANT.length;
+      expect(TSRequest.getMessageSize(tsRequest)).to.equal(newlen);
       const msgBuffer = new Buffer(TSRequest.getMessageSize(tsRequest));
       TSRequest.serialize(tsRequest, msgBuffer, 0);
       expect(msgBuffer.length).to.equal(10);
@@ -468,9 +587,10 @@ describe('gennodejsTests', () => {
       expect(deserializedRequest).to.be.an.instanceof(TSRequest);
       expect(deserializedRequest.input).to.be.an.instanceof(BaseType);
 
-
-      const tsResponse =  new TSResponse();
+      const tsResponse = new TSResponse();
       expect(tsResponse).to.be.empty;
+      expect(TSResponse.getMessageSize(tsResponse)).to.equal(0);
+      expect(TSResponse.getMessageSize()).to.equal(0);
 
       const msgBuffer2 = new Buffer(TSResponse.getMessageSize(tsResponse));
       TSResponse.serialize(tsResponse, msgBuffer2, 0);
@@ -498,10 +618,13 @@ describe('gennodejsTests', () => {
       header.frame_id = frameId;
 
       const stdMsg = new StdMsg();
+      expect(StdMsg.getMessageSize(stdMsg)).to.equal(24);
       expect(stdMsg.header).to.be.an.instanceof(Header);
       stdMsg.header = header;
       stdMsg.time_field = time;
 
+      let newlen = 24 + stdMsg.header.frame_id.length;
+      expect(StdMsg.getMessageSize(stdMsg)).to.equal(newlen);
       const msgBuffer = new Buffer(StdMsg.getMessageSize(stdMsg));
       StdMsg.serialize(stdMsg, msgBuffer, 0);
 
@@ -527,6 +650,8 @@ describe('gennodejsTests', () => {
 
       const hRequest = new HRequest();
       expect(hRequest).to.be.empty;
+      expect(HRequest.getMessageSize(hRequest)).to.equal(0);
+      expect(HRequest.getMessageSize()).to.equal(0);
 
       const msgBuffer = new Buffer(HRequest.getMessageSize(hRequest));
       HRequest.serialize(hRequest, msgBuffer, 0);
@@ -537,11 +662,15 @@ describe('gennodejsTests', () => {
       expect(hRequest).to.be.empty;
 
       const hResponse =  new HResponse();
+      expect(HResponse.getMessageSize(hResponse)).to.equal(16);
       expect(hResponse.header_response).to.be.an.instanceof(Header);
       const seq = 123;
       const frameId = 'base';
       hResponse.header_response.seq = seq;
       hResponse.header_response.frame_id = frameId;
+
+      let newlen = 16 + frameId.length;
+      expect(HResponse.getMessageSize(hResponse)).to.equal(newlen);
 
       const msgBuffer2 = new Buffer(HResponse.getMessageSize(hResponse));
       HResponse.serialize(hResponse, msgBuffer2, 0);
@@ -560,6 +689,18 @@ describe('gennodejsTests', () => {
   });
 
   describe('actions', () => {
-    // TODO: TEST actions
+    it('Action Messages Exist', () => {
+      expect(msgUtils.getHandlerForMsgType('actionlib_msgs/GoalID')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('actionlib_msgs/GoalStatus')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('actionlib_msgs/GoalStatusArray')).to.not.throw;
+
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionActionResult')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionActionFeedback')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionActionGoal')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionResult')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionAction')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionFeedback')).to.not.throw;
+      expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionGoal')).to.not.throw;
+    });
   });
 });
