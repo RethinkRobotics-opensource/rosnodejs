@@ -18,12 +18,8 @@ describe('Protocol Test', () => {
   });
 
   after((done) => {
-    if (masterStub.httpServer.listening) {
-      masterStub.close(() => { done(); });
-    }
-    else {
-      done();
-    }
+    masterStub.close(() => { done(); });
+    done();
   });
 
   describe('Xmlrpc', () => {
@@ -344,6 +340,44 @@ describe('Protocol Test', () => {
           }, 50*index);
         });
       });
+    });
+
+    it('Disconnect Pub', (done) => {
+      const nh = rosnodejs.nh;
+      const pub = nh.advertise(topic, msgType);
+      const sub = nh.subscribe(topic, msgType, (data) => {
+        expect(pub.getNumSubscribers()).to.equal(1);
+        expect(sub.getNumPublishers()).to.equal(1);
+
+        pub.disconnect();
+
+        expect(pub.getNumSubscribers()).to.equal(0);
+        sub.on('disconnect', () => {
+          expect(sub.getNumPublishers()).to.equal(0);
+          done()
+        });
+      });
+
+      pub.on('connection', () => { pub.publish({data: 1}); });
+    });
+
+    it('Disconnect Sub', (done) => {
+      const nh = rosnodejs.nh;
+      const pub = nh.advertise(topic, msgType);
+      const sub = nh.subscribe(topic, msgType, (data) => {
+        expect(pub.getNumSubscribers()).to.equal(1);
+        expect(sub.getNumPublishers()).to.equal(1);
+
+        sub.disconnect();
+
+        expect(sub.getNumPublishers()).to.equal(0);
+        pub.on('disconnect', () => {
+          expect(pub.getNumSubscribers()).to.equal(0);
+          done()
+        });
+      });
+
+      pub.on('connection', () => { pub.publish({data: 1}); });
     });
   });
 });

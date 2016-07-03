@@ -33,6 +33,7 @@ let topicPrefix = 'topic=';
 let servicePrefix = 'service=';
 let typePrefix = 'type=';
 let latchingPrefix = 'latching=';
+let persistentPrefix = 'persistent=';
 
 //-----------------------------------------------------------------------
 
@@ -74,12 +75,15 @@ let TcprosUtils = {
     return serializeStringFields(fields);
   },
 
-  createServiceClientHeader(callerId, service, md5sum, type) {
+  createServiceClientHeader(callerId, service, md5sum, type, persistent) {
     let fields = [
       callerIdPrefix + callerId,
       servicePrefix + service,
       md5Prefix + md5sum
     ];
+    if (persistent) {
+      fields.push(persistentPrefix + '1');
+    }
     return serializeStringFields(fields);
   },
 
@@ -101,7 +105,7 @@ let TcprosUtils = {
       let matchResult = field.match(/^(\w+)=(.+)/m);
       // invalid connection header
       if (!matchResult) {
-        console.error('Invalid connection header!');
+        console.error('Invalid connection header while parsing field %s', field);
         return null;
       }
       // else

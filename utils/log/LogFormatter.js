@@ -17,21 +17,17 @@
 
 'use strict';
 
+const moment= require('moment');
+const bunyan = require('bunyan');
+
+
 module.exports = {
-  rosTimeToDate(rosTime) {
-    var date = new Date();
-    // setTime takes in ms since epoch
-    date.setTime(rosTime.secs * 1000 + Math.floor(rosTime.nsecs / 1000000));
-    return date;
-  },
-
-  dateToRosTime(date) {
-    var secs = Math.floor(date / 1000);
-    var nsecs = date % 1000 * 1000000;
-    return {'secs': secs, 'nsecs': nsecs};
-  },
-
-  now() {
-    return this.dateToRosTime(Date.now());
+  ROS(rec) {
+    let now =  moment(rec.time).format('YYYY-MM-DD HH:mm:ss.SSSZZ');
+    let timeMsg = '[' + bunyan.nameFromLevel[rec.level].toUpperCase() + '] ' + now + ': ' + rec.msg;
+    if (rec.scope) {
+      return '[' + rec.scope + ']' + timeMsg;
+    }
+    return timeMsg;
   }
 };
