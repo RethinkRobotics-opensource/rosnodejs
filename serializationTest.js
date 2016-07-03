@@ -82,7 +82,7 @@ console.time('Create TfMessage');
 let tfMessage;
 for (let i = 0; i < NUM_CYCLES; ++i) {
   tfMessage = new TfMessage();
-  for (let j = 0; i < NUM_TFS; ++j) {
+  for (let j = 0; j < NUM_TFS; ++j) {
     let tf = new TfStamped(tfStamped);
     tfMessage.transforms.push(tf);
   }
