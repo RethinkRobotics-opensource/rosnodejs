@@ -76,6 +76,26 @@ fields.parsePrimitive = function(fieldType, fieldValue) {
   else if (fieldType === 'float64') {
     parsedValue = parseFloat(fieldValue);
   }
+  else if (fieldType === 'time') {
+    var now;
+    if (fieldValue.secs && fieldValue.nsecs) {
+      parsedValue.secs = fieldValue.secs;
+      parsedValue.nsecs = fieldValue.nsecs;
+    } else {
+      if (fieldValue instanceof Date) {
+        now = fieldValue.getTime();
+      } else if (typeof fieldValue == "number") {
+        now = fieldValue;
+      } else {
+        now = Date.now();
+      }
+      var secs = parseInt(now/1000);
+      var nsecs = (now % 1000) * 1000;
+      
+      parsedValue.secs = secs;
+      parsedValue.nsecs = nsecs;
+    }
+  }
 
   return parsedValue;
 };
@@ -120,6 +140,11 @@ fields.serializePrimitive =
       bufferOffset += 4;
       buffer.write(fieldValue, bufferOffset, 'ascii');
     }
+    else if (fieldType === 'time') {
+      buffer.writeUInt32LE(fieldValue.secs, bufferOffset);
+      buffer.writeUInt32LE(fieldValue.nsecs, bufferOffset+4);
+    }
+    
   }
 
 fields.deserializePrimitive = function(fieldType, buffer, bufferOffset) {
@@ -251,10 +276,10 @@ fields.getArraySize = function(arrayType, array) {
 fields.getMessageSize = function(message) {
   var that        = this
     , messageSize = 0
-    , fields      = message.fields
+    , innerfields      = message.fields
     ;
 
-  fields.forEach(function(field) {
+  innerfields.forEach(function(field) {
     var fieldValue = message[field.name];
     if (that.isPrimitive(field.type)) {
       messageSize += that.getPrimitiveSize(field.type, fieldValue);

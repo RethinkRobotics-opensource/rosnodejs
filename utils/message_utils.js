@@ -141,7 +141,9 @@ let MessageUtils = {
               while ((matchData = finderCallRegex.exec(fileData)) !== null) {
                 const matchStr = matchData[0];
                 const msgPackage = matchData[1];
-                const replaceStr = utils.format('let %s = require(\'../../%s/_index.js\');', msgPackage, msgPackage);
+                const replaceStr = 
+                  utils.format('let %s = require(\'../../%s/_index.js\');', 
+                               msgPackage, msgPackage);
                 fileData = fileData.replace(matchStr, replaceStr);
               }
               return fileData;
@@ -179,7 +181,8 @@ let MessageUtils = {
       flatten_local(packageName, dir, 'msg', messageDirectory);
       flatten_local(packageName, dir, 'srv', messageDirectory);
       // copy the index
-      copyFile(messagePackagePath, path.join(messageDirectory, packageName, '_index.js'));
+      copyFile(messagePackagePath, 
+               path.join(messageDirectory, packageName, '_index.js'));
     });
   },
 
@@ -201,16 +204,16 @@ let MessageUtils = {
   },
 
   getHandlerForMsgType(rosDataType) {
-    let parts = rosDataType.split('/');
-    let msgPackage = parts[0];
-    let messagePackage = this.getPackage(msgPackage);
-    if (messagePackage) {
-      let type = parts[1];
-      return messagePackage.msg[type];
+    let type = messages.getFromRegistry(rosDataType, ["msg"]);
+    if (type) {
+      return new type();
     } else {
-      let type = messages.getFromRegistry(rosDataType, ["msg"]);
-      if (type) {
-        return new type();
+      let parts = rosDataType.split('/');
+      let msgPackage = parts[0];
+      let messagePackage = this.getPackage(msgPackage);
+      if (messagePackage) {
+        let type = parts[1];
+        return messagePackage.msg[type];
       } else {
         throw new Error('Unable to find message package ' + msgPackage);
       }
@@ -218,24 +221,25 @@ let MessageUtils = {
   },
 
   getHandlerForSrvType(rosDataType) {
-    let parts = rosDataType.split('/');
-    let msgPackage = parts[0];
-    let messagePackage = this.getPackage(msgPackage);
-    if (messagePackage) {
-      let type = parts[1];
-      return messagePackage.srv[type];
+    let request =
+      messages.getFromRegistry(rosDataType, ["srv", "Request"]);
+    let response =
+      messages.getFromRegistry(rosDataType, ["srv", "Response"]);
+    if (request && response) {
+      return {
+        Request: request,
+        Response: response
+      };
     } else {
-      let request =
-        messages.getFromRegistry(rosDataType, ["srv", "Request"]);
-      let response =
-        messages.getFromRegistry(rosDataType, ["srv", "Response"]);
-      if (request && response) {
-        return {
-          Request: request,
-          Response: response
-        };
+      let parts = rosDataType.split('/');
+      let msgPackage = parts[0];
+      let messagePackage = this.getPackage(msgPackage);
+      if (messagePackage) {
+        let type = parts[1];
+        return messagePackage.srv[type];
       } else {
-        throw new Error('Unable to find service package ' + msgPackage + '. Request: ' + !!request + ', Response: ' + !!response);
+        throw new Error('Unable to find service package ' + msgPackage 
+                        + '. Request: ' + !!request + ', Response: ' + !!response);
       }
     }
   }

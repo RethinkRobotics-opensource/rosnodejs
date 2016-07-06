@@ -172,11 +172,8 @@ let Rosnodejs = {
     const self = this;
     return new Promise((resolve, reject) => {
       self._useMessages(messages)
-        .then(() => {
-          return self._useServices(services);
-        }).then(() => {
-          resolve();
-        });
+        .then(() => { return self._useServices(services); })
+        .then(() => { resolve(); });
     });
   },
 
@@ -197,7 +194,7 @@ let Rosnodejs = {
     });
   },
 
-  /** create message classes for all the given types */
+  /** create service classes for all the given types */
   _useServices(types) {
     if (!types || types.length == 0) {
       return Promise.resolve();
@@ -205,12 +202,10 @@ let Rosnodejs = {
     var count = types.length;
     return new Promise((resolve, reject) => {
       types.forEach(function(type) {
-        messages.getServiceRequest(type, function() {
-          messages.getServiceResponse(type, function() {
-            if (--count == 0) {
-              resolve();
-            }
-          });
+        messages.getService(type, function() {
+          if (--count == 0) {
+            resolve();
+          }
         });
       });
     });

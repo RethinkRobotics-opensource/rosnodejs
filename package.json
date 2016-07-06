@@ -24,7 +24,7 @@
   "dependencies": {
     "moment": "2.12.0",
     "portscanner": "1.0.0",
-    "xmlrpc": "1.3.1",
+    "xmlrpc": "chfritz/node-xmlrpc",
     "walker"        : "1.0.7",
     "md5"           : "2.1.0",
     "async"         : "0.1.22",
