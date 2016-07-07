@@ -166,6 +166,28 @@ let Rosnodejs = {
     return pack;
   },
 
+  /** check that a message definition is loaded for a ros message
+      type, e.g., geometry_msgs/Twist */
+  checkMessage(type) {
+    const parts = type.split('/');
+    let rtv;
+    try {
+      rtv = this.require(parts[0]).msg[parts[1]];
+    } catch(e) {}
+    return rtv;
+  },
+
+  /** check that a service definition is loaded for a ros service
+      type, e.g., turtlesim/TeleportRelative */
+  checkService(type) {
+    const parts = type.split('/');
+    let rtv;
+    try {
+      rtv = this.require(parts[0]).srv[parts[1]];
+    } catch(e) {}
+    return rtv;
+  },
+
   /** create message classes and services classes for all the given
    * types before calling callback */
   use(messages, services) {
@@ -179,6 +201,23 @@ let Rosnodejs = {
 
   /** create message classes for all the given types */
   _useMessages(types) {
+    const self = this;
+
+    // make sure required types are available
+    [
+      // for action lib:
+      'actionlib_msgs/GoalStatusArray',
+      'actionlib_msgs/GoalID',
+      // for logging:
+      'rosgraph_msgs/Log',
+    ].forEach(function(type) {
+      if (!self.checkMessage(type)) {
+        // required message definition not available yet, load it
+        // on-demand
+        types.unshift(type);
+      }
+    });
+
     if (!types || types.length == 0) {
       return Promise.resolve();
     }
