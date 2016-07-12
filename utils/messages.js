@@ -433,7 +433,6 @@ function buildValidator (details) {
  * use with ROS, incl. serialization, deserialization, and md5sum. */
 function buildMessageClass(details) {
   function Message(values) {
-    // console.log("buildMessageClass, new", details, values);
     if (!(this instanceof Message)) {
       return new Message(values);
     }
@@ -448,14 +447,14 @@ function buildMessageClass(details) {
 
     if (details.fields) {
       details.fields.forEach(function(field) {       
-        // console.log("buildMessageClass", details, field, values);
         if (field.messageType) {
           // sub-message class
           that[field.name] = 
             new (field.messageType)(values ? values[field.name] : undefined);
         } else {
           // simple value
-          that[field.name] = values ? values[field.name] : (field.value || null);
+          that[field.name] = values ? values[field.name] : 
+            (field.value || fieldsUtil.getDefaultValue(field.type));
         }
       });
     }
@@ -598,7 +597,7 @@ function deserializeInnerMessage(message, buffer, bufferOffset) {
           bufferOffset += fieldsUtil.getPrimitiveSize(arrayType, value);
           array.push(value);
         }
-        else if (fieldsUtil.isMessageType(arrayType)) {
+        else if (fieldsUtil.isMessage(arrayType)) {
           var arrayMessage = new field.messageType();
           arrayMessage = deserializeInnerMessage(
             arrayMessage, buffer, bufferOffset);

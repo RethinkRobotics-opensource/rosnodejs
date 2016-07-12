@@ -1,23 +1,40 @@
+'use strict';
+
 var fields = exports;
 
-fields.primitiveTypes = [
-  'char'
-, 'byte'
-, 'bool'
-, 'int8'
-, 'uint8'
-, 'int16'
-, 'uint16'
-, 'int32'
-, 'uint32'
-, 'int64'
-, 'uint64'
-, 'float32'
-, 'float64'
-, 'string'
-, 'time'
-, 'duration'
-];
+/* map of all primitive types and their default values */
+var map = {
+  'char': '',
+  'byte': 0,
+  'bool': false,
+  'int8': 0,
+  'uint8': 0,
+  'int16': 0,
+  'uint16': 0,
+  'int32': 0,
+  'uint32': 0,
+  'int64': 0,
+  'uint64': 0,
+  'float32': 0,
+  'float64': 0,
+  'string': '',
+  'time': 0,
+  'duration': 0
+};
+
+fields.primitiveTypes = Object.keys(map);
+
+fields.getDefaultValue = function(type) {
+  let match = type.match(/(.*)\[(\d*)\]/);
+  if (match) {
+    // it's an array
+    const basetype = match[1];
+    const length = (match[2].length > 0 ? parseInt(match[2]) : 0);
+    return new Array(length).fill(fields.getDefaultValue(basetype));
+  } else {
+    return map[type];
+  }
+};
 
 fields.isPrimitive = function(fieldType) {
   return (fields.primitiveTypes.indexOf(fieldType) >= 0);
