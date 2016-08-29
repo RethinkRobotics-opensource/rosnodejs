@@ -27,35 +27,34 @@ const Transform = require('stream').Transform;
  * emits 'message' with the data for that message. All socket
  * communications should be piped through this.
  */
-function DeserializeStream(options) {
-  if (!(this instanceof DeserializeStream)) {
-    return new DeserializeStream(options);
+class DeserializeStream extends Transform  {
+
+  constructor(options) {
+    super(options);
+
+    // Transform.call(this, options);
+    // true once we've pulled off the message length
+    // for the next message we'll need to deserialize
+    this._inBody = false;
+
+    // track how many bytes of this message we've received so far
+    this._messageConsumed = 0;
+
+    // how long this message will be
+    this._messageLen = -1;
+
+    // as bytes of this message arrive, store them in this
+    // buffer until we have the whole thing
+    this._messageBuffer = [];
+
+    // TODO: These are specific to parsing a service response...
+    //   don't use them everywhere
+    // the first byte in a service response is true/false service success/fail
+    this._deserializeServiceResp = false;
+
+    this._serviceRespSuccess = null;
   }
 
-  Transform.call(this, options);
-  // true once we've pulled off the message length
-  // for the next message we'll need to deserialize
-  this._inBody = false;
-
-  // track how many bytes of this message we've received so far
-  this._messageConsumed = 0;
-
-  // how long this message will be
-  this._messageLen = -1;
-
-  // as bytes of this message arrive, store them in this
-  // buffer until we have the whole thing
-  this._messageBuffer = [];
-
-  // TODO: These are specific to parsing a service response...
-  //   don't use them everywhere
-  // the first byte in a service response is true/false service success/fail
-  this._deserializeServiceResp = false;
-
-  this._serviceRespSuccess = null;
-}
-
-DeserializeStream.prototype = {
   _transform(chunk, encoding, done) {
     let pos = 0;
     let chunkLen = chunk.length;
@@ -124,7 +123,7 @@ DeserializeStream.prototype = {
       }
     }
     done();
-  },
+  }
 
   emitMessage(buffer) {  
     if (this._deserializeServiceResp) {
@@ -134,14 +133,13 @@ DeserializeStream.prototype = {
     else {
       this.emit('message', buffer);
     }
-  },
+  }
 
   setServiceRespDeserialize() {
     this._deserializeServiceResp = true;
   }
 };
 
-util.inherits(DeserializeStream, Transform);
 
 //-----------------------------------------------------------------------
 
