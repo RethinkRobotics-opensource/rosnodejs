@@ -20,6 +20,11 @@ rosnodejs.initNode('/my_node', {
   services: ["turtlesim/TeleportRelative"]
 }).then((rosNode) => {
 
+  // get list of existing publishers, subscribers, and services
+  rosNode._node._masterApi.getSystemState("/my_node").then((data) => {
+    console.log("getSystemState, result", data, data.publishers[0]);
+  });
+
   // ---------------------------------------------------------
   // Service Call
 
