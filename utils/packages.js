@@ -1,6 +1,15 @@
-var fs          = require('fs')
-  , path        = require('path')
-  , walker      = require('walker');
+var fs          = require('fs');
+var path        = require('path');
+var walker      = require('walker');
+var async = require('async');
+
+// TODO: make this sync, e.g., using:
+// https://www.npmjs.com/package/fs-walker
+// https://www.npmjs.com/package/walk
+//
+// OR: just load all packages incl. messages and services upfront. We don't want
+// to hold things up in the middle of production by being sync. So maybe it's
+// better to just load everything up front without asking.
 
 
 function walk(directory, symlinks) {
@@ -76,7 +85,7 @@ function findPackageInDirectory(directory, packageName, callback) {
     })
     .on('end', function() {
       if (!found) {
-        var error = 
+        var error =
           new Error('ENOTFOUND - Package ' + packageName + ' not found');
         error.name = 'PackageNotFoundError';
         callback(error);
@@ -86,7 +95,7 @@ function findPackageInDirectory(directory, packageName, callback) {
 
 function findPackageInDirectoryChain(directories, packageName, callback) {
   if (directories.length < 1) {
-    var error = 
+    var error =
       new Error('ENOTFOUND - Package ' + packageName + ' not found');
     error.name = 'PackageNotFoundError';
     callback(error);
@@ -97,7 +106,7 @@ function findPackageInDirectoryChain(directories, packageName, callback) {
         if (error) {
           if (error.name === 'PackageNotFoundError') {
             // Recursive call, try in next directory
-            return findPackageInDirectoryChain(directories, 
+            return findPackageInDirectoryChain(directories,
                                                packageName, callback);
           }
           else {
@@ -113,14 +122,60 @@ function findPackageInDirectoryChain(directories, packageName, callback) {
 
 // ---------------------------------------------------------
 
-// Implements the same crawling algorithm as rospack find
-// See http://ros.org/doc/api/rospkg/html/rospack.html
+var cache = {};
+
+// Implements the same crawling algorithm as rospack find. See
+// http://docs.ros.org/independent/api/rospkg/html/rospack.html#crawling-algorithm
 // packages = {};
 exports.findPackage = function(packageName, callback) {
+  var directory = cache[packageName];
+  if (directory) {
+    callback(null, directory);
+    return;
+  }
   var rosRoot = process.env.ROS_ROOT;
   var packagePath = process.env.ROS_PACKAGE_PATH
   var rosPackagePaths = packagePath.split(':')
   var directories = [rosRoot].concat(rosPackagePaths);
-  return findPackageInDirectoryChain(directories, packageName, callback);
+  return findPackageInDirectoryChain(directories, packageName,
+    function(err, directory) {
+      cache[packageName] = directory;
+      callback(err, directory);
+    });
 }
 
+// ---------------------------------------------------------
+// Logic for iterating over *all* packages
+
+function forEachPackageInDirectory(directory, list, onEnd) {
+  fs.access(directory, fs.R_OK, (err) => {
+      if (!err) {
+        walk(directory)
+          .on('package', function(name, dir) {
+            list.push(dir);
+          })
+          .on('end', onEnd);
+      } else {
+        onEnd();
+      }
+    });
+}
+
+/** get list of package directories */
+exports.getAllPackages = function(done) {
+  var rosRoot = process.env.ROS_ROOT;
+  var packagePath = process.env.ROS_PACKAGE_PATH
+  var rosPackagePaths = packagePath.split(':')
+  var directories = [rosRoot].concat(rosPackagePaths);
+  async.reduce(directories, [], function(memo, directory, callback) {
+      forEachPackageInDirectory(directory, memo, function() {
+        callback(null, memo);
+      });
+  }, function(err, directories) {
+    directories.forEach(function(directory) {
+      var packageName = path.basename(directory);
+      cache[packageName] = directory;
+    });
+    done(err, directories);
+  });
+}
