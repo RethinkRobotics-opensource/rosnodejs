@@ -29,6 +29,7 @@ const LogFormatter = require('./utils/log/LogFormatter.js');
 const RosNode = require('./lib/RosNode.js');
 const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
+const ActionClient = require('./lib/ActionClient.js');
 
 msgUtils.findMessageFiles();
 
@@ -216,6 +217,29 @@ let Rosnodejs = {
       console: ConsoleLogStream,
       ros:     RosLogStream
     }
+  },
+
+
+  //------------------------------------------------------------------
+  // ActionLib
+  //------------------------------------------------------------------
+
+  /**
+    Get an action client for a given type and action server.
+
+    Example:
+      let ac = rosNode.getActionClient({
+        type: "turtle_actionlib/ShapeAction",
+        actionServer: "/turtle_shape"
+      });
+      let shapeActionGoal =
+        rosnodejs.require('turtle_actionlib').msg.ShapeActionGoal;
+      ac.sendGoal(new shapeActionGoal({
+        goal: { edges: 3,  radius: 1 } }));
+   */
+  getActionClient(options) {
+    options.rosnodejs = Rosnodejs;
+    return new ActionClient(options);
   }
 }
 
