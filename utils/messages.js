@@ -23,7 +23,12 @@ messages.getPackageFromRegistry = function(packagename) {
 /** ensure the handler for this message type is in the registry,
  * create it if it doesn't exist */
 messages.getMessage = function(messageType, callback) {
-  getMessageFromPackage(messageType, "msg", callback);
+  var fromRegistry = getMessageFromRegistry(messageType, ["msg"]);
+  if (fromRegistry) {
+    callback(null, fromRegistry);
+  } else {
+    getMessageFromPackage(messageType, "msg", callback);
+  }
 }
 
 /** ensure the handler for requests for this service type is in the
@@ -32,25 +37,65 @@ messages.getService = function(messageType, callback) {
   getMessageFromPackage(messageType, "srv", callback);
 }
 
+/** get all message and service definitions, from all packages */
+messages.getAll = function(callback) {
+  packages.getAllPackages(function(err, packageDirectories) {
+    // for each found package:
+    async.eachSeries(packageDirectories, function(directory, packageCallback) {
+      var packageName = path.basename(directory);
+      // for both msgs and srvs:
+      async.eachSeries(["msg", "srv"], function(type, typeCallback) {
+        // read the package's respective sub directory
+        var files = [];
+        fs.readdir(path.join(directory, type), function(err, files) {
+          // add each found msg/srv definition
+          async.eachSeries(files, function(file, fileCallback) {
+            var fileName = path.basename(file, "." + type);
+            var messageType = packageName + "/" + fileName;
+
+            // check whether we already computed it due to dependencies:
+            var cachehit = false;
+            if (type == "msg") {
+              cachehit = (getMessageFromRegistry(messageType, [type]) != undefined);
+            } else {
+              cachehit = (getMessageFromRegistry(messageType, [type, "Response"]) != undefined
+              && getMessageFromRegistry(messageType, [type, "Request"]) != undefined);
+            }
+            if (cachehit) {
+              fileCallback();
+            } else {
+              var filePath = path.join(directory, type, file);
+              getMessageFromFile(messageType, filePath, type, function(err, message) {
+                fileCallback();
+              });
+            }
+          }, typeCallback);
+        });
+      }, packageCallback);
+    }, callback);
+  });
+};
+
+
 // ---------------------------------------------------------
 // Registry
 
 var registry = {};
-/* 
+/*
    registry looks like:
-  { 'packagename': 
+  { 'packagename':
     {
-      msg: { 
+      msg: {
         'String': classdef,
         'Pose': classdef,
         ...
       },
-      srv: { Request: 
+      srv: { Request:
              {
                'SetBool': classdef,
                ...
              },
-             Response: 
+             Response:
              {
                'SetBool': classdef,
                ...
@@ -64,8 +109,8 @@ var registry = {};
 /**
    @param messageType is the ROS message or service type, e.g.
    'std_msgs/String'
-   @param type is from the set 
-   [["msg"], ["srv","Request"], ["srv","Response"] 
+   @param type is from the set
+   [["msg"], ["srv","Request"], ["srv","Response"]
 */
 function getMessageFromRegistry(messageType, type) {
   var packageName = getPackageNameFromMessageType(messageType);
@@ -90,10 +135,10 @@ function getMessageFromRegistry(messageType, type) {
   }
 }
 
-/** 
+/**
     @param messageType is the ROS message or service type, e.g.
     'std_msgs/String'
-    @param message is the message class definition 
+    @param message is the message class definition
     @param type is from the set "msg", "srv"
     @param (optional) subtype \in { "Request", "Response" }
 */
@@ -116,7 +161,7 @@ function setMessageInRegistry(messageType, message, type, subtype) {
     }
 
     var serviceType = subtype; // "Request" or "Response"
-    registry[packageName][type][messageName][serviceType] = message;    
+    registry[packageName][type][messageName][serviceType] = message;
   }
 }
 
@@ -138,7 +183,7 @@ function getMessageFromPackage(messageType, type, callback) {
 function getMessageFromFile(messageType, filePath, type, callback) {
   var packageName = getPackageNameFromMessageType(messageType)
   , messageName = getMessageNameFromMessageType(messageType);
-  
+
   var details = {
     messageType : messageType
     , messageName : messageName
@@ -159,7 +204,9 @@ function getMessageFromFile(messageType, filePath, type, callback) {
           response = buildMessageClass(details.response);
           setMessageInRegistry(messageType, request, type, "Request");
           setMessageInRegistry(messageType, response, type, "Response");
-          callback(null, message);
+          callback();
+          // ^ no value needed for services, since they cannot appear nested
+          // still pretty hacky
         } else {
           console.log("unknown service", type);
         }
@@ -175,7 +222,7 @@ function parseMessageFile(fileName, details, type, callback) {
     }
     else {
       extractFields(
-        content, details, type, function(error, aggregate) {
+        content, details, function(error, aggregate) {
           if (error) {
             callback(error);
           } else {
@@ -195,8 +242,14 @@ function parseMessageFile(fileName, details, type, callback) {
               };
               rtv.request.constants = aggregate[0].constants;
               rtv.request.fields = aggregate[0].fields;
-              rtv.response.constants = aggregate[1].constants;
-              rtv.response.fields = aggregate[1].fields;
+              if (aggregate.length > 1) {
+                // if there is a response:
+                rtv.response.constants = aggregate[1].constants;
+                rtv.response.fields = aggregate[1].fields;
+              } else {
+                rtv.response.constants = [];
+                rtv.response.fields = [];
+              }
               rtv.request.md5 = rtv.response.md5 = calculateMD5(rtv, "srv");
               callback(null, rtv);
             } else {
@@ -221,7 +274,7 @@ function calculateMD5(details, type) {
     var constants = part.constants.map(function(field) {
       return field.type + ' ' + field.name + '=' + field.value;
     }).join('\n');
-    
+
     var fields = part.fields.map(function(field) {
       if (field.messageType) {
         return field.messageType.md5 + ' ' + field.name;
@@ -230,7 +283,7 @@ function calculateMD5(details, type) {
         return field.type + ' ' + field.name;
       }
     }).join('\n');
-    
+
     message += constants;
     if (message.length > 0 && fields.length > 0) {
       message += "\n";
@@ -247,7 +300,7 @@ function calculateMD5(details, type) {
     text = getMD5text(details);
   } else if (type == "srv") {
     text = getMD5text(details.request);
-    text += getMD5text(details.response);   
+    text += getMD5text(details.response);
   } else {
     console.log("calculateMD5: Unknown type", type);
     return null;
@@ -256,7 +309,7 @@ function calculateMD5(details, type) {
   return md5(text);
 }
 
-function extractFields(content, details, type, callback) {
+function extractFields(content, details, callback) {
   function parsePart(lines, callback) {
     var constants = []
     , fields    = []
@@ -335,7 +388,7 @@ function extractFields(content, details, type, callback) {
               callback();
             }
           }
-          else if (fieldsUtil.isMessage(fieldType)) {
+          else {
             fieldType = normalizeMessageType(fieldType, details.packageName);
             messages.getMessage(fieldType, function(error, messageType) {
               fields.push({
@@ -351,7 +404,7 @@ function extractFields(content, details, type, callback) {
       }
     }
 
-    async.forEachSeries(lines, parseLine, function(error) {
+    async.eachSeries(lines, parseLine, function(error) {
       if (error) {
         callback(error);
       }
@@ -360,9 +413,6 @@ function extractFields(content, details, type, callback) {
       }
     });
   }
-    
-
-
 
   var lines = content.split('\n');
 
@@ -376,7 +426,7 @@ function extractFields(content, details, type, callback) {
     }
     return memo;
   }, [[]]);
- 
+
   async.map(parts, parsePart, function(err, aggregate) {
     callback(err, aggregate);
   });
@@ -446,14 +496,14 @@ function buildMessageClass(details) {
     }
 
     if (details.fields) {
-      details.fields.forEach(function(field) {       
+      details.fields.forEach(function(field) {
         if (field.messageType) {
           // sub-message class
-          that[field.name] = 
+          that[field.name] =
             new (field.messageType)(values ? values[field.name] : undefined);
         } else {
           // simple value
-          that[field.name] = values ? values[field.name] : 
+          that[field.name] = values ? values[field.name] :
             (field.value || fieldsUtil.getDefaultValue(field.type));
         }
       });
@@ -467,7 +517,7 @@ function buildMessageClass(details) {
   Message.md5sum      = Message.prototype.md5sum      = function() {
     return this.md5;
   };
-  Message.Constants = Message.constants   
+  Message.Constants = Message.constants
     = Message.prototype.constants   = details.constants;
   Message.fields      = Message.prototype.fields      = details.fields;
   Message.serialize   = Message.prototype.serialize   =
@@ -495,15 +545,13 @@ function getPackageNameFromMessageType(messageType) {
     : '';
 }
 
-var isNormalizedMessageType = /.*\/.*$/;
 function normalizeMessageType(messageType, packageName) {
   var normalizedMessageType = messageType;
   if (messageType == "Header") {
     normalizedMessageType = getMessageType("std_msgs", messageType);
-  } else if (messageType.match(isNormalizedMessageType) === null) {
+  } else if (messageType.indexOf("/") < 0) {
     normalizedMessageType = getMessageType(packageName, messageType);
   }
-
   return normalizedMessageType;
 }
 

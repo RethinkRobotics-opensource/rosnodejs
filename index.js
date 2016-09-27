@@ -29,6 +29,7 @@ const LogFormatter = require('./utils/log/LogFormatter.js');
 const RosNode = require('./lib/RosNode.js');
 const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
+const ActionClient = require('./lib/ActionClient.js');
 
 msgUtils.findMessageFiles();
 
@@ -133,15 +134,19 @@ let Rosnodejs = {
     rosNode = new RosNode(nodeName, rosMasterUri);
 
     return new Promise((resolve, reject) => {
-      this.use(options.messages, options.services).then(() => {
+      const connectedToMasterCallback = () => {
+        Logging.initializeOptions(this, options.logging);
+        resolve(this.getNodeHandle());
+      };
 
-        const connectedToMasterCallback = () => {
-          Logging.initializeOptions(this, options.logging);
-          resolve(this.getNodeHandle());
-        };
-
+      if (options.onTheFly) {
+        // generate definitions for all messages and services
+        messages.getAll(function() {
+            _checkMasterHelper(connectedToMasterCallback, 0);
+          });
+      } else {
         _checkMasterHelper(connectedToMasterCallback, 0);
-      });
+      }
     })
     .catch((err) => {
       log.error('Error: ' + err);
@@ -188,68 +193,6 @@ let Rosnodejs = {
     return rtv;
   },
 
-  /** create message classes and services classes for all the given
-   * types before calling callback */
-  use(messages, services) {
-    const self = this;
-    return new Promise((resolve, reject) => {
-      self._useMessages(messages)
-        .then(() => { return self._useServices(services); })
-        .then(() => { resolve(); });
-    });
-  },
-
-  /** create message classes for all the given types */
-  _useMessages(types) {
-    const self = this;
-
-    // make sure required types are available
-    [
-      // for action lib:
-      'actionlib_msgs/GoalStatusArray',
-      'actionlib_msgs/GoalID',
-      // for logging:
-      'rosgraph_msgs/Log',
-    ].forEach(function(type) {
-      if (!self.checkMessage(type)) {
-        // required message definition not available yet, load it
-        // on-demand
-        types.unshift(type);
-      }
-    });
-
-    if (!types || types.length == 0) {
-      return Promise.resolve();
-    }
-    var count = types.length;
-    return new Promise((resolve, reject) => {
-      types.forEach(function(type) {
-        messages.getMessage(type, function(error, Message) {
-          if (--count == 0) {
-            resolve();
-          }
-        });
-      });
-    });
-  },
-
-  /** create service classes for all the given types */
-  _useServices(types) {
-    if (!types || types.length == 0) {
-      return Promise.resolve();
-    }
-    var count = types.length;
-    return new Promise((resolve, reject) => {
-      types.forEach(function(type) {
-        messages.getService(type, function() {
-          if (--count == 0) {
-            resolve();
-          }
-        });
-      });
-    });
-  },
-
   /**
    * @return {NodeHandle} for initialized node
    */
@@ -274,6 +217,29 @@ let Rosnodejs = {
       console: ConsoleLogStream,
       ros:     RosLogStream
     }
+  },
+
+
+  //------------------------------------------------------------------
+  // ActionLib
+  //------------------------------------------------------------------
+
+  /**
+    Get an action client for a given type and action server.
+
+    Example:
+      let ac = rosNode.getActionClient({
+        type: "turtle_actionlib/ShapeAction",
+        actionServer: "/turtle_shape"
+      });
+      let shapeActionGoal =
+        rosnodejs.require('turtle_actionlib').msg.ShapeActionGoal;
+      ac.sendGoal(new shapeActionGoal({
+        goal: { edges: 3,  radius: 1 } }));
+   */
+  getActionClient(options) {
+    options.rosnodejs = Rosnodejs;
+    return new ActionClient(options);
   }
 }
 

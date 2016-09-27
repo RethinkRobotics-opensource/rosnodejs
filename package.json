@@ -27,7 +27,7 @@
     "xmlrpc": "chfritz/node-xmlrpc",
     "walker"        : "1.0.7",
     "md5"           : "2.1.0",
-    "async"         : "0.1.22",
+    "async"         : "2.0.1",
     "bunyan": "1.8.1"
   }
 }
