@@ -272,7 +272,7 @@ function calculateMD5(details, type) {
   function getMD5text(part) {
     var message = '';
     var constants = part.constants.map(function(field) {
-      return field.type + ' ' + field.name + '=' + field.value;
+      return field.type + ' ' + field.name + '=' + field.raw;
     }).join('\n');
 
     var fields = part.fields.map(function(field) {
@@ -348,6 +348,7 @@ function extractFields(content, details, callback) {
             name        : fieldName
             , type        : fieldType
             , value       : parsedConstant
+            , raw         : constant
             , index       : fields.length
             , messageType : null
           });
