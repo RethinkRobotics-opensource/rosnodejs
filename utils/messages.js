@@ -341,14 +341,27 @@ function extractFields(content, details, callback) {
 
         if (equalIndex !== -1) {
           fieldName = field.substring(0, equalIndex).trim();
+          // truncate comments and whitespace
           var constant = field.substring(equalIndex + 1, field.length).trim();
+          var constantEnd = constant.length;
+          var constantComment = constant.indexOf("#");
+          if (constantComment >= 0) {
+            if (fieldType != "string") {
+              var firstWhitespace = constant.match(/\s/);
+              if (firstWhitespace) {
+                constantEnd = firstWhitespace.index;
+              }
+            } else {
+              constantEnd = constantComment;
+            }
+          }
           var parsedConstant = fieldsUtil.parsePrimitive(fieldType, constant);
 
           constants.push({
             name        : fieldName
             , type        : fieldType
             , value       : parsedConstant
-            , raw         : constant
+            , raw         : constant.slice(0, constantEnd)
             , index       : fields.length
             , messageType : null
           });
@@ -504,7 +517,9 @@ function buildMessageClass(details) {
             new (field.messageType)(values ? values[field.name] : undefined);
         } else {
           // simple value
-          that[field.name] = values ? values[field.name] :
+          that[field.name] =
+            (values && typeof values[field.name] != "undefined") ? 
+            values[field.name] :
             (field.value || fieldsUtil.getDefaultValue(field.type));
         }
       });
