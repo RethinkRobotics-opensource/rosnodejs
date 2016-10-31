@@ -515,14 +515,36 @@ function buildMessageClass(details) {
       details.fields.forEach(function(field) {
         if (field.messageType) {
           // sub-message class
-          that[field.name] =
-            new (field.messageType)(values ? values[field.name] : undefined);
+          // is it an array?
+          var match = field.type.match(/(.*)\[(\d*)\]/);
+          if (values && typeof values[field.name] != "undefined") {
+            // values provided
+            if (match) {
+              // it's an array
+              that[field.name] = values[field.name].map(function(value) {
+                  return new (field.messageType)(value);
+                });
+            } else {
+              that[field.name] =
+                new (field.messageType)(values[field.name]);
+            }
+          } else {
+            // use defaults
+            if (match) {
+              // it's an array
+              const basetype = match[1];
+              const length = (match[2].length > 0 ? parseInt(match[2]) : 0);
+              that[field.name] = new Array(length).fill(new (field.messageType)());
+            } else {
+              that[field.name] = new (field.messageType)();
+            }
+          }
         } else {
-          // simple value
+          // simple type
           that[field.name] =
-            (values && typeof values[field.name] != "undefined") ? 
-            values[field.name] :
-            (field.value || fieldsUtil.getDefaultValue(field.type));
+            (values && typeof values[field.name] != "undefined") ?
+             values[field.name] :
+             (field.value || fieldsUtil.getDefaultValue(field.type));
         }
       });
     }
