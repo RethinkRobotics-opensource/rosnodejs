@@ -18,15 +18,10 @@
 'use strict';
 
 let os = require('os');
-let portscanner = require('portscanner');
 
-let USE_ROS_ENV_VARS = false;
-let MIN_PORT = 49152;
-let MAX_PORT = 65535;
-
-let getRandomPort = function() {
-  return Math.round(Math.random() * (MAX_PORT - MIN_PORT) + MIN_PORT);
-}
+const ROS_IP = process.env.ROS_IP;
+const ROS_HOSTNAME = process.env.ROS_HOSTNAME;
+const HOST = ROS_IP || ROS_HOSTNAME || os.hostname();
 
 let NetworkUtils = {
   /**
@@ -64,47 +59,8 @@ let NetworkUtils = {
     return ipAddress;
   },
 
-  /**
-   * FIXME: should this just return ROS_HOSTNAME
-   */
   getHost() {
-    if (USE_ROS_ENV_VARS) {
-      const envVars = process.env;
-      return envVars.ROS_IP || envVars.ROS_HOSTNAME;
-    }
-    else {
-      return os.hostname();
-    }
-  },
-
-  useRosEnvironmentVariables() {
-    USE_ROS_ENV_VARS = true;
-  },
-
-  setPortRange(range) {
-    MIN_PORT = range.min;
-    MAX_PORT = range.max;
-  },
-
-  getFreePort() {
-    // recursive check for free port
-    // chooses random port within range [minPort, maxPort] to check
-    let _freePortCheck = (callback) => {
-      let port = getRandomPort();
-      portscanner.checkPortStatus(port, '127.0.0.1', (err, status) => {
-        // if the port is 'closed' then its not in use
-        if (status === 'closed') {
-          callback(port);
-          return;
-        }
-        //else
-        _freePortCheck(minPort, maxPort, callback);
-      });
-    };
-
-    return new Promise((resolve, reject) => {
-      _freePortCheck(resolve);
-    });
+    return HOST;
   },
 
   getAddressAndPortFromUri(uriString) {

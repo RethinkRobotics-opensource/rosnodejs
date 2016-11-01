@@ -17,71 +17,99 @@
 
 'use strict';
 
-let SerializationUtils = require('./serialization_utils.js');
-let PrependLength = SerializationUtils.PrependLength;
-let Serialize = SerializationUtils.Serialize;
-let Deserialize = SerializationUtils.Deserialize;
-String = require('./std_msgs/String.js');
+const ros_msg_utils = require('ros_msg_utils');
+const base_serializers = ros_msg_utils.Serialize;
+const base_deserializers = ros_msg_utils.Deserialize;
 
 //-----------------------------------------------------------------------
 
-let callerIdPrefix = 'callerid=';
-let md5Prefix = 'md5sum=';
-let topicPrefix = 'topic=';
-let servicePrefix = 'service=';
-let typePrefix = 'type=';
-let latchingPrefix = 'latching=';
-let persistentPrefix = 'persistent=';
+const callerIdPrefix = 'callerid=';
+const md5Prefix = 'md5sum=';
+const topicPrefix = 'topic=';
+const servicePrefix = 'service=';
+const typePrefix = 'type=';
+const latchingPrefix = 'latching=';
+const persistentPrefix = 'persistent=';
+const errorPrefix = 'error='
 
 //-----------------------------------------------------------------------
+
+function serializeStringFields(fields) {
+  let length = 0;
+  fields.forEach((field) => {
+    length += (field.length + 4);
+  });
+  let buffer = new Buffer(4 + length);
+  let offset = base_serializers.uint32(length, buffer, 0);
+
+  fields.forEach((field) => {
+    offset = base_serializers.string(field, buffer, offset);
+  });
+  return buffer;
+}
+
+function deserializeStringFields(buffer) {
+  const fields = [];
+  const offset = [0];
+  while (offset[0] < buffer.length) {
+    const str = base_deserializers.string(buffer, offset);
+    fields.push(str);
+  }
+
+  return fields;
+}
 
 let TcprosUtils = {
 
   createSubHeader(callerId, md5sum, topic, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let topi = String(topicPrefix + topic);
-    let typ = String(typePrefix + type);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), topi.serialize(), typ.serialize()]);
-    return Serialize(buffer);
+    const fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      topicPrefix + topic,
+      typePrefix + type
+    ];
+    return serializeStringFields(fields);
   },
 
   createPubHeader(callerId, md5sum, type, latching) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let typ = String(typePrefix + type);
-    let latch = String(latchingPrefix + latching);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), typ.serialize(), latch.serialize()]);
-    return Serialize(buffer);
+    const fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      typePrefix + type,
+      latchingPrefix + latching
+    ];
+    return serializeStringFields(fields);
   },
 
   createServiceClientHeader(callerId, service, md5sum, type, persistent) {
-    let caller = String(callerIdPrefix + callerId);
-    let servic = String(servicePrefix + service);
-    let md5 = String(md5Prefix + md5sum);
-    let buffers = [caller.serialize(), md5.serialize(), servic.serialize()];
+    const fields = [
+      callerIdPrefix + callerId,
+      servicePrefix + service,
+      md5Prefix + md5sum,
+    ];
+
     if (persistent) {
-      buffers.push(String(persistentPrefix + '1').serialize());
+      fields.push(persistentPrefix + '1');
     }
-    let buffer = Buffer.concat(buffers);
-    return Serialize(buffer);
+    return serializeStringFields(fields);
   },
 
   createServiceServerHeader(callerId, md5sum, type) {
-    let caller = String(callerIdPrefix + callerId);
-    let md5 = String(md5Prefix + md5sum);
-    let typ = String(typePrefix + type);
-    let buffer = Buffer.concat([caller.serialize(), md5.serialize(), typ.serialize()]);
-    return Serialize(buffer);
+    const fields = [
+      callerIdPrefix + callerId,
+      md5Prefix + md5sum,
+      typePrefix + type
+    ];
+    return serializeStringFields(fields);
   },
 
   parseTcpRosHeader(header) {
     let info = {};
-    while (header.length !== 0) {
-      let item = String.deserialize(header);
-      let field = item.data;
-      header = item.buffer;
+
+    const fields = deserializeStringFields(header);
+    fields.forEach((field) => {
       let matchResult = field.match(/^(\w+)=(.+)/m);
+
       // invalid connection header
       if (!matchResult) {
         console.error('Invalid connection header while parsing field %s', field);
@@ -89,17 +117,16 @@ let TcprosUtils = {
       }
       // else
       info[matchResult[1]] = matchResult[2];
-    }
+    });
+
     return info;
   },
 
   parseSubHeader(header) {
-    let i = 0;
     let info = {};
-    while ( header.length !== 0 ) {
-      let item = String.deserialize(header);
-      let field = item.data;
-      header = item.buffer;
+    const fields = deserializeStringFields(header);
+    fields.forEach((field) => {
+      
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
@@ -112,18 +139,15 @@ let TcprosUtils = {
       else if (field.startsWith(typePrefix)) {
         info.type = field.substr(typePrefix.length);
       }
-      ++i;
-    }
+    });
     return info;
   },
 
   parsePubHeader(header) {
-    let i = 0;
     let info = {};
-    while ( header.length !== 0 ) {
-      let item = String.deserialize(header);
-      let field = item.data;
-      header = item.buffer;
+    const fields = deserializeStringFields(header);
+    fields.forEach((field) => {
+      
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
@@ -136,18 +160,15 @@ let TcprosUtils = {
       else if (field.startsWith(typePrefix)) {
         info.type = field.substr(typePrefix.length);
       }
-      ++i;
-    }
+    });
     return info;
   },
 
   parseServiceClientHeader(header) {
-    let i = 0;
     let info = {};
-    while ( header.length !== 0 ) {
-      let item = String.deserialize(header);
-      let field = item.data;
-      header = item.buffer;
+    const fields = deserializeStringFields(header);
+    fields.forEach((field) => {
+
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
@@ -160,18 +181,15 @@ let TcprosUtils = {
       else if (field.startsWith(typePrefix)) {
         info.type = field.substr(typePrefix.length);
       }
-      ++i;
-    }
+    });
     return info;
   },
 
   parseServiceServerHeader(header) {
-    let i = 0;
     let info = {};
-    while ( header.length !== 0 ) {
-      let item = String.deserialize(header);
-      let field = item.data;
-      header = item.buffer;
+    const fields = deserializeStringFields(header);
+    fields.forEach((field) => {
+      
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
@@ -181,33 +199,128 @@ let TcprosUtils = {
       else if (field.startsWith(typePrefix)) {
         info.type = field.substr(typePrefix.length);
       }
-      ++i;
-    }
+    });
     return info;
   },
 
   validateSubHeader(header, topic, type, md5sum) {
     if (!header.hasOwnProperty('topic')) {
-      return String('Connection header missing expected field [topic]').serialize();
+      return this.serializeString('Connection header missing expected field [topic]');
     }
     else if (!header.hasOwnProperty('type')) {
-      return String('Connection header missing expected field [type]').serialize();
+      return this.serializeString('Connection header missing expected field [type]');
     }
     else if (!header.hasOwnProperty('md5sum')) {
-      return String('Connection header missing expected field [md5sum]').serialize();
+      return this.serializeString('Connection header missing expected field [md5sum]');
     }
     else if (header.topic !== topic) {
-      return String('Got incorrect topic [' + header.topic + '] expected [' + topic + ']').serialize();
+      return this.serializeString('Got incorrect topic [' + header.topic + '] expected [' + topic + ']');
     }
     // rostopic will send '*' for some commands (hz)
     else if (header.type !== type && header.type !== '*') {
-      return String('Got incorrect message type [' + header.type + '] expected [' + type + ']').serialize();
+      return this.serializeString('Got incorrect message type [' + header.type + '] expected [' + type + ']');
     }
     else if (header.md5sum !== md5sum && header.md5sum !== '*') {
-      return String('Got incorrect md5sum [' + header.md5sum + '] expected [' + md5sum + ']').serialize();
+      return this.serializeString('Got incorrect md5sum [' + header.md5sum + '] expected [' + md5sum + ']');
     }
     // else
     return null;
+  },
+
+  validatePubHeader(header, type, md5sum) {
+    if (!header.hasOwnProperty('type')) {
+      return this.serializeString('Connection header missing expected field [type]');
+    }
+    else if (!header.hasOwnProperty('md5sum')) {
+      return this.serializeString('Connection header missing expected field [md5sum]');
+    }
+    // rostopic will send '*' for some commands (hz)
+    else if (header.type !== type && header.type !== '*') {
+      return this.serializeString('Got incorrect message type [' + header.type + '] expected [' + type + ']');
+    }
+    else if (header.md5sum !== md5sum && header.md5sum !== '*') {
+      return this.serializeString('Got incorrect md5sum [' + header.md5sum + '] expected [' + md5sum + ']');
+    }
+    // else
+    return null;
+  },
+
+  validateServiceClientHeader(header, service, md5sum) {
+    if (!header.hasOwnProperty('service')) {
+      return 'Connection header missing expected field [service]';
+    }
+    else if (!header.hasOwnProperty('md5sum')) {
+      return 'Connection header missing expected field [md5sum]';
+    }
+    else if (header.service !== service) {
+      return 'Got incorrect service [' + header.service + '] expected [' + service + ']';
+    }
+    else if (header.md5sum !== md5sum && header.md5sum !== '*') {
+      return 'Got incorrect md5sum [' + header.md5sum + '] expected [' + md5sum + ']';
+    }
+  },
+
+  serializeMessage(MessageClass, message, prependMessageLength=true) {
+    const msgSize = MessageClass.getMessageSize(message);
+    let msgBuffer;
+    let offset = 0;
+    if (prependMessageLength) {
+      msgBuffer = new Buffer(msgSize + 4);
+      offset = base_serializers.uint32(msgSize, msgBuffer, 0);
+    }
+    else {
+      msgBuffer = new Buffer(msgSize);
+    }
+
+    MessageClass.serialize(message, msgBuffer, offset);
+    return msgBuffer;
+  },
+
+  serializeServiceResponse(ResponseClass, response, success, prependResponseInfo=true) {
+    let responseBuffer;
+    if (prependResponseInfo) {
+      if (success) {
+        const respSize = ResponseClass.getMessageSize(response);
+        responseBuffer = new Buffer(respSize + 5);
+
+        // add the success byte
+        base_serializers.uint8(1, responseBuffer, 0);
+        // add the message length
+        base_serializers.uint32(respSize, responseBuffer, 1);
+        ResponseClass.serialize(response, responseBuffer, 5);
+      }
+      else {
+        const errorMessage = 'Unable to handle service call';
+        const errLen = errorMessage.length;
+        // FIXME: check that we don't need the extra 4 byte message len here
+        responseBuffer = new Buffer(5 + errLen);
+        base_serializers.uint8(0, responseBuffer, 0);
+        base_serializers.string(errorMessage, responseBuffer, 1);
+      }
+    }
+    else {
+      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
+    }
+
+    return responseBuffer;
+  },
+
+  deserializeMessage(MessageClass, messageBuffer) {
+    return MessageClass.deserialize(messageBuffer, [0]);
+  },
+
+  serializeString(str) {
+    const buf = new Buffer(str.length + 4);
+    base_serializers.string(str, buf, 0);
+    return buf;
+  },
+
+  deserializeString(buffer) {
+    return base_deserializers.string(buffer, [0]);
+  },
+
+  createTcpRosError(str) {
+    return this.serializeString(`{errorPrefix}${str}`);
   }
 };
 

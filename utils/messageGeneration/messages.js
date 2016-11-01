@@ -537,12 +537,15 @@ function buildMessageClass(details) {
     = Message.prototype.constants   = details.constants;
   Message.fields      = Message.prototype.fields      = details.fields;
   Message.serialize   = Message.prototype.serialize   =
-    function(obj, bufferInfo) {
-      return serializeMessage(obj, bufferInfo);
+    function(obj, buffer) {
+      serializeInnerMessage(message, buffer, 0);
     }
   Message.deserialize = Message.prototype.deserialize = function(buffer) {
-    var obj = deserializeMessage(buffer, Message);
-    return obj;
+    var message = new Message();
+
+    message = deserializeInnerMessage(message, buffer, 0);
+
+    return message;
   }
   Message.prototype.validate    = buildValidator(details);
 
@@ -579,18 +582,6 @@ function getMessageNameFromMessageType(messageType) {
 // ---------------------------------------------------------
 // Serialize
 
-function serializeMessage(message, bufferInfo) {
-  var bufferSize   = fieldsUtil.getMessageSize(message);
-  var buffer       = new Buffer(bufferSize);
-
-  serializeInnerMessage(message, buffer, 0);
-
-  bufferInfo.buffer = [buffer];
-  bufferInfo.length = bufferSize;
-
-  return bufferInfo;
-}
-
 function serializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {
     var fieldValue = message[field.name];
@@ -626,17 +617,6 @@ function serializeInnerMessage(message, buffer, bufferOffset) {
 
 // ---------------------------------------------------------
 // Deserialize
-
-function deserializeMessage(buffer, messageType) {
-  var message            = new messageType();
-
-  message = deserializeInnerMessage(message, buffer, 0);
-
-  return {
-    data: message,
-    buffer: buffer
-  };
-}
 
 function deserializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {

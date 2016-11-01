@@ -21,7 +21,7 @@
 
 const netUtils = require('./utils/network_utils.js');
 const msgUtils = require('./utils/message_utils.js');
-const messages = require('./utils/messages.js');
+const messages = require('./utils/messageGeneration/messages.js');
 const util = require('util');
 const RosLogStream = require('./utils/log/RosLogStream.js');
 const ConsoleLogStream = require('./utils/log/ConsoleLogStream.js');
@@ -31,7 +31,7 @@ const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
 const ActionClient = require('./lib/ActionClient.js');
 
-msgUtils.findMessageFiles();
+const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
 
 // these will be modules, they depend on logger which isn't initialized yet
 // though so they'll be required later (in initNode)
@@ -41,31 +41,43 @@ msgUtils.findMessageFiles();
 // will be initialized through call to initNode
 let log = Logging.getLogger();
 let rosNode = null;
-let firstCheck = true;
 
 //------------------------------------------------------------------
 
-function _checkMasterHelper(callback, timeout) {
-  setTimeout(() => {
-    // also check that the slave api server is set up
-    if (!rosNode.slaveApiSetupComplete()) {
-      _checkMasterHelper(callback, 500);
-      return;
-    }
-    // else
-    rosNode.getMasterUri()
-    .then((resp) => {
-      log.infoOnce('Connected to master!');
-      callback();
-    })
-    .catch((err, resp) => {
+function _checkMasterHelper(timeout=500) {
+  let firstCheck = true;
+
+  const localHelper = (resolve) => {
+    setTimeout(() => {
+      // also check that the slave api server is set up
+      if (!rosNode.slaveApiSetupComplete()) {
+        localHelper(resolve);
+        return;
+      }
+      // else
       if (firstCheck) {
-        log.warnOnce('Unable to connect to master. ' + err);
+        // hook into master api connection errors.
+        // api client will continue trying to connect
+        rosNode._masterApi.getXmlrpcClient().once('ECONNREFUSED', (err) => {
+          log.warn(`Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
+        });
         firstCheck = false;
       }
-      _checkMasterHelper(callback, 500);
-    })
-  }, timeout);
+      rosNode.getMasterUri()
+      .then(() => {
+        log.infoOnce(`Connected to master at ${rosNode.getRosMasterUri()}!`);
+        resolve();
+      })
+      .catch((err, resp) => {
+        log.warnThrottle(60000, 'Unable to connect to master. ' + err);
+        localHelper(resolve);
+      })
+    }, timeout);
+  };
+
+  return new Promise((resolve, reject) => {
+    localHelper(resolve);
+  });
 }
 
 /**
@@ -120,55 +132,63 @@ let Rosnodejs = {
       rosMasterUri = options.rosMasterUri;
     }
 
-    if (options.useRosEnvVars) {
-      netUtils.useRosEnvironmentVariables();
-    }
-
-    if (options.portRange) {
-      netUtils.setPortRange(options.portRange);
-    }
+    Logging.initializeNodeLogger(nodeName, options.logging);
 
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
-    let checkMasterTimeout =  0;
     rosNode = new RosNode(nodeName, rosMasterUri);
 
-    return new Promise((resolve, reject) => {
-      const connectedToMasterCallback = () => {
-        Logging.initializeOptions(this, options.logging);
-        resolve(this.getNodeHandle());
-      };
 
-      if (options.onTheFly) {
-        // generate definitions for all messages and services
-        messages.getAll(function() {
-            _checkMasterHelper(connectedToMasterCallback, 0);
-          });
-      } else {
-        _checkMasterHelper(connectedToMasterCallback, 0);
-      }
+    return this._loadOnTheFlyMessages(options)
+      .then(_checkMasterHelper)
+      .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
+      .then(() => { return this.getNodeHandle(); })
+      .catch((err) => {
+        log.error('Error: ' + err);
+      });
+  },
+
+  reset() {
+    rosNode = null;
+  },
+
+  _loadOnTheFlyMessages({onTheFly}) {
+    if (onTheFly) {
+      return new Promise((resolve, reject) => {
+        messages.getAll(resolve);
+      });
+    }
+    // else
+    return Promise.resolve();
+  },
+
+  loadPackage(packageName, outputDir=null, verbose=false) {
+    const msgLoader = new MsgLoader(verbose);
+    if (!outputDir) {
+      outputDir = msgUtils.getTopLevelMessageDirectory();
+    }
+    return msgLoader.buildPackage(packageName, outputDir)
+    .then(() => {
+      console.log('Finished building messages!');
     })
     .catch((err) => {
-      log.error('Error: ' + err);
+      console.error(err);
     });
   },
 
-  require(msgPackage) {
-    // check our registry of on-demand generate message definition
-    var fromRegistry = messages.getPackageFromRegistry(msgPackage);
-    if (fromRegistry) {
-      return fromRegistry;
+  loadAllPackages(outputDir=null, verbose=false) {
+    const msgLoader = new MsgLoader(verbose);
+    if (!outputDir) {
+      outputDir = msgUtils.getTopLevelMessageDirectory();
     }
+    return msgLoader.buildPackageTree(outputDir)
+      .then(() => {
+        console.log('Finished building messages!');
+      })
+  },
 
-    // if we can't find it in registry, check for gennodejs
-    // pre-compiled versions
-    let pack = msgUtils.getPackage(msgPackage);
-    if (!pack) {
-      msgUtils.loadMessagePackage(msgPackage);
-      return msgUtils.getPackage(msgPackage);
-    }
-    // else
-    return pack;
+  require(msgPackage) {
+    return msgUtils.requireMsgPackage(msgPackage);
   },
 
   /** check that a message definition is loaded for a ros message
@@ -238,9 +258,9 @@ let Rosnodejs = {
         goal: { edges: 3,  radius: 1 } }));
    */
   getActionClient(options) {
-    options.rosnodejs = Rosnodejs;
+    options.nh = this.nh;
     return new ActionClient(options);
   }
-}
+};
 
 module.exports = Rosnodejs;

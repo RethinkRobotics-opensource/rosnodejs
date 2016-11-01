@@ -1,6 +1,6 @@
 'use strict';
 
-let rosnodejs = require('./index.js');
+let rosnodejs = require('../index.js');
 
 rosnodejs.initNode('/my_node', {
   messages: ['std_msgs/String'],

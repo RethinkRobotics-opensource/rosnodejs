@@ -18,7 +18,7 @@ module.exports = {
           else {
             timeout *= 2;
           }
-          log.debug('Trying again in ' + timeout +  'ms');
+          log.debug('Trying again in ' + timeout + 'ms');
           log.debug('Connection refused during method %s: %j', method, data);
           this.call(client, method, data, resolve, reject, log, timeout);
         }

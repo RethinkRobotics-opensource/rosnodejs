@@ -17,8 +17,9 @@
 
 'use strict';
 const bunyan = require('bunyan');
+const crypto = require('crypto');
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------
 
 /**
  * Logger is a minimal wrapper around a bunyan logger. It adds useful methods
@@ -42,13 +43,35 @@ class Logger {
       });
     }
 
-    this._throttledLogs = new Set();
+    this._throttledLogs = new Map();
     this._onceLogs = new Set();
 
     const logMethods = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
     this._createLogMethods(logMethods);
     this._createThrottleLogMethods(logMethods);
     this._createOnceLogMethods(logMethods);
+  }
+
+  getStreams() {
+    return this._logger.streams;
+  }
+
+  child(childOptions) {
+    // setup options
+    const name = childOptions.name;
+    delete childOptions.name;
+    const options = {
+      childOptions: childOptions,
+      $parent: this._logger,
+      name
+    };
+
+    // create logger
+    return new Logger(options);
+  }
+
+  level(level=null) {
+    this._logger.level(level);
   }
 
   setLevel(level) {
@@ -64,7 +87,7 @@ class Logger {
   }
 
   addStream(stream) {
-    this._logger.addStream(stream);
+    this._logger.addStream(stream, this.getLevel());
   }
 
   clearStreams() {
@@ -112,8 +135,10 @@ class Logger {
       }
 
       // there's currently a bug using arguments in a () => {} function
-      this[throttleMethod] = function(throttleTime, args) {
-        if (this[method]() && !this._throttle(arguments)) {
+      this[throttleMethod] = function(throttleTimeMs, args) {
+        // If the desired log level is enabled and the message
+        // isn't being throttled, then log the message.
+        if (this[method]() && !this._throttle(...arguments)) {
           return this[method].apply(this, Array.from(arguments).slice(1));
         }
         return false;
@@ -147,33 +172,25 @@ class Logger {
   /**
    * Handles throttling logic for each log statement. Throttles logs by attempting
    * to create a string log 'key' from the arguments.
+   * @param throttleTimeMs {number}
    * @param args {Array} arguments provided to calling function
    * @return {boolean} should this log be throttled (if true, the log should not be written)
    */
-  _throttle(args) {
-    const timeArg = args[0];
-    let stringArg = args[1];
-
-    const addLog = (logId) => {
-      this._throttledLogs.add(logId);
-      setTimeout(() => {
-        this._throttledLogs.delete(logId)
-      }, timeArg);
-    };
-
-    if (typeof stringArg !== 'string' && !(stringArg instanceof String)) {
-      if (typeof stringArg === 'object') {
-        // if its an object, use its keys as a throttling key
-        stringArg = Object.keys(stringArg).toString();
-      }
-      else {
-        // can't create a key - just log it
-        return false;
-      }
+  _throttle(throttleTimeMs, ...args) {
+    const now = Date.now();
+    const throttlingMsg = this._getThrottleMsg(args);
+    if (throttlingMsg === null) {
+      // we couldn't get a msg to hash - fall through and log the message
+      return false;
     }
+    // else
+    const msgHash = hashMessage(throttlingMsg);
 
-    if (!this._throttledLogs.has(stringArg)) {
-      addLog(stringArg);
+    const throttledLog = this._throttledLogs.get(msgHash);
+
+    if (throttledLog === undefined || now + 1 - throttledLog.getStartTime() >= throttledLog.getThrottleTime()) {
+      const newThrottledLog = new ThrottledLog(now, throttleTimeMs);
+      this._throttledLogs.set(msgHash, newThrottledLog);
       return false;
     }
     return true;
@@ -192,18 +209,13 @@ class Logger {
    * @return {boolean} should this be written
    */
   _once(args) {
-    let logKey = args[0];
-
-    if (typeof logKey !== 'string' && !(logKey instanceof String)) {
-      if (typeof logKey === 'object') {
-        // if its an object, use its keys as a throttling key
-        logKey = Object.keys(logKey).toString();
-      }
-      else {
-        // can't create a key - just log it
-        return true;
-      }
+    const throttleMsg = this._getThrottleMsg(args);
+    if (throttleMsg === null) {
+      // we couldn't get a msg to hash - fall through and log the message
+      return true;
     }
+
+    const logKey = hashMessage(throttleMsg);
 
     if (!this._onceLogs.has(logKey)) {
       this._onceLogs.add(logKey);
@@ -211,7 +223,74 @@ class Logger {
     }
     return false;
   }
-};
+
+  _getThrottleMsg(args) {
+    const firstArg = args[0];
+    if (typeof firstArg === 'string' || firstArg instanceof String) {
+      return firstArg;
+    }
+    else if (typeof firstArg === 'object') {
+      // bunyan supports passing an object as the first argument with
+      // optional fields to add to the log record - the second argument
+      // is the actual string 'log message' in this case, so just return that
+      return args[1];
+    }
+    // fall through *womp womp*
+    return null;
+  }
+
+  /**
+   * Remove old throttled logs (logs that were throttled whose throttling time has passed) from the throttling map
+   * @returns {Number} number of logs that were cleaned out
+   */
+  clearExpiredThrottledLogs() {
+    const logsToRemove = [];
+    const now = Date.now();
+    this._throttledLogs.forEach((log, key) => {
+      if (now - log.getStartTime() >= log.getThrottleTime()) {
+        logsToRemove.push(key);
+      }
+    });
+
+    logsToRemove.forEach((logKey) => {
+      this._throttledLogs.delete(logKey);
+    });
+
+    return logsToRemove.length;
+  }
+
+  getThrottledLogSize() {
+    return this._throttledLogs.size;
+  }
+}
+
+//-----------------------------------------------------------------------
+
+/**
+ * @class ThrottledLog
+ * Small utility class implementation for ThrottledLogger
+ */
+class ThrottledLog {
+  constructor(timeThrottleStarted, throttlingTime) {
+    this.logThrottleStartTime = timeThrottleStarted;
+    this.logthrottleTimeMs = throttlingTime;
+  }
+
+  getStartTime() {
+    return this.logThrottleStartTime;
+  }
+
+  getThrottleTime() {
+    return this.logthrottleTimeMs;
+  }
+}
+
+// Utility function to help hash messages when we throttle them.
+function hashMessage(msg) {
+  const sha1 = crypto.createHash('sha1');
+  sha1.update(msg);
+  return sha1.digest('hex');
+}
 
 //-----------------------------------------------------------------------
 

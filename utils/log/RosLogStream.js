@@ -26,7 +26,7 @@ class RosLogStream {
     RosgraphLogMsg = rosgraphLogMsg;
     options = options || {};
 
-    let queueSize = 100;
+    let queueSize = 200;
     if (options.hasOwnProperty('queueSize')) {
       queueSize = options.queueSize;
     }
@@ -38,8 +38,14 @@ class RosLogStream {
       this._formatter = (rec) => { return rec.msg; };
     }
 
+    this._nodeName = nh.getNodeName();
+
     this._rosoutPub = nh.advertise('/rosout', 'rosgraph_msgs/Log',
-                                   {queueSize: queueSize});
+                                   {queueSize: queueSize, latching: true});
+  }
+
+  getPub() {
+    return this._rosoutPub;
   }
 
   _getRosLogLevel(bunyanLogLevel) {
@@ -49,7 +55,7 @@ class RosLogStream {
       return RosgraphLogMsg.Constants.DEBUG;
     }
     // else
-    return RosgraphLogMsg.Constants[bunyan.nameFromLevel[bunyanLogLevel]];
+    return RosgraphLogMsg.Constants[bunyan.nameFromLevel[bunyanLogLevel].toUpperCase()];
   }
 
   write(rec) {
@@ -65,7 +71,8 @@ class RosLogStream {
         // being used as a raw stream
         msg.header.stamp = timeUtils.dateToRosTime(rec.time);
 
-        msg.name = rec.name;
+        msg.name = this._nodeName;
+        msg.file = rec.scope || rec.name;
         msg.level = this._getRosLogLevel(rec.level);
         const formattedMsg = this._formatter(rec);
         if (typeof formattedMsg === 'string' || formattedMsg instanceof String) {
@@ -76,7 +83,7 @@ class RosLogStream {
           return;
         }
       }
-      //console.log('ROSOUT: %j', msg);
+      // console.log('ROSOUT: %j', msg);
       this._rosoutPub.publish(msg);
     }
   }
