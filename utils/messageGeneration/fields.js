@@ -47,6 +47,27 @@ fields.getDefaultValue = function(type) {
   }
 };
 
+fields.isString = function(type) {
+  return type === 'string';
+}
+
+fields.isTime = function(type) {
+  return type === 'time' || type === 'duration';
+}
+
+fields.isBool = function(type) {
+  return type === 'bool';
+}
+
+fields.isFloat = function(type) {
+  return type === 'float32' || type === 'float64';
+}
+
+fields.isInteger = function(type) {
+  return (['byte', 'char', 'int8', 'uint8', 'int16', 'uint16',
+           'int32', 'uint32', 'int64', 'uint64'].indexOf('type') >= 0);
+}
+
 fields.isPrimitive = function(fieldType) {
   return (fields.primitiveTypes.indexOf(fieldType) >= 0);
 };
@@ -64,6 +85,74 @@ fields.getTypeOfArray = function(arrayType) {
   return this.isArray(arrayType) ? arrayType.split('[')[0]
                                  : false;
 }
+
+fields.getLengthOfArray = function(arrayType) {
+  var match = arrayType.match(/.*\[(\d*)\]$/);
+  if (match[1] === '') {
+    return null;
+  }
+  return parseInt(match[1]);
+}
+
+function parseType(msgType, field) {
+  if (!msgType) {
+    throw new Error(`Invalid empty type ${JSON.stringify(field)}`);
+  }
+  // else
+  if (fields.isArray(msgType)) {
+    field.isArray = true;
+    var constantLength = msgType.endsWith('[]');
+    var splits = msgType.split('[');
+    if (splits.length > 2) {
+      throw new Error(`Only support 1-dimensional array types: ${msgType}`);
+    }
+    field.baseType = splits[0];
+    if (constantLength) {
+      field.arrayLen = fields.getLengthOfArray(msgType);
+    }
+    else {
+      field.arrayLen = null;
+    }
+  }
+  else {
+    field.baseType= msgType;
+    field.isArray = false;
+    field.arrayLen = null;
+  }
+}
+
+function isHeader(type) {
+  return (['Header', 'std_msgs/Header', 'roslib/Header'].indexOf(type) >= 0);
+}
+
+fields.Constant = function(name, type, val, valText) {
+  this.name = name;
+  this.type = type;
+  this.val = val;
+  this.valText = valText;
+};
+
+fields.Constant.prototype.equals = function(other) {
+  return other instanceof fields.Constant &&
+         other.name === this.name && other.type === this.type && other.val === this.val;
+};
+
+fields.Field = function(name, type) {
+  this.name = name;
+  this.type = type;
+  parseType(type, this);
+  this.isHeader = isHeader(type);
+  this.isBuiltin = fields.isPrimitive(this.baseType);
+};
+
+fields.Field.isHeader = function(type) {
+  return isHeader(type);
+}
+
+fields.Field.isBuiltin = function(type) {
+  return fields.isPrimitive(type);
+};
+
 
 fields.parsePrimitive = function(fieldType, fieldValue) {
   var parsedValue = fieldValue;
@@ -393,7 +482,7 @@ fields.getArraySize = function(arrayType, array) {
   });
 
   return arraySize;
-}
+};
 
 fields.getMessageSize = function(message) {
   var that        = this
@@ -415,4 +504,19 @@ fields.getMessageSize = function(message) {
   });
 
   return messageSize;
+};
+
+fields.getMessageNameFromMessageType = function(messageType) {
+  return messageType.indexOf('/') !== -1 ? messageType.split('/')[1]
+    : messageType;
+};
+
+fields.getPackageNameFromMessageType = function(messageType) {
+  return messageType.indexOf('/') !== -1 ? messageType.split('/')[0]
+    : '';
+};
+
+function throwUnsupportedInt64Exception() {
+  var error = new Error('int64 and uint64 are currently unsupported field types. See https://github.com/baalexander/rosnodejs/issues/2');
+  throw error;
 }

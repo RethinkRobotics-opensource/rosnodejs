@@ -17,23 +17,22 @@
 
 'use strict';
 
-let fs = require('fs');
-let path = require('path');
-let utils = require('util');
-let loggingManager = require('../lib/Logging.js');
-const messages = require('./messages.js');
+const fs = require('fs');
+const path = require('path');
+const utils = require('util');
+const loggingManager = require('../lib/Logging.js');
+const messages = require('./messageGeneration/messages.js');
+const ros_msg_utils = require('ros_msg_utils');
 
-// When sourcing your workspace, CMAKE_PREFIX_PATH is AUTOMATICALLY
-// prepended with the devel directory of your workspace. Workspace
-// chaining works by continuing this path prepending.
-let cmakePath = process.env.CMAKE_PREFIX_PATH;
-let cmakePaths = cmakePath.split(':');
-let jsMsgPath = path.join('share', 'gennodejs', 'ros');
+// *grumble grumble* this is unfortunate
+// Our ros messages are going to be loaded from all over the place
+// They all need access to ros_msg_utils but we can't guarantee that
+// they'll be able to find ros_msg_utils without forcing people to
+// add ros_msg_utils to their node_path or installing it globally
+// or installing it separately for every message package
+global._ros_msg_utils = ros_msg_utils;
 
 let messagePackageMap = {};
-let messagePackagePathMap = {};
-
-let logger;
 
 //-----------------------------------------------------------------------
 // Utilities for loading, finding handlers for
@@ -91,24 +90,8 @@ function copyFile(from, to, replaceCallback) {
 }
 
 let MessageUtils = {
-  findMessageFiles() {
-    if (Object.keys(messagePackagePathMap).length > 0) {
-      return;
-    }
-    cmakePaths.forEach((cmakePath) => {
-      let path_ = path.join(cmakePath, jsMsgPath);
-      if (fs.existsSync(path_)) {
-        let msgPackages = fs.readdirSync(path_);
-        msgPackages.forEach((msgPackage) => {
-          // If the message package has been found in a previous workspace,
-          // don't overwrite it now. This is critical to enabling ws overlays.
-          if (!messagePackagePathMap.hasOwnProperty(msgPackage)) {
-            let indexPath = path.join(path_, msgPackage, '_index.js');
-            messagePackagePathMap[msgPackage] = indexPath;
-          }
-        });
-      }
-    });
+  getTopLevelMessageDirectory() {
+    return path.join(ros_msg_utils.CMAKE_PATHS[0], ros_msg_utils.MESSAGE_PATH);
   },
 
   flatten(outputDir) {
@@ -141,8 +124,8 @@ let MessageUtils = {
               while ((matchData = finderCallRegex.exec(fileData)) !== null) {
                 const matchStr = matchData[0];
                 const msgPackage = matchData[1];
-                const replaceStr = 
-                  utils.format('let %s = require(\'../../%s/_index.js\');', 
+                const replaceStr =
+                  utils.format('let %s = require(\'../../%s/_index.js\');',
                                msgPackage, msgPackage);
                 fileData = fileData.replace(matchStr, replaceStr);
               }
@@ -176,26 +159,22 @@ let MessageUtils = {
 
     Object.keys(messagePackagePathMap).forEach((packageName) => {
       const messagePackagePath = messagePackagePathMap[packageName];
-      const dir = path.dirname(messagePackagePath)
+      const dir = path.dirname(messagePackagePath);
 
       flatten_local(packageName, dir, 'msg', messageDirectory);
       flatten_local(packageName, dir, 'srv', messageDirectory);
       // copy the index
-      copyFile(messagePackagePath, 
+      copyFile(messagePackagePath,
                path.join(messageDirectory, packageName, '_index.js'));
     });
   },
 
   loadMessagePackage(msgPackage) {
-    const indexPath = messagePackagePathMap[msgPackage];
-    if (indexPath === undefined) {
-      throw new Error('Unable to find message package ' + msgPackage);
-    }
     try {
-      messagePackageMap[msgPackage] = require(indexPath);
+      messagePackageMap[msgPackage] = ros_msg_utils.Find(msgPackage);
     }
     catch (err) {
-      throw new Error('Unable to include message package ' + msgPackage + ' - ' + err);
+      throw new Error(`Unable to include message package ${msgPackage} - ${err}`);
     }
   },
 
@@ -203,24 +182,49 @@ let MessageUtils = {
     return messagePackageMap[msgPackage];
   },
 
-  getHandlerForMsgType(rosDataType) {
+  requireMsgPackage(msgPackage) {
+    // check our registry of on-demand generate message definition
+    var fromRegistry = messages.getPackageFromRegistry(msgPackage);
+    if (fromRegistry) {
+      return fromRegistry;
+    }
+
+    // if we can't find it in registry, check for gennodejs
+    // pre-compiled versions
+    let pack = this.getPackage(msgPackage);
+    if (!pack) {
+      try {
+        this.loadMessagePackage(msgPackage);
+        return this.getPackage(msgPackage);
+      }
+      catch(err) {
+      }
+    }
+    // else
+    return pack;
+  },
+
+  getHandlerForMsgType(rosDataType, loadIfMissing=false) {
     let type = messages.getFromRegistry(rosDataType, ["msg"]);
     if (type) {
       return new type();
     } else {
-      let parts = rosDataType.split('/');
-      let msgPackage = parts[0];
+      const [msgPackage, type] = rosDataType.split('/');
       let messagePackage = this.getPackage(msgPackage);
-      if (messagePackage) {
-        let type = parts[1];
-        return messagePackage.msg[type];
-      } else {
+      if (!messagePackage && loadIfMissing) {
+        this.loadMessagePackage(msgPackage);
+        messagePackage = this.getPackage(msgPackage);
+      }
+
+      if (!messagePackage) {
         throw new Error('Unable to find message package ' + msgPackage);
       }
+      // else
+      return messagePackage.msg[type];
     }
   },
 
-  getHandlerForSrvType(rosDataType) {
+  getHandlerForSrvType(rosDataType, loadIfMissing=false) {
     let request =
       messages.getFromRegistry(rosDataType, ["srv", "Request"]);
     let response =
@@ -231,16 +235,20 @@ let MessageUtils = {
         Response: response
       };
     } else {
-      let parts = rosDataType.split('/');
-      let msgPackage = parts[0];
+      const [msgPackage, type] = rosDataType.split('/');
       let messagePackage = this.getPackage(msgPackage);
-      if (messagePackage) {
-        let type = parts[1];
-        return messagePackage.srv[type];
-      } else {
-        throw new Error('Unable to find service package ' + msgPackage 
+
+      if (!messagePackage && loadIfMissing) {
+        this.loadMessagePackage(msgPackage);
+        messagePackage = this.getPackage(msgPackage);
+      }
+
+      if (!messagePackage) {
+        throw new Error('Unable to find service package ' + msgPackage
                         + '. Request: ' + !!request + ', Response: ' + !!response);
       }
+      // else
+      return messagePackage.srv[type];
     }
   }
 };

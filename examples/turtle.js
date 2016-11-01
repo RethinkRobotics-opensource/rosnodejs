@@ -75,7 +75,7 @@ rosnodejs.initNode('/my_node', {onTheFly: true}).then((rosNode) => {
   // wait two seconds for previous example to complete
   setTimeout(function() {
       let shapeActionGoal = rosnodejs.require('turtle_actionlib').msg.ShapeActionGoal;
-      let ac = rosnodejs.getActionClient({
+      let ac = nh.actionClient({
           type: "turtle_actionlib/ShapeAction",
           actionServer: "/turtle_shape"
         });

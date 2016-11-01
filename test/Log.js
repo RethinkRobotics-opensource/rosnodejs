@@ -1,10 +1,12 @@
-'use strict'
+'use strict';
 
 const chai = require('chai');
 const expect = chai.expect;
 const bunyan = require('bunyan');
 const xmlrpc = require('xmlrpc');
 const rosnodejs = require('../index.js');
+
+const MASTER_PORT = 11234;
 
 /** setup pipe to stdout **/
 class OutputCapture {
@@ -23,7 +25,7 @@ class OutputCapture {
   get() {
     return this.lastMsg;
   }
-};
+}
 
 describe('Logging', () => {
   const outputCapture = new OutputCapture();
@@ -32,7 +34,7 @@ describe('Logging', () => {
     outputCapture.flush();
     expect(outputCapture.get()).to.equal(null);
 
-    rosnodejs.log.rootLogger._throttledLogs = new Set();
+    rosnodejs.log.rootLogger._throttledLogs = new Map();
     rosnodejs.log.rootLogger._onceLogs = new Set();
   };
 
@@ -47,7 +49,7 @@ describe('Logging', () => {
   });
 
   after(()=> {
-    rosnodejs.log.setLevel('info')
+    rosnodejs.reset();
   });
 
   it('Levels', () => {
@@ -175,6 +177,18 @@ describe('Logging', () => {
     reset();
   });
 
+  it('Throttling', () => {
+    const message = 'This is my message';
+    reset();
+    rosnodejs.log.infoThrottle(1000, message);
+    expect(outputCapture.get().msg).to.have.string(message);
+    expect(outputCapture.get().level).to.equal(bunyan.INFO);
+
+    outputCapture.flush();
+    rosnodejs.log.infoThrottle(1000, message);
+    expect(outputCapture.get()).to.be.null;
+  });
+
   it('Bound Log Methods', () => {
     const message = 'This is my message';
 
@@ -269,7 +283,8 @@ describe('Logging', () => {
   describe('Rosout', () => {
     let masterStub;
     before((done) => {
-      masterStub = xmlrpc.createServer({host: 'localhost', port: 11311}, () => { done(); });
+      rosnodejs.reset();
+      masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => { done(); });
     });
 
     after((done) => {
@@ -281,7 +296,7 @@ describe('Logging', () => {
       let subInfo = null;
 
       masterStub.on('getUri', (err, params, callback) => {
-        const resp = [ 1, '', 'localhost:11311/' ]
+        const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
         callback(null, resp);
       });
 
@@ -323,8 +338,19 @@ describe('Logging', () => {
         pubInfo = null;
       });
 
-      rosnodejs.log.setLevel('info');
-      return rosnodejs.initNode('/testNode');
+      masterStub.on('registerService', (err, params, callback) => {
+        const resp =  [1, 'You did it!', 1];
+        callback(null, resp);
+      });
+
+      masterStub.on('unregisterService', (err, params, callback) => {
+        const resp =  [1, 'You did it!', 1];
+        callback(null, resp);
+      });
+
+      // rosnodejs.log.setLevel('info');
+      return rosnodejs.initNode('/testNode', {logging: {waitOnRosOut: false, level: 'info'},
+                                rosMasterUri: `http://localhost:${MASTER_PORT}`});
     });
 
     afterEach(() => {
@@ -340,11 +366,15 @@ describe('Logging', () => {
     });
 
     it('Check Publishing', (done) => {
+      rosnodejs.log.setLevel('fatal');
+      const testLogger = rosnodejs.log.getLogger('testLogger');
+      testLogger.setLevel('info');
       const nh = rosnodejs.nh;
       const message = 'This is my message';
       let intervalId = null;
 
       const rosoutCallback = (msg) => {
+        console.log('ros out %j', msg);
         expect(msg.msg).to.have.string(message);
         if (intervalId !== null) {
           nh.unsubscribe('/rosout');
@@ -357,7 +387,7 @@ describe('Logging', () => {
       const sub = nh.subscribe('/rosout', 'rosgraph_msgs/Log', rosoutCallback);
 
       intervalId = setInterval(() => {
-        rosnodejs.log.info(message);
+        testLogger.info(message);
       }, 50);
     });
   });

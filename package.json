@@ -1,6 +1,6 @@
 {
   "name": "rosnodejs",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Native ROS for nodejs",
   "main": "index.js",
   "keywords": [
@@ -8,26 +8,29 @@
   ],
   "scripts": {
     "test": "mocha test/directory.js",
-    "gennodejsTest": "mocha test/gennodejsTest",
-    "flatten": "node flatten.js"
+    "gennodejsTest": "mocha test/gennodejsTest.js",
+    "stressTest": "mocha test/stress.js",
+    "flatten": "node tools/flatten.js",
+    "generate": "node tools/generateMessages.js"
   },
   "author": "chris smith",
   "license": "Apache-2.0",
-  "repository" : {
-    "type" : "git",
-    "url" : "git://github.com/RethinkRobotics-opensource/rosnodejs"
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/RethinkRobotics-opensource/rosnodejs"
   },
   "devDependencies": {
     "chai": "^3.5.0",
     "mocha": "^2.4.5"
   },
   "dependencies": {
+    "argparse": "1.0.7",
+    "async": "2.0.1",
+    "bunyan": "1.8.1",
+    "md5": "2.1.0",
     "moment": "2.12.0",
-    "portscanner": "1.0.0",
-    "xmlrpc": "chfritz/node-xmlrpc",
-    "walker"        : "1.0.7",
-    "md5"           : "2.1.0",
-    "async"         : "2.0.1",
-    "bunyan": "1.8.1"
+    "ros_msg_utils": "RethinkRobotics-opensource/ros_msg_utils#v1.0.1",
+    "walker": "1.0.7",
+    "xmlrpc": "chfritz/node-xmlrpc"
   }
 }

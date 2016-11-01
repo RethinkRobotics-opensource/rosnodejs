@@ -19,15 +19,113 @@
 
 const moment= require('moment');
 const bunyan = require('bunyan');
+const timeUtils = require('../time_utils.js');
 
+const DEFAULT_FORMAT = '[${severity}] [${time}] (${logger}): ${message}';
+const CONSOLE_FORMAT = process.env.ROSCONSOLE_JS_FORMAT || DEFAULT_FORMAT;
+const CONSOLE_TOKEN_REGEX = /\${([a-z|A-Z]+)}/g;
 
-module.exports = {
-  ROS(rec) {
-    let now =  moment(rec.time).format('YYYY-MM-DD HH:mm:ss.SSSZZ');
-    let timeMsg = '[' + bunyan.nameFromLevel[rec.level].toUpperCase() + '] ' + now + ': ' + rec.msg;
-    if (rec.scope) {
-      return '[' + rec.scope + ']' + timeMsg;
-    }
-    return timeMsg;
+class LogFormatter {
+  constructor() {
+    this._tokens = [];
+
+    this._parseFormat();
+    this._numTokens = this._tokens.length;
   }
-};
+
+  _parseFormat() {
+    let match;
+    let lastMatchIndex = 0;
+    while ((match = CONSOLE_TOKEN_REGEX.exec(CONSOLE_FORMAT)) !== null) {
+      const preToken = CONSOLE_FORMAT.substr(lastMatchIndex, match.index - lastMatchIndex);
+      if (preToken.length > 0) {
+        this._tokens.push(new DefaultToken(preToken));
+      }
+      this._tokens.push(this._getTokenizer(match[1]));
+      lastMatchIndex = match.index + match[0].length;
+    }
+    const postToken = CONSOLE_FORMAT.substr(lastMatchIndex);
+    if (postToken.length > 0) {
+      this._tokens.push(new DefaultToken(postToken));
+    }
+  }
+
+  _getTokenizer(token) {
+    switch(token) {
+      case 'severity':
+        return new SeverityToken();
+      case 'message':
+        return new MessageToken();
+      case 'time':
+        return new TimeToken();
+      case 'logger':
+        return new LoggerToken();
+      case 'isodate':
+        return new IsoDateToken();
+      default:
+        return new DefaultToken(token);
+    }
+  }
+
+  format(rec) {
+    const fields = this._tokens.map((token) => { return token.format(rec); });
+    return fields.join('');
+  }
+}
+
+// ----------------------------------------------------------------------------------------
+// Tokens used for log formatting
+
+class DefaultToken {
+  constructor(val) {
+    this.val = val;
+  }
+
+  format() {
+    return this.val;
+  }
+}
+
+class SeverityToken {
+  constructor() { }
+
+  format(rec) {
+    return bunyan.nameFromLevel[rec.level].toUpperCase();
+  }
+}
+
+class MessageToken {
+  constructor() { }
+
+  format(rec) {
+    return rec.msg;
+  }
+}
+
+class TimeToken {
+  constructor() { }
+
+  format(rec) {
+    const recTime = rec.time;
+    return `${(recTime / 1000).toFixed(3)}`;
+  }
+}
+
+class LoggerToken {
+  constructor() { }
+
+  format(rec) {
+    return rec.scope || rec.name;
+  }
+}
+
+class IsoDateToken {
+  constructor() { }
+
+  format(rec) {
+    return moment(rec.time).format('YYYY-MM-DDTHH:mm:ss.SSSZZ')
+  }
+}
+
+const logFormatter = new LogFormatter();
+module.exports = logFormatter.format.bind(logFormatter);
