@@ -1,9 +1,11 @@
 'use strict';
-var fs          = require('fs')
-  , path        = require('path')
-  , walker      = require('walker');
+const fs          = require('fs')
+    , path        = require('path')
+    , walker      = require('walker')
+    , async       = require('async');
 
 let packageCache = {};
+const cache = {};
 
 function packageWalk(directory, symlinks, findMessages) {
   var noSubDirs = new Set();
@@ -91,7 +93,7 @@ function packageWalk(directory, symlinks, findMessages) {
 
 function findPackageInDirectory(directory, packageName, callback) {
   var found = false;
-  return walk(directory)
+  return packageWalk(directory)
     .on('package', function(name, dir) {
       if (name === packageName) {
         this.emit('stop');
@@ -191,11 +193,20 @@ function findPackagesInDirectoryChain(directories) {
 // See http://ros.org/doc/api/rospkg/html/rospack.html
 // packages = {};
 exports.findPackage = function(packageName, callback) {
+  var directory = cache[packageName.toLowerCase()];
+  if (directory) {
+    callback(null, directory);
+    return;
+  }
   var rosRoot = process.env.ROS_ROOT;
-  var packagePath = process.env.ROS_PACKAGE_PATH;
-  var rosPackagePaths = packagePath.split(':');
+  var packagePath = process.env.ROS_PACKAGE_PATH
+  var rosPackagePaths = packagePath.split(':')
   var directories = [rosRoot].concat(rosPackagePaths);
-  return findPackageInDirectoryChain(directories, packageName, callback);
+  return findPackageInDirectoryChain(directories, packageName,
+    function(err, directory) {
+      cache[packageName.toLowerCase()] = directory;
+      callback(err, directory);
+    });
 };
 
 exports.findMessagePackages = function() {
@@ -211,7 +222,7 @@ exports.getPackageCache = function() {
 function forEachPackageInDirectory(directory, list, onEnd) {
   fs.access(directory, fs.R_OK, (err) => {
       if (!err) {
-        walk(directory)
+        packageWalk(directory)
           .on('package', function(name, dir) {
             list.push(dir);
           })
@@ -235,7 +246,7 @@ exports.getAllPackages = function(done) {
   }, function(err, directories) {
     directories.forEach(function(directory) {
       var packageName = path.basename(directory);
-      cache[packageName] = directory;
+      cache[packageName.toLowerCase()] = directory;
     });
     done(err, directories);
   });

@@ -207,7 +207,7 @@ let MessageUtils = {
   getHandlerForMsgType(rosDataType, loadIfMissing=false) {
     let type = messages.getFromRegistry(rosDataType, ["msg"]);
     if (type) {
-      return new type();
+      return type;
     } else {
       const [msgPackage, type] = rosDataType.split('/');
       let messagePackage = this.getPackage(msgPackage);
@@ -232,7 +232,9 @@ let MessageUtils = {
     if (request && response) {
       return {
         Request: request,
-        Response: response
+        Response: response,
+        md5sum: () => { return request.md5sum(); },
+        datatype: () => { return rosDataType; }
       };
     } else {
       const [msgPackage, type] = rosDataType.split('/');

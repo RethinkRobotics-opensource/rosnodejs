@@ -2,10 +2,8 @@
 
 let rosnodejs = require('../index.js');
 
-rosnodejs.initNode('/my_node', {
-  messages: ['std_msgs/String'],
-  services: ['std_srvs/SetBool']
-}).then((rosNode) => {
+rosnodejs.initNode('/my_node', { onTheFly: true})
+.then((rosNode) => {
 
   const std_msgs = rosnodejs.require('std_msgs').msg;
   const msg = new std_msgs.String();
