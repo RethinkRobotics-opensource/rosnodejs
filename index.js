@@ -152,6 +152,10 @@ let Rosnodejs = {
     rosNode = null;
   },
 
+  shutdown() {
+    return rosNode.shutdown();
+  },
+
   _loadOnTheFlyMessages({onTheFly}) {
     if (onTheFly) {
       return new Promise((resolve, reject) => {
