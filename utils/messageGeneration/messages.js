@@ -204,6 +204,8 @@ function getMessageFromFile(messageType, filePath, type, callback) {
           response = buildMessageClass(details.response);
           setMessageInRegistry(messageType, request, type, "Request");
           setMessageInRegistry(messageType, response, type, "Response");
+          setMessageInRegistry(messageType, () => {return request.md5sum(); }, type, 'md5sum');
+          setMessageInRegistry(messageType, () => { return messageType; }, type, 'datatype');
           callback();
           // ^ no value needed for services, since they cannot appear nested
           // still pretty hacky
@@ -534,19 +536,26 @@ function buildMessageClass(details) {
     return this.md5;
   };
   Message.Constants = Message.constants
-    = Message.prototype.constants   = details.constants;
+    = Message.prototype.constants   = (() => {
+      const ret = {};
+      details.constants.forEach((constant) => {
+        ret[constant.name] = constant.value;
+      });
+    return ret;
+  })();
   Message.fields      = Message.prototype.fields      = details.fields;
   Message.serialize   = Message.prototype.serialize   =
-    function(obj, buffer) {
-      serializeInnerMessage(message, buffer, 0);
-    }
+    function(obj, buffer, offset) {
+      serializeInnerMessage(obj, buffer, offset);
+    };
   Message.deserialize = Message.prototype.deserialize = function(buffer) {
     var message = new Message();
 
     message = deserializeInnerMessage(message, buffer, 0);
 
     return message;
-  }
+  };
+  Message.getMessageSize = function(msg) { return fieldsUtil.getMessageSize(msg); };
   Message.prototype.validate    = buildValidator(details);
 
   return Message;
