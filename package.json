@@ -2,7 +2,7 @@
   "name": "rosnodejs",
   "version": "1.0.3",
   "description": "Native ROS for nodejs",
-  "main": "index.js",
+  "main": "dist/index.js",
   "keywords": [
     "ros"
   ],
@@ -11,7 +11,9 @@
     "gennodejsTest": "mocha test/gennodejsTest.js",
     "stressTest": "mocha test/stress.js",
     "flatten": "node tools/flatten.js",
-    "generate": "node tools/generateMessages.js"
+    "generate": "node tools/generateMessages.js",
+    "compile": "babel --presets es2015 index.js -d dist/ && for dir in utils utils/messageGeneration utils/log lib tools test examples; do babel --presets es2015 $dir -d dist/$dir; done",
+    "prepublish": "npm run compile"
   },
   "author": "chris smith",
   "license": "Apache-2.0",
@@ -24,12 +26,14 @@
     "mocha": "^2.4.5"
   },
   "dependencies": {
+    "babel-cli": "^6.18.0",
+    "babel-preset-es2015": "^6.18.0",
     "argparse": "1.0.7",
     "async": "2.0.1",
     "bunyan": "1.8.1",
     "md5": "2.1.0",
     "moment": "2.12.0",
-    "ros_msg_utils": "RethinkRobotics-opensource/ros_msg_utils#v1.0.1",
+    "ros_msg_utils": "chfritz/ros_msg_utils#add_babel",
     "walker": "1.0.7",
     "xmlrpc": "chfritz/node-xmlrpc"
   }

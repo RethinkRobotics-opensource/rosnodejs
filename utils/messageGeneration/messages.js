@@ -196,12 +196,12 @@ function getMessageFromFile(messageType, filePath, type, callback) {
         callback(error);
       } else {
         if (type == "msg") {
-          message = buildMessageClass(details);
+          var message = buildMessageClass(details);
           setMessageInRegistry(messageType, message, type);
           callback(null, message);
         } else if (type == "srv") {
-          request = buildMessageClass(details.request);
-          response = buildMessageClass(details.response);
+          var request = buildMessageClass(details.request);
+          var response = buildMessageClass(details.response);
           setMessageInRegistry(messageType, request, type, "Request");
           setMessageInRegistry(messageType, response, type, "Response");
           setMessageInRegistry(messageType, () => {return request.md5sum(); }, type, 'md5sum');
@@ -461,38 +461,6 @@ function camelCase(underscoreWord, lowerCaseFirstLetter) {
   return camelCaseWord;
 }
 
-function buildValidator (details) {
-
-  function validator (candidate, strict) {
-    return Object.keys(candidate).every(function(property) {
-      var valid = true;
-      var exists = false;
-
-      details.constants.forEach(function(field) {
-        if (field.name === property) {
-          exists = true;
-        }
-      });
-      if (!exists) {
-        details.fields.forEach(function(field) {
-          if (field.name === property) {
-            exists = true;
-          }
-        });
-      }
-
-      if (strict) {
-        return exists;
-      }
-      else {
-        return valid;
-      }
-    });
-  }
-
-  validator.name = 'validate' + camelCase(details.messageName);
-  return validator;
-}
 
 /** Construct the class definition for the given message type. The
  * resulting class holds the data and has the methods required for
@@ -578,7 +546,6 @@ function buildMessageClass(details) {
     return message;
   };
   Message.getMessageSize = function(msg) { return fieldsUtil.getMessageSize(msg); };
-  Message.prototype.validate    = buildValidator(details);
 
   return Message;
 }
