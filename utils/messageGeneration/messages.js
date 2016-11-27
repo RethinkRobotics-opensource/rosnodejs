@@ -583,22 +583,26 @@ function getMessageNameFromMessageType(messageType) {
 function serializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {
     var fieldValue = message[field.name];
+    var details = {}; // to be filled in for arrays
 
     if (fieldsUtil.isPrimitive(field.type)) {
       fieldsUtil.serializePrimitive(
         field.type, fieldValue, buffer, bufferOffset);
       bufferOffset += fieldsUtil.getPrimitiveSize(field.type, fieldValue);
     }
-    else if (fieldsUtil.isArray(field.type)) {
-      buffer.writeUInt32LE(fieldValue.length, bufferOffset);
-      bufferOffset += 4;
+    else if (fieldsUtil.isArray(field.type, details)) {
+      if (typeof details.length == "undefined") {
+        buffer.writeUInt32LE(fieldValue.length, bufferOffset);
+        bufferOffset += 4; // only for variable length arrays
+      }
 
       var arrayType = fieldsUtil.getTypeOfArray(field.type);
       fieldValue.forEach(function(value) {
         if (fieldsUtil.isPrimitive(arrayType)) {
           fieldsUtil.serializePrimitive(
             arrayType, value, buffer, bufferOffset);
-          bufferOffset += fieldsUtil.getPrimitiveSize(arrayType, value);
+          var size = fieldsUtil.getPrimitiveSize(arrayType, value)
+          bufferOffset += size;
         }
         else if (fieldsUtil.isMessage(arrayType)) {
           serializeInnerMessage(value, buffer, bufferOffset);
@@ -619,18 +623,24 @@ function serializeInnerMessage(message, buffer, bufferOffset) {
 function deserializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {
     var fieldValue = message[field.name];
+    var details = {}; // to be filled in for arrays
 
     if (fieldsUtil.isPrimitive(field.type)) {
       fieldValue = fieldsUtil.deserializePrimitive(
         field.type, buffer, bufferOffset)
       bufferOffset += fieldsUtil.getPrimitiveSize(field.type, fieldValue)
     }
-    else if (fieldsUtil.isArray(field.type)) {
-      var array     = []
-        , arraySize = buffer.readUInt32LE(bufferOffset)
-        , arrayType = fieldsUtil.getTypeOfArray(field.type)
-        ;
-      bufferOffset += 4;
+    else if (fieldsUtil.isArray(field.type, details)) {
+      var array     = [];
+      var arrayType = fieldsUtil.getTypeOfArray(field.type)
+
+      var arraySize;
+      if (details.length) {
+        arraySize = details.length
+      } else {
+        arraySize = buffer.readUInt32LE(bufferOffset)
+        bufferOffset += 4; // only for variable length arrays
+      }
 
       for (var i = 0; i < arraySize; i++) {
         if (fieldsUtil.isPrimitive(arrayType)) {
