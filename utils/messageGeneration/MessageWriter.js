@@ -579,11 +579,8 @@ function writeMessageDefinition(w, spec) {
     .indent('// Returns full string definition for message')
     .write('return `');
 
-  const lines = spec.fileContents.split('\n');
-  lines.forEach((line) => {
-    w.write(`${line}`);
-  });
-  w.write('`;')
+  const fullText = spec.computeFullText();
+  w.write(`${fullText}\n\`;`)
     .dedent('}')
     .newline();
 }

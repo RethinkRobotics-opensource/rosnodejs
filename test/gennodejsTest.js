@@ -449,6 +449,9 @@ describe('gennodejsTests', () => {
       basicServiceResp = new BasicService.Response({result: stringField});
 
       expect(basicServiceResp.result).to.equal(stringField);
+
+      // expect full message definition (including test_msgs/BaseType)
+      expect(BaseTypeVariableLengthArray.messageDefinition().includes(BaseType.messageDefinition().trim())).to.be.true;
     });
 
     it('constant length arrays', (done) => {
@@ -680,6 +683,9 @@ describe('gennodejsTests', () => {
       expect(deserializedMsg.time_field.secs).to.equal(time.secs);
       expect(deserializedMsg.time_field.nsecs).to.equal(time.nsecs);
 
+      // check message definition is full message definition (including message it depends on)
+      expect(StdMsg.messageDefinition().includes(Header.messageDefinition().trim())).to.be.true;
+
       done();
     });
 
@@ -745,6 +751,49 @@ describe('gennodejsTests', () => {
       expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionAction')).to.not.throw;
       expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionFeedback')).to.not.throw;
       expect(msgUtils.getHandlerForMsgType('test_msgs/TestActionGoal')).to.not.throw;
+    });
+
+    it('Message Definition', () => {
+      const TestActionActionGoal = msgUtils.getHandlerForMsgType('test_msgs/TestActionActionGoal');
+      const TestActionActionFeedback = msgUtils.getHandlerForMsgType('test_msgs/TestActionActionFeedback');
+      const TestActionActionResult = msgUtils.getHandlerForMsgType('test_msgs/TestActionActionResult');
+      const TestActionGoal = msgUtils.getHandlerForMsgType('test_msgs/TestActionGoal');
+      const TestActionFeedback = msgUtils.getHandlerForMsgType('test_msgs/TestActionFeedback');
+      const TestActionResult = msgUtils.getHandlerForMsgType('test_msgs/TestActionResult');
+
+      const actionGoalMsgDefinition = TestActionActionGoal.messageDefinition().trim();
+      const actionFeedbackMsgDefinition = TestActionActionFeedback.messageDefinition().trim();
+      const actionResultMsgDefinition = TestActionActionResult.messageDefinition().trim();
+      const goalMsgDefinition = TestActionGoal.messageDefinition().trim();
+      const feedbackMsgDefinition = TestActionFeedback.messageDefinition().trim();
+      const resultMsgDefinition = TestActionResult.messageDefinition().trim();
+
+      expect(goalMsgDefinition.includes('---')).to.be.false;
+      expect(goalMsgDefinition.includes(feedbackMsgDefinition)).to.be.false;
+      expect(goalMsgDefinition.includes(resultMsgDefinition)).to.be.false;
+
+      expect(feedbackMsgDefinition.includes('---')).to.be.false;
+      expect(feedbackMsgDefinition.includes(goalMsgDefinition)).to.be.false;
+      expect(feedbackMsgDefinition.includes(resultMsgDefinition)).to.be.false;
+
+      expect(resultMsgDefinition.includes('---')).to.be.false;
+      expect(resultMsgDefinition.includes(feedbackMsgDefinition)).to.be.false;
+      expect(resultMsgDefinition.includes(goalMsgDefinition)).to.be.false;
+
+      expect(actionGoalMsgDefinition.includes('---')).to.be.false;
+      expect(actionGoalMsgDefinition.includes(goalMsgDefinition)).to.be.true;
+      expect(actionGoalMsgDefinition.includes(feedbackMsgDefinition)).to.be.false;
+      expect(actionGoalMsgDefinition.includes(resultMsgDefinition)).to.be.false;
+
+      expect(actionFeedbackMsgDefinition.includes('---')).to.be.false;
+      expect(actionFeedbackMsgDefinition.includes(goalMsgDefinition)).to.be.false;
+      expect(actionFeedbackMsgDefinition.includes(feedbackMsgDefinition)).to.be.true;
+      expect(actionFeedbackMsgDefinition.includes(resultMsgDefinition)).to.be.false;
+
+      expect(actionResultMsgDefinition.includes('---')).to.be.false;
+      expect(actionResultMsgDefinition.includes(goalMsgDefinition)).to.be.false;
+      expect(actionResultMsgDefinition.includes(feedbackMsgDefinition)).to.be.false;
+      expect(actionResultMsgDefinition.includes(resultMsgDefinition)).to.be.true;
     });
   });
 

@@ -125,7 +125,7 @@ let TcprosUtils = {
 
     const fields = deserializeStringFields(header);
     fields.forEach((field) => {
-      let matchResult = field.match(/^(\w+)=(.+)/m);
+      let matchResult = field.match(/^(\w+)=([\s\S]+)/);
 
       // invalid connection header
       if (!matchResult) {
