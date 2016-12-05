@@ -196,12 +196,12 @@ function getMessageFromFile(messageType, filePath, type, callback) {
         callback(error);
       } else {
         if (type == "msg") {
-          message = buildMessageClass(details);
+          var message = buildMessageClass(details);
           setMessageInRegistry(messageType, message, type);
           callback(null, message);
         } else if (type == "srv") {
-          request = buildMessageClass(details.request);
-          response = buildMessageClass(details.response);
+          var request = buildMessageClass(details.request);
+          var response = buildMessageClass(details.response);
           setMessageInRegistry(messageType, request, type, "Request");
           setMessageInRegistry(messageType, response, type, "Response");
           setMessageInRegistry(messageType, () => {return request.md5sum(); }, type, 'md5sum');
@@ -461,38 +461,6 @@ function camelCase(underscoreWord, lowerCaseFirstLetter) {
   return camelCaseWord;
 }
 
-function buildValidator (details) {
-
-  function validator (candidate, strict) {
-    return Object.keys(candidate).every(function(property) {
-      var valid = true;
-      var exists = false;
-
-      details.constants.forEach(function(field) {
-        if (field.name === property) {
-          exists = true;
-        }
-      });
-      if (!exists) {
-        details.fields.forEach(function(field) {
-          if (field.name === property) {
-            exists = true;
-          }
-        });
-      }
-
-      if (strict) {
-        return exists;
-      }
-      else {
-        return valid;
-      }
-    });
-  }
-
-  validator.name = 'validate' + camelCase(details.messageName);
-  return validator;
-}
 
 /** Construct the class definition for the given message type. The
  * resulting class holds the data and has the methods required for
@@ -515,14 +483,36 @@ function buildMessageClass(details) {
       details.fields.forEach(function(field) {
         if (field.messageType) {
           // sub-message class
-          that[field.name] =
-            new (field.messageType)(values ? values[field.name] : undefined);
+          // is it an array?
+          var match = field.type.match(/(.*)\[(\d*)\]/);
+          if (values && typeof values[field.name] != "undefined") {
+            // values provided
+            if (match) {
+              // it's an array
+              that[field.name] = values[field.name].map(function(value) {
+                  return new (field.messageType)(value);
+                });
+            } else {
+              that[field.name] =
+                new (field.messageType)(values[field.name]);
+            }
+          } else {
+            // use defaults
+            if (match) {
+              // it's an array
+              const basetype = match[1];
+              const length = (match[2].length > 0 ? parseInt(match[2]) : 0);
+              that[field.name] = new Array(length).fill(new (field.messageType)());
+            } else {
+              that[field.name] = new (field.messageType)();
+            }
+          }
         } else {
-          // simple value
+          // simple type
           that[field.name] =
-            (values && typeof values[field.name] != "undefined") ? 
-            values[field.name] :
-            (field.value || fieldsUtil.getDefaultValue(field.type));
+            (values && typeof values[field.name] != "undefined") ?
+             values[field.name] :
+             (field.value || fieldsUtil.getDefaultValue(field.type));
         }
       });
     }
@@ -556,7 +546,6 @@ function buildMessageClass(details) {
     return message;
   };
   Message.getMessageSize = function(msg) { return fieldsUtil.getMessageSize(msg); };
-  Message.prototype.validate    = buildValidator(details);
 
   return Message;
 }
@@ -594,22 +583,26 @@ function getMessageNameFromMessageType(messageType) {
 function serializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {
     var fieldValue = message[field.name];
+    var details = {}; // to be filled in for arrays
 
     if (fieldsUtil.isPrimitive(field.type)) {
       fieldsUtil.serializePrimitive(
         field.type, fieldValue, buffer, bufferOffset);
       bufferOffset += fieldsUtil.getPrimitiveSize(field.type, fieldValue);
     }
-    else if (fieldsUtil.isArray(field.type)) {
-      buffer.writeUInt32LE(fieldValue.length, bufferOffset);
-      bufferOffset += 4;
+    else if (fieldsUtil.isArray(field.type, details)) {
+      if (typeof details.length == "undefined") {
+        buffer.writeUInt32LE(fieldValue.length, bufferOffset);
+        bufferOffset += 4; // only for variable length arrays
+      }
 
       var arrayType = fieldsUtil.getTypeOfArray(field.type);
       fieldValue.forEach(function(value) {
         if (fieldsUtil.isPrimitive(arrayType)) {
           fieldsUtil.serializePrimitive(
             arrayType, value, buffer, bufferOffset);
-          bufferOffset += fieldsUtil.getPrimitiveSize(arrayType, value);
+          var size = fieldsUtil.getPrimitiveSize(arrayType, value)
+          bufferOffset += size;
         }
         else if (fieldsUtil.isMessage(arrayType)) {
           serializeInnerMessage(value, buffer, bufferOffset);
@@ -630,18 +623,24 @@ function serializeInnerMessage(message, buffer, bufferOffset) {
 function deserializeInnerMessage(message, buffer, bufferOffset) {
   message.fields.forEach(function(field) {
     var fieldValue = message[field.name];
+    var details = {}; // to be filled in for arrays
 
     if (fieldsUtil.isPrimitive(field.type)) {
       fieldValue = fieldsUtil.deserializePrimitive(
         field.type, buffer, bufferOffset)
       bufferOffset += fieldsUtil.getPrimitiveSize(field.type, fieldValue)
     }
-    else if (fieldsUtil.isArray(field.type)) {
-      var array     = []
-        , arraySize = buffer.readUInt32LE(bufferOffset)
-        , arrayType = fieldsUtil.getTypeOfArray(field.type)
-        ;
-      bufferOffset += 4;
+    else if (fieldsUtil.isArray(field.type, details)) {
+      var array     = [];
+      var arrayType = fieldsUtil.getTypeOfArray(field.type)
+
+      var arraySize;
+      if (details.length) {
+        arraySize = details.length
+      } else {
+        arraySize = buffer.readUInt32LE(bufferOffset)
+        bufferOffset += 4; // only for variable length arrays
+      }
 
       for (var i = 0; i < arraySize; i++) {
         if (fieldsUtil.isPrimitive(arrayType)) {

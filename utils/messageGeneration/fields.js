@@ -72,9 +72,17 @@ fields.isPrimitive = function(fieldType) {
   return (fields.primitiveTypes.indexOf(fieldType) >= 0);
 };
 
-var isArrayRegex = /\[*\]$/;
-fields.isArray = function(fieldType) {
-  return (fieldType.match(isArrayRegex) !== null);
+var isArrayRegex = /\[(\d*)\]$/;
+fields.isArray = function(fieldType, details) {
+  var match = fieldType.match(isArrayRegex);
+  if (match) {
+    if (match[1] && details) {
+      details.length = match[1];
+    }
+    return true;
+  } else {
+    return false;
+  }
 };
 
 fields.isMessage = function(fieldType) {
