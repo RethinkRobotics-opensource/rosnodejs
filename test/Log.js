@@ -39,13 +39,16 @@ describe('Logging', () => {
   };
 
   before(() => {
-    rosnodejs.log.addStream({
-      type: 'raw',
-      level: 'info',
-      stream: outputCapture
-    });
+    return rosnodejs.initNode('/testNode', {rosMasterUri: `http://localhost:${MASTER_PORT}`, logging: {skipRosLogging: true}})
+      .then(() => {
+        rosnodejs.log.addStream({
+          type: 'raw',
+          level: 'info',
+          stream: outputCapture
+        });
 
-    rosnodejs.log.setLevel('trace');
+        rosnodejs.log.setLevel('trace');
+      });
   });
 
   after(()=> {
