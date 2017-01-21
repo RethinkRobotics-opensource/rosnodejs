@@ -546,6 +546,7 @@ function buildMessageClass(details) {
     return message;
   };
   Message.getMessageSize = function(msg) { return fieldsUtil.getMessageSize(msg); };
+  Message.datatype = function() { return details.messageType; };
 
   return Message;
 }
