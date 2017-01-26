@@ -183,7 +183,7 @@ function findPackageInDirectoryChain(directories, packageName, callback) {
 function findPackagesInDirectoryChain(directories) {
   const funcs = directories.map((directory) => { return findPackagesInDirectory.bind(null, directory); });
   return funcs.reduce((prev, cur, index) => {
-    return prev.then(() => {console.log('search ' + directories[index]); return cur(); });
+    return prev.then(() => { return cur(); });
   }, Promise.resolve());
 }
 
