@@ -17,7 +17,7 @@
 
 'use strict';
 
-const ros_msg_utils = require('ros_msg_utils');
+const ros_msg_utils = require('../ros_msg_utils');
 const base_serializers = ros_msg_utils.Serialize;
 const base_deserializers = ros_msg_utils.Deserialize;
 

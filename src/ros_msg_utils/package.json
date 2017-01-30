@@ -1,0 +1,21 @@
+{
+  "name": "ros_msg_utils",
+  "version": "1.0.2",
+  "description": "Provides Helper functions for ros messages",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "mocha test/directory.js",
+    "compile": "babel --presets es2015 index.js -d dist/ && babel --presets es2015 lib -d dist/lib/",
+    "prepublish": "npm run compile"
+  },
+  "keywords": [
+    "ros",
+    "messages"
+  ],
+  "author": "chris smith",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/RethinkRobotics-opensource/ros_msg_utils"
+  }
+}
