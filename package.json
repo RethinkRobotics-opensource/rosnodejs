@@ -11,8 +11,8 @@
     "gennodejsTest": "mocha test/gennodejsTest.js",
     "stressTest": "mocha test/stress.js",
     "flatten": "node tools/flatten.js",
-    "generate": "node tools/generateMessages.js",
-    "compile": "babel --presets es2015 index.js -d dist/ && for dir in utils utils/messageGeneration utils/log lib tools test examples; do babel --presets es2015 $dir -d dist/$dir; done",
+    "generate": "node dist/tools/generateMessages.js",
+    "compile": "babel --presets es2015 src/ -d dist/",
     "prepublish": "npm run compile"
   },
   "author": "chris smith",

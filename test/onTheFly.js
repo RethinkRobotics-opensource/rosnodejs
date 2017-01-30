@@ -3,7 +3,7 @@
 const chai = require('chai');
 const expect = chai.expect;
 const xmlrpc = require('xmlrpc');
-const rosnodejs = require('../index.js');
+const rosnodejs = require('../src/index.js');
 const Master = require('./utils/MasterStub.js');
 
 const MASTER_PORT = 11234;

@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const msgUtils = require('../utils/message_utils.js');
+const msgUtils = require('../src/utils/message_utils.js');
 
 describe('gennodejsTests', () => {
   msgUtils.loadMessagePackage('std_msgs');

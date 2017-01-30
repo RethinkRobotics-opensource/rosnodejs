@@ -5,7 +5,7 @@
  */
 
 const expect = require('chai').expect;
-const rosnodejs = require('../index.js');
+const rosnodejs = require('../src/index.js');
 const TfStamped = rosnodejs.require('geometry_msgs').msg.TransformStamped;
 const TfMessage = rosnodejs.require('tf2_msgs').msg.TFMessage;
 const Image = rosnodejs.require('sensor_msgs').msg.Image;

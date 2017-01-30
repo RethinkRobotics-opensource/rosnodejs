@@ -3,10 +3,10 @@
 const net = require('net');
 const chai = require('chai');
 const expect = chai.expect;
-const rosnodejs = require('../index.js');
-const Subscriber = require('../lib/Subscriber.js');
+const rosnodejs = require('../src/index.js');
+const Subscriber = require('../src/lib/Subscriber.js');
 const xmlrpc = require('xmlrpc');
-const netUtils = require('../utils/network_utils.js');
+const netUtils = require('../src/utils/network_utils.js');
 
 const MASTER_PORT = 11234;
 

@@ -4,7 +4,7 @@ const chai = require('chai');
 const expect = chai.expect;
 const bunyan = require('bunyan');
 const xmlrpc = require('xmlrpc');
-const rosnodejs = require('../index.js');
+const rosnodejs = require('../src/index.js');
 
 const MASTER_PORT = 11234;
 

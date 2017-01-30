@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const Spinner = require('../utils/GlobalSpinner.js');
+const Spinner = require('../src/utils/GlobalSpinner.js');
 
 let handleList = [];
 let spinner;
