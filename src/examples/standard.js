@@ -59,7 +59,7 @@ rosnodejs.initNode('/test_node')
   let iter = 0;
   const msg = new std_msgs.String();
   setInterval(() => {
-    msg.data = msgStart + iter
+    msg.data = msgStart + iter;
     pub.publish(msg);
     ++iter;
     if (iter > 200) {
@@ -77,20 +77,6 @@ rosnodejs.initNode('/test_node')
       throttleMs: 1000
     }
   );
-
-  let pub2 = rosNode.advertise('/int64', 'std_msgs/UInt64', {
-    queueSize: 1,
-    latching: true
-  });
-
-  let num = new BN('1');
-  setInterval(() => {
-    num = num.shln(1);
-
-    let data = num.sub(new BN(1));
-    pub2.publish(new std_msgs.UInt64({data}));
-    console.log('pub %s', data.toString());
-  }, 1000);
 })
 .catch((err) => {
   rosnodejs.log.error(err.stack);

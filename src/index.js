@@ -30,13 +30,9 @@ const RosNode = require('./lib/RosNode.js');
 const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
 const ActionClient = require('./lib/ActionClient.js');
+const Time = require('./lib/Time.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
-
-// these will be modules, they depend on logger which isn't initialized yet
-// though so they'll be required later (in initNode)
-// let RosNode = null;
-// let NodeHandle = null;
 
 // will be initialized through call to initNode
 let log = Logging.getLogger();
@@ -142,6 +138,7 @@ let Rosnodejs = {
     return this._loadOnTheFlyMessages(options)
       .then(_checkMasterHelper)
       .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
+      .then(Time._initializeRosTime.bind(Time, this))
       .then(() => { return this.getNodeHandle(); })
       .catch((err) => {
         log.error('Error: ' + err);
@@ -150,6 +147,10 @@ let Rosnodejs = {
 
   reset() {
     rosNode = null;
+  },
+
+  shutdown() {
+    return rosNode.shutdown();
   },
 
   _loadOnTheFlyMessages({onTheFly}) {
@@ -237,6 +238,10 @@ let Rosnodejs = {
       console: ConsoleLogStream,
       ros:     RosLogStream
     }
+  },
+
+  get Time() {
+    return Time;
   },
 
 
