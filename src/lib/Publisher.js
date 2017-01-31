@@ -159,8 +159,8 @@ class Publisher extends EventEmitter {
       this._log.debugThrottle(2000, `Publishing message on ${this.getTopic()} with no subscribers`);
     }
 
-    msgQueue.forEach((msg) => {
-      try {
+    try {
+      msgQueue.forEach((msg) => {
         if (this._resolve) {
           msg = this._messageHandler.Resolve(msg);
         }
@@ -177,11 +177,12 @@ class Publisher extends EventEmitter {
         if (this.getLatching()) {
           this._lastSentMsg = serializedMsg;
         }
-      }
-      catch (err) {
-        this._log.error('Error when publishing message on topic %s: %s', this.getTopic(), err.stack);
-      }
-    });
+      });
+    }
+    catch (err) {
+      this._log.error('Error when publishing message on topic %s: %s', this.getTopic(), err.stack);
+      this.emit('error', err);
+    }
   }
 
   handleSubscriberConnection(subscriber, header) {

@@ -303,7 +303,7 @@ class Subscriber extends EventEmitter {
     }
     catch (err) {
       this._log.error('Error while dispatching message on topic %s: %s', this.getTopic(), err);
-      throw err;
+      this.emit('error', err);
     }
   }
 }

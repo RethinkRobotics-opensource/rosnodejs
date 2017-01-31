@@ -363,20 +363,17 @@ describe('Protocol Test', () => {
         level: 'error'
       });
 
-      Promise.resolve()
-      .then(() => {
-        sub.on('registered', () => {
-          const pub = nh.advertise(topic, 'std_msgs/String', {latching: true});
+      sub.on('registered', () => {
+        const pub = nh.advertise(topic, 'std_msgs/String', {latching: true});
 
-          pub.on('connection', () => {
-            pub.publish({});
-          });
+        pub.on('connection', () => {
+          pub.publish({});
         });
-      })
-      .catch((err) => {
-        console.log(err);
-        done();
-      })
+
+        pub.on('error', (err) => {
+          nh._node._spinner._queueLocked = false;
+        });
+      });
     });
 
     it('Resolve', (done) => {
