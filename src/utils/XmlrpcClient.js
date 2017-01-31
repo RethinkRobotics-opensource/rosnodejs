@@ -65,6 +65,15 @@ class XmlrpcClient extends EventEmitter {
     }
   }
 
+  clear() {
+    this._log.info('Clearing xmlrpc client queue...');
+    if (this._callQueue.length !== 0) {
+      this._callQueue[0].reject(new Error('Clearing call queue - probably shutting down...'));
+    }
+    clearTimeout(this._timeoutId);
+    this._callQueue = [];
+  }
+
   _tryExecuteCall() {
     if (this._callQueue.length === 0) {
       this._log.warn('Tried executing xmlprc call on empty queue');

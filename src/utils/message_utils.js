@@ -204,8 +204,12 @@ let MessageUtils = {
     return pack;
   },
 
+  getAvailableMessagePackages() {
+    return ros_msg_utils.packageMap;
+  },
+
   getHandlerForMsgType(rosDataType, loadIfMissing=false) {
-    let type = messages.getFromRegistry(rosDataType, ["msg"]);
+    let type = messages.getFromRegistry(rosDataType, "msg");
     if (type) {
       return type;
     } else {
@@ -225,17 +229,9 @@ let MessageUtils = {
   },
 
   getHandlerForSrvType(rosDataType, loadIfMissing=false) {
-    let request =
-      messages.getFromRegistry(rosDataType, ["srv", "Request"]);
-    let response =
-      messages.getFromRegistry(rosDataType, ["srv", "Response"]);
-    if (request && response) {
-      return {
-        Request: request,
-        Response: response,
-        md5sum: () => { return request.md5sum(); },
-        datatype: () => { return rosDataType; }
-      };
+    let srv = messages.getFromRegistry(rosDataType, "srv");
+    if (srv) {
+      return srv
     } else {
       const [msgPackage, type] = rosDataType.split('/');
       let messagePackage = this.getPackage(msgPackage);

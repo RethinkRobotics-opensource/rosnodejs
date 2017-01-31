@@ -17,7 +17,6 @@
 
 'use strict';
 
-const bignum = require('bignum');
 const BN = require('bn.js');
 const getByteLength = require('./encoding_utils.js').getByteLength;
 
@@ -52,13 +51,13 @@ function UInt32Serializer(value, buffer, bufferOffset) {
 }
 
 function UInt64Serializer(value, buffer, bufferOffset) {
-  if (!bignum.isBigNum(value)) {
-    value = bignum(value);
+  if (!BN.isBN(value)) {
+    value = new BN(value);
   }
-  var high = value.div(0x100000000).toNumber();
-  var low = value.mod(0x100000000).toNumber();
-  buffer.writeUInt32LE(low, bufferOffset);
-  buffer.writeUInt32LE(high, bufferOffset+4);
+
+  const buf = value.toBuffer('le', 8);
+  buffer.set(buf, bufferOffset);
+
   return bufferOffset + 8;
 }
 

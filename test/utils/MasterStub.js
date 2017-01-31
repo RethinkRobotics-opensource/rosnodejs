@@ -17,7 +17,8 @@ class RosMasterStub extends EventEmitter {
     });
 
     this._apiMap = {
-      getUri: this._onGetUri.bind(this)
+      getUri: this._onGetUri.bind(this),
+      getParam: this._onGetParam.bind(this)
     };
 
     this._providedApis = new Set();
@@ -45,6 +46,11 @@ class RosMasterStub extends EventEmitter {
 
   _onGetUri(err, params, callback) {
     const resp = [ 1, '', `${this._host}:${this._port}`];
+    callback(null, resp);
+  }
+
+  _onGetParam(err, params, callback) {
+    const resp = [0, '', 'Not implemented in stub'];
     callback(null, resp);
   }
 }

@@ -376,12 +376,15 @@ describe('Logging', () => {
       const message = 'This is my message';
       let intervalId = null;
 
+      let timeout = setTimeout(() => {
+        throw new Error('Didn\'t receive log message within 500ms...');
+      }, 500);
+
       const rosoutCallback = (msg) => {
-        console.log('ros out %j', msg);
-        expect(msg.msg).to.have.string(message);
-        if (intervalId !== null) {
+        if (msg.msg.indexOf(message) > -1) {
           nh.unsubscribe('/rosout');
           clearInterval(intervalId);
+          clearTimeout(timeout);
           intervalId = null;
           done();
         }

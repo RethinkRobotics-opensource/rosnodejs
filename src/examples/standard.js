@@ -3,7 +3,6 @@
 let rosnodejs = require('../index.js');
 const std_msgs = rosnodejs.require('std_msgs').msg;
 const SetBool = rosnodejs.require('std_srvs').srv.SetBool;
-const BN = require('bn.js');
 
 rosnodejs.initNode('/test_node')
 .then((rosNode) => {

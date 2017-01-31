@@ -41,12 +41,7 @@ class ClientQueue {
   handleClientMessages(time) {
     if (this._handleTime === null || time - this._handleTime >= this.throttleMs) {
       this._handleTime = time;
-      try {
-        this._client._handleMsgQueue(this._queue);
-      }
-      catch (err) {
-        // log something?
-      }
+      this._client._handleMsgQueue(this._queue);
       this._queue = [];
       return true;
     }

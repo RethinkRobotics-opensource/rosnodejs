@@ -30,7 +30,8 @@ const servicePrefix = 'service=';
 const typePrefix = 'type=';
 const latchingPrefix = 'latching=';
 const persistentPrefix = 'persistent=';
-const errorPrefix = 'error='
+const errorPrefix = 'error=';
+const messageDefinitionPrefix = 'message_definition=';
 
 //-----------------------------------------------------------------------
 
@@ -59,19 +60,34 @@ function deserializeStringFields(buffer) {
   return fields;
 }
 
+/**
+ * NOTE for general questions see
+ * http://wiki.ros.org/ROS/TCPROS
+ */
 let TcprosUtils = {
 
-  createSubHeader(callerId, md5sum, topic, type) {
+  createSubHeader(callerId, md5sum, topic, type, messageDefinition) {
     const fields = [
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
       topicPrefix + topic,
-      typePrefix + type
+      typePrefix + type,
+      messageDefinitionPrefix + messageDefinition
     ];
     return serializeStringFields(fields);
   },
 
-  createPubHeader(callerId, md5sum, type, latching) {
+  /**
+   * Creates a TCPROS connection header for a publisher to send.
+   * @param callerId {string} node publishing this topic
+   * @param md5sum {string} md5 of the message
+   * @param type {string} type of the message
+   * @param latching {number} 0 or 1 indicating if the topic is latching
+   * @param messageDefinition {string} trimmed message definition.
+   *          rosbag relies on this being sent although it is not mentioned in the spec.
+   *
+   */
+  createPubHeader(callerId, md5sum, type, latching, messageDefinition) {
     const fields = [
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
@@ -108,7 +124,7 @@ let TcprosUtils = {
 
     const fields = deserializeStringFields(header);
     fields.forEach((field) => {
-      let matchResult = field.match(/^(\w+)=(.+)/m);
+      let matchResult = field.match(/^(\w+)=([\s\S]+)/);
 
       // invalid connection header
       if (!matchResult) {

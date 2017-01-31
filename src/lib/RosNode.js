@@ -135,8 +135,8 @@ class RosNode extends EventEmitter {
     if (sub) {
       this._debugLog.info('Unsubscribing from topic %s', topic);
       sub.disconnect();
-      this.unregisterSubscriber(topic);
       delete this._subscribers[topic];
+      return this.unregisterSubscriber(topic);
     }
   }
 
@@ -145,8 +145,8 @@ class RosNode extends EventEmitter {
     if (pub) {
       this._debugLog.info('Unadvertising topic %s', topic);
       pub.disconnect();
-      this.unregisterPublisher(topic);
       delete this._publishers[topic];
+      return this.unregisterPublisher(topic);
     }
   }
 
@@ -155,8 +155,8 @@ class RosNode extends EventEmitter {
     if (server) {
       this._debugLog.info('Unadvertising service %s', service);
       server.disconnect();
-      this.unregisterService(service, server.getServiceUri());
       delete this._services[service];
+      return this.unregisterService(service, server.getServiceUri());
     }
   }
 
@@ -395,6 +395,8 @@ class RosNode extends EventEmitter {
         this._server = server;
         callback(port);
       });
+
+      this._tcprosServer = server;
     };
 
     return new Promise((resolve, reject) => {
@@ -530,26 +532,60 @@ class RosNode extends EventEmitter {
   _setupExitHandler() {
     // we need to catch that this process is about to exit so we can unregister all our
     // publishers, subscribers, and services
-    let exited = false;
 
-    let exitHandler = function(killProcess=false) {
+    let exitHandler;
+    let sigIntHandler;
+
+    let exitImpl = function(killProcess=false) {
       this._log.debug('Ros node ' + this._nodeName + ' beginning shutdown at ' + Date.now());
       let promises = [];
 
       // remove subscribers first so that master doesn't send
       // publisherUpdate messages
       Object.keys(this._subscribers).forEach((topic) => {
-        promises.push(this.unregisterSubscriber(topic));
+        promises.push(this.unsubscribe(topic));
       });
 
       Object.keys(this._publishers).forEach((topic) => {
-        promises.push(this.unregisterPublisher(topic));
+        promises.push(this.unadvertise(topic));
       });
 
       Object.keys(this._services).forEach((service) => {
-        let serv = this._services[service];
-        promises.push(this.unregisterService(service));
+        promises.push(this.unadvertiseService(service));
       });
+
+      const clearXmlrpcQueues = () => {
+        return Promise.resolve(() => {
+          this._masterApi.getXmlrpcClient().clear();
+        }).
+        catch((err) => {
+          // no op
+        });
+      };
+
+      const shutdownServer = (server, name) => {
+        return new Promise((resolve) => {
+          server.close(() => {
+            resolve();
+          });
+        })
+        .catch((err) => {
+          // no op
+        })
+      };
+
+      const shutdownServers = () => {
+        return Promise.all([
+          shutdownServer(this._slaveApiServer, 'slaveapi'),
+          shutdownServer(this._tcprosServer, 'tcpros')
+        ]);
+      };
+
+      promises.push(shutdownServers());
+      promises.push(clearXmlrpcQueues());
+
+      process.removeListener('exit', exitHandler);
+      process.removeListener('SIGINT', sigIntHandler);
 
       if (killProcess) {
         // we can't really block the exit process, just have to hope it worked...
@@ -564,25 +600,15 @@ class RosNode extends EventEmitter {
       return Promise.all(promises);
     };
 
-    let once = function(func) {
-      let exited = false;
-      return function() {
-        if (exited) {
-          // this is getting called a second time - probably after SIGINT
-          return;
-        }
-        // else
-        exited = true;
-        return func.apply(this, arguments);
-      }
-    };
+    this._exit = exitImpl;
 
-    this._exit = once(exitHandler);
+    exitHandler = exitImpl.bind(this);
+    sigIntHandler = exitImpl.bind(this, true);
 
-    process.on('exit', this._exit.bind(this) );
-    process.on('SIGINT', this._exit.bind(this, true) );
+    process.once('exit', exitHandler );
+    process.once('SIGINT', sigIntHandler );
   }
-};
+}
 
 //------------------------------------------------------------------
 

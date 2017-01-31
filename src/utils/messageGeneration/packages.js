@@ -7,49 +7,53 @@ const fs          = require('fs')
 let packageCache = {};
 const cache = {};
 
-function packageWalk(directory, symlinks, findMessages) {
+function packageWalk(directory, symlinks) {
   var noSubDirs = new Set();
   var stopped = false;
   symlinks = symlinks || [];
-  // console.log('package walk ' + directory);
 
   return walker(directory)
   .filterDir(function(dir, stat) {
+    // return true to explore this directory...
+
     // Exclude any subdirectory to an excluded directory
     const ignoreFile = path.join(dir, 'CATKIN_IGNORE');
-    try {
-      fs.statSync(ignoreFile);
+
+    function fileExists(file) {
+      try {
+        fs.statSync(file);
+      }
+      catch (err) {
+        return false;
+      }
+      return true;
     }
-    catch (err) {
-      return !noSubDirs.has(dir) || !stopped;
+
+    // if CATKIN_IGNORE exists, just don't even look
+    if (fileExists(ignoreFile)) {
+      return false;
     }
-    return false;
+
+    // Check if this is a package - if it is, we need to add it to noSubDirs now
+    // Otherwise it could start exploring subdirs before discovering its a package.
+    const packageFile = path.join(dir, 'package.xml');
+    const manifestFile = path.join(dir, 'manifest.xml');
+
+    if (fileExists(packageFile) || fileExists(manifestFile)) {
+      noSubDirs.add(dir);
+    }
+
+    // don't explore the directory if this dir's parent is
+    // in noSubDirs or we have stopped
+    const parent = path.dirname(dir);
+    return !(noSubDirs.has(parent) || stopped);
   })
   .on('file', function(file, stat) {
     var shortname = path.basename(file);
     var dir = path.dirname(file);
-    var extension = path.extname(file);
 
     if (shortname === 'manifest.xml' || shortname === 'package.xml') {
-      // console.log('found package %s!', file);
       this.emit('package', path.basename(dir), dir, file);
-      // There is no subpackages, so ignore anything under this directory
-      noSubDirs.add(dir);
-    }
-    else if (findMessages) {
-      var name = path.basename(file, extension);
-      if (extension === '.msg') {
-        // console.log('Found message %s: %s', name, file);
-        this.emit('message', name, file);
-      }
-      else if (extension === '.srv') {
-        // console.log('Found service %s: %s', name, file);
-        this.emit('service', name, file);
-      }
-      else if (extension === '.action') {
-        // console.log('Found action %s: %s', name, file);
-        this.emit('action', name, file);
-      }
     }
     else if(shortname === 'rospack_nosubdirs') {
       // Explicitly asked to not go into subdirectories
@@ -84,11 +88,93 @@ function packageWalk(directory, symlinks, findMessages) {
     });
     });
   })
+  .on('error', function(err) {
+    console.error('Error while walking directory %s: %s', directory, err.message);
+  })
   .on('end', function() {
     stopped = true;
     // Quit emitting
     this.emit = function(){};
   });
+}
+
+function messageWalk(directory, symlinks) {
+  var stopped = false;
+  symlinks = symlinks || [];
+
+  return walker(directory)
+    .filterDir(function(dir, stat) {
+      // Exclude any subdirectory to an excluded directory
+      const ignoreFile = path.join(dir, 'CATKIN_IGNORE');
+
+      function fileExists(file) {
+        try {
+          fs.statSync(file);
+        }
+        catch (err) {
+          return false;
+        }
+        return true;
+      }
+
+      // if CATKIN_IGNORE exists, just don't even look
+      if (fileExists(ignoreFile)) {
+        return false;
+      }
+      // else
+      return true;
+    })
+    .on('file', function(file) {
+      let extension = path.extname(file);
+      let dir = path.dirname(file);
+      let name = path.basename(file, extension);
+
+      if (extension === '.msg') {
+        this.emit('message', name, file);
+      }
+      else if (extension === '.srv') {
+        this.emit('service', name, file);
+      }
+      else if (extension === '.action') {
+        this.emit('action', name, file);
+      }
+    })
+    .on('symlink', function(symlink, stat) {
+      var walker = this;
+      fs.readlink(symlink, function(error, link) {
+        if (error) {
+          return;
+        }
+
+        var destination = path.resolve(path.dirname(symlink), link);
+
+        // Stores symlinks to avoid circular references
+        if (~symlinks.indexOf(destination)) {
+          return;
+        }
+        else {
+          symlinks.concat(destination);
+        }
+
+        fs.stat(destination, function(error, stat) {
+          if (error) {
+            return;
+          }
+          else if (stat.isDirectory()) {
+            walker.emit('dir', destination, stat);
+            return walker.go(destination);
+          }
+        });
+      });
+    })
+    .on('error', function(err) {
+      console.error('Error while walking directory %s: %s', directory, err.message);
+    })
+    .on('end', function() {
+      stopped = true;
+      // Quit emitting
+      this.emit = function(){};
+    });
 }
 
 function findPackageInDirectory(directory, packageName, callback) {
@@ -118,7 +204,6 @@ function findPackagesInDirectory(directory) {
       .on('package', (packageName, dir, fileName) => {
         packageName = packageName.toLowerCase();
         if (!packageCache.hasOwnProperty(packageName)) {
-          // console.log('Found package %s at %s', packageName, dir);
           const packageEntry = {
             directory: dir,
             messages: {},
@@ -126,7 +211,7 @@ function findPackagesInDirectory(directory) {
             actions: {}
           };
           promises.push(new Promise((resolve) => {
-            packageWalk(dir, null, true)
+            messageWalk(dir, null)
               .on('message', (name, file) => {
                 packageEntry.messages[name] = {file};
               })
@@ -183,7 +268,7 @@ function findPackageInDirectoryChain(directories, packageName, callback) {
 function findPackagesInDirectoryChain(directories) {
   const funcs = directories.map((directory) => { return findPackagesInDirectory.bind(null, directory); });
   return funcs.reduce((prev, cur, index) => {
-    return prev.then(() => {console.log('search ' + directories[index]); return cur(); });
+    return prev.then(() => { return cur(); });
   }, Promise.resolve());
 }
 
@@ -198,10 +283,9 @@ exports.findPackage = function(packageName, callback) {
     callback(null, directory);
     return;
   }
-  var rosRoot = process.env.ROS_ROOT;
-  var packagePath = process.env.ROS_PACKAGE_PATH
-  var rosPackagePaths = packagePath.split(':')
-  var directories = [rosRoot].concat(rosPackagePaths);
+  var packagePath = process.env.ROS_PACKAGE_PATH;
+  var rosPackagePaths = packagePath.split(':');
+  var directories = rosPackagePaths;
   return findPackageInDirectoryChain(directories, packageName,
     function(err, directory) {
       cache[packageName.toLowerCase()] = directory;
@@ -212,7 +296,7 @@ exports.findPackage = function(packageName, callback) {
 exports.findMessagePackages = function() {
   var packagePath = process.env.ROS_PACKAGE_PATH;
   var rosPackagePaths = packagePath.split(':');
-  return findPackagesInDirectoryChain(rosPackagePaths).then(() => {console.log('Found all packages!')});
+  return findPackagesInDirectoryChain(rosPackagePaths);
 };
 
 exports.getPackageCache = function() {

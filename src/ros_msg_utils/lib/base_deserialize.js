@@ -17,7 +17,6 @@
 
 'use strict';
 
-const bignum = require('bignum');
 const BN = require('bn.js');
 
 /*-----------------------------------------------------------------------------

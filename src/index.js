@@ -31,6 +31,7 @@ const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
 const ActionClient = require('./lib/ActionClient.js');
 const Time = require('./lib/Time.js');
+const packages = require('./utils/messageGeneration/packages.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
 
@@ -155,9 +156,7 @@ let Rosnodejs = {
 
   _loadOnTheFlyMessages({onTheFly}) {
     if (onTheFly) {
-      return new Promise((resolve, reject) => {
-        messages.getAll(resolve);
-      });
+      return messages.getAll();
     }
     // else
     return Promise.resolve();
@@ -188,8 +187,24 @@ let Rosnodejs = {
       })
   },
 
+  findPackage(packageName) {
+    return new Promise((resolve, reject) => {
+      packages.findPackage(packageName, (err, dir) => {
+        if (err) {
+          reject(err);
+        }
+        // else
+        resolve(dir);
+      });
+    });
+  },
+
   require(msgPackage) {
     return msgUtils.requireMsgPackage(msgPackage);
+  },
+
+  getAvailableMessagePackages() {
+    return msgUtils.getAvailableMessagePackages();
   },
 
   /** check that a message definition is loaded for a ros message
@@ -243,7 +258,6 @@ let Rosnodejs = {
   get Time() {
     return Time;
   },
-
 
   //------------------------------------------------------------------
   // ActionLib
