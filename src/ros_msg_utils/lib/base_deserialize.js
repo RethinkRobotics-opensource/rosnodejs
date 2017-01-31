@@ -17,6 +17,9 @@
 
 'use strict';
 
+const bignum = require('bignum');
+const BN = require('bn.js');
+
 /*-----------------------------------------------------------------------------
  * Primitive Deserialization Functions
  *
@@ -56,8 +59,8 @@ function UInt32Deserializer(buffer, bufferOffset) {
 }
 
 function UInt64Deserializer(buffer, bufferOffset) {
-  // FIXME: best way to do this??
-  let val = buffer.slice(bufferOffset[0], bufferOffset[0] + 8);
+  let slice = buffer.slice(bufferOffset[0], bufferOffset[0] + 8);
+  let val = new BN(slice, 'le');
   bufferOffset[0] += 8;
   return val;
 }
@@ -81,8 +84,8 @@ function Int32Deserializer(buffer, bufferOffset) {
 }
 
 function Int64Deserializer(buffer, bufferOffset) {
-  // FIXME: best way to do this??
-  let val = buffer.slice(bufferOffset[0], bufferOffset[0] + 8);
+  let slice = buffer.slice(bufferOffset[0], bufferOffset[0] + 8);
+  let val = new BN(slice, 'le').fromTwos(64);
   bufferOffset[0] += 8;
   return val;
 }

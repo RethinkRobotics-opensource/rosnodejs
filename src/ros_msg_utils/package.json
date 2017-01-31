@@ -2,7 +2,7 @@
   "name": "ros_msg_utils",
   "version": "1.0.2",
   "description": "Provides Helper functions for ros messages",
-  "main": "dist/index.js",
+  "main": "index.js",
   "scripts": {
     "test": "mocha test/directory.js",
     "compile": "babel --presets es2015 index.js -d dist/ && babel --presets es2015 lib -d dist/lib/",

@@ -3,6 +3,7 @@
 const chai = require('chai');
 const expect = chai.expect;
 const serialize = require('../lib/base_serialize.js');
+const BN = require('bn.js');
 
 function toBuf(val) {
   return Buffer.from(val, 'hex');
@@ -108,30 +109,59 @@ describe('Serialization Tests', () => {
   });
 
   it('Uint64', () => {
-    const buffer = Buffer.alloc(24);
-    const compBuf = Buffer.alloc(24);
-    const vals = [toBuf('0000000000000000'), toBuf('16e4d9ccf30002ab'), toBuf('0284986661132475')];
-    expect(serialize.uint64(vals[0], buffer, 0)).to.equal(8);
+    const buffer = Buffer.alloc(32);
+    const compBuf = Buffer.alloc(32);
+    const bignums = [
+      new BN('9223372036854775807'),
+      new BN('18446744073709551615'),
+      new BN('123'),
+      new BN('808080808080')
+    ];
+    const buffers = [
+      Buffer.from('ffffffffffffff7f', 'hex'),
+      Buffer.from('ffffffffffffffff', 'hex'),
+      Buffer.from('7b00000000000000', 'hex'),
+      Buffer.from('90985e25bc000000', 'hex')
+    ];
+
+    expect(serialize.uint64(bignums[0], buffer, 0)).to.equal(8);
+    compBuf.set(buffers[0], 0);
     expect(buffer.equals(compBuf)).to.be.true;
-    expect(serialize.uint64(vals[1], buffer, 8)).to.equal(16);
-    compBuf.set(vals[1], 8);
+    expect(serialize.uint64(bignums[1], buffer, 8)).to.equal(16);
+    compBuf.set(buffers[1], 8);
     expect(buffer.equals(compBuf)).to.be.true;
-    expect(serialize.uint64(vals[2], buffer, 16)).to.equal(24);
-    compBuf.set(vals[2], 16);
+    expect(serialize.uint64(bignums[2], buffer, 16)).to.equal(24);
+    compBuf.set(buffers[2], 16);
+    expect(buffer.equals(compBuf)).to.be.true;
+    expect(serialize.uint64(bignums[3], buffer, 16)).to.equal(24);
+    compBuf.set(buffers[3], 16);
     expect(buffer.equals(compBuf)).to.be.true;
   });
 
   it('Uint64 Array', () => {
-    const buffer = Buffer.alloc(28);
-    const compBuf = Buffer.alloc(28);
-    const vals = [toBuf('0000000000000000'), toBuf('16e4d9ccf30002ab'), toBuf('0284986661132475')];
-    expect(serialize.Array.uint64([vals[0], vals[1]], buffer, 0, 2)).to.equal(16);
-    compBuf.set(vals[0], 0);
-    compBuf.set(vals[1], 8);
+    const buffer = Buffer.alloc(36);
+    const compBuf = Buffer.alloc(36);
+    const bignums = [
+      new BN('9223372036854775807'),
+      new BN('18446744073709551615'),
+      new BN('123'),
+      new BN('808080808080')
+    ];
+    const buffers = [
+      Buffer.from('ffffffffffffff7f', 'hex'),
+      Buffer.from('ffffffffffffffff', 'hex'),
+      Buffer.from('7b00000000000000', 'hex'),
+      Buffer.from('90985e25bc000000', 'hex')
+    ];
+
+    expect(serialize.Array.uint64([bignums[0], bignums[1], bignums[2]], buffer, 0, 3)).to.equal(24);
+    compBuf.set(buffers[0], 0);
+    compBuf.set(buffers[1], 8);
+    compBuf.set(buffers[2], 16);
     expect(buffer.equals(compBuf)).to.be.true;
-    expect(serialize.Array.uint64([vals[2]], buffer, 16, -1)).to.equal(28);
-    compBuf.writeUInt32LE(1, 16);
-    compBuf.set(vals[2], 20);
+    expect(serialize.Array.uint64([bignums[3]], buffer, 24, -1)).to.equal(36);
+    compBuf.writeUInt32LE(1, 24);
+    compBuf.set(buffers[3], 28);
     expect(buffer.equals(compBuf)).to.be.true;
   });
 
@@ -239,31 +269,59 @@ describe('Serialization Tests', () => {
   });
 
   it('Int64', () => {
-    const buffer = Buffer.alloc(24);
-    const compBuf = Buffer.alloc(24);
-    const vals = [toBuf('ffffffffffffff7f'), toBuf('ff00ff00ffffffff'), toBuf('00ce1209af85d5d5')];
-    expect(serialize.int64(vals[0], buffer, 0)).to.equal(8);
-    compBuf.set(vals[0]);
+    const buffer = Buffer.alloc(32);
+    const compBuf = Buffer.alloc(32);
+    const bignums = [
+      new BN('9223372036854775807'),
+      new BN('-9223372036854775807'),
+      new BN('123456789'),
+      new BN('-987654321')
+    ];
+    const bufs = [
+      Buffer.from('ffffffffffffff7f', 'hex'),
+      Buffer.from('0100000000000080', 'hex'),
+      Buffer.from('15cd5b0700000000', 'hex'),
+      Buffer.from('4f9721c5ffffffff', 'hex')
+    ];
+
+    expect(serialize.int64(bignums[0], buffer, 0)).to.equal(8);
+    compBuf.set(bufs[0]);
     expect(buffer.equals(compBuf)).to.be.true;
-    expect(serialize.int64(vals[1], buffer, 8)).to.equal(16);
-    compBuf.set(vals[1], 8);
+    expect(serialize.int64(bignums[1], buffer, 8)).to.equal(16);
+    compBuf.set(bufs[1], 8);
     expect(buffer.equals(compBuf)).to.be.true;
-    expect(serialize.int64(vals[2], buffer, 16)).to.equal(24);
-    compBuf.set(vals[2], 16);
+    expect(serialize.int64(bignums[2], buffer, 16)).to.equal(24);
+    compBuf.set(bufs[2], 16);
+    expect(buffer.equals(compBuf)).to.be.true;
+    expect(serialize.int64(bignums[3], buffer, 24)).to.equal(32);
+    compBuf.set(bufs[3], 24);
     expect(buffer.equals(compBuf)).to.be.true;
   });
 
   it('Int64 Array', () => {
-    const buffer = Buffer.alloc(28);
-    const compBuf = Buffer.alloc(28);
-    const vals = [toBuf('ffffffffffffff7f'), toBuf('ff00ff00ffffffff'), toBuf('00ce1209af85d5d5')];
-    expect(serialize.Array.int64([vals[0]], buffer, 0, 1)).to.equal(8);
-    compBuf.set(vals[0], 0);
+    const buffer = Buffer.alloc(36);
+    const compBuf = Buffer.alloc(36);
+    const bignums = [
+      new BN('9223372036854775807'),
+      new BN('-9223372036854775807'),
+      new BN('123456789'),
+      new BN('-987654321')
+    ];
+    const bufs = [
+      Buffer.from('ffffffffffffff7f', 'hex'),
+      Buffer.from('0100000000000080', 'hex'),
+      Buffer.from('15cd5b0700000000', 'hex'),
+      Buffer.from('4f9721c5ffffffff', 'hex')
+    ];
+
+    expect(serialize.Array.int64([bignums[0], bignums[1]], buffer, 0, 1)).to.equal(16);
+    compBuf.set(bufs[0], 0);
+    compBuf.set(bufs[1], 8);
     expect(buffer.equals(compBuf)).to.be.true;
-    expect(serialize.Array.int64([vals[1], vals[2]], buffer, 8, -1)).to.equal(28);
-    compBuf.writeUInt32LE(2, 8);
-    compBuf.set(vals[1], 12);
-    compBuf.set(vals[2], 20);
+    expect(serialize.Array.int64([bignums[2], bignums[3]], buffer, 16, -1)).to.equal(36);
+    compBuf.writeUInt32LE(2, 16);
+    compBuf.set(bufs[2], 20);
+    compBuf.set(bufs[3], 28 );
     expect(buffer.equals(compBuf)).to.be.true;
   });
 

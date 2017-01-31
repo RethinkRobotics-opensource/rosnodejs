@@ -17,6 +17,8 @@
 
 'use strict';
 
+const bignum = require('bignum');
+const BN = require('bn.js');
 const getByteLength = require('./encoding_utils.js').getByteLength;
 
 /*-----------------------------------------------------------------------------
@@ -50,11 +52,13 @@ function UInt32Serializer(value, buffer, bufferOffset) {
 }
 
 function UInt64Serializer(value, buffer, bufferOffset) {
-  // FIXME: best way to do this??
-  if (!(value instanceof Buffer) || value.length !== 8) {
-    throw new Error('Unable to serialize Uint64 - must be 8 byte buffer');
+  if (!bignum.isBigNum(value)) {
+    value = bignum(value);
   }
-  buffer.set(value, bufferOffset);
+  var high = value.div(0x100000000).toNumber();
+  var low = value.mod(0x100000000).toNumber();
+  buffer.writeUInt32LE(low, bufferOffset);
+  buffer.writeUInt32LE(high, bufferOffset+4);
   return bufferOffset + 8;
 }
 
@@ -71,11 +75,15 @@ function Int32Serializer(value, buffer, bufferOffset) {
 }
 
 function Int64Serializer(value, buffer, bufferOffset) {
-  // FIXME: best way to do this??
-  if (!(value instanceof Buffer) || value.length !== 8) {
-    throw new Error('Unable to serialize Uint64 - must be 8 byte buffer');
+  if (!BN.isBN(value)) {
+    value = new BN(value, 'le');
   }
-  buffer.set(value, bufferOffset);
+
+  value = value.toTwos(64);
+
+  const buf = value.toBuffer('le', 8);
+  buffer.set(buf, bufferOffset);
+
   return bufferOffset + 8;
 }
 

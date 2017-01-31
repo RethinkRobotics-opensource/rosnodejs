@@ -3,6 +3,7 @@
 let rosnodejs = require('../index.js');
 const std_msgs = rosnodejs.require('std_msgs').msg;
 const SetBool = rosnodejs.require('std_srvs').srv.SetBool;
+const BN = require('bn.js');
 
 rosnodejs.initNode('/test_node')
 .then((rosNode) => {
@@ -76,6 +77,20 @@ rosnodejs.initNode('/test_node')
       throttleMs: 1000
     }
   );
+
+  let pub2 = rosNode.advertise('/int64', 'std_msgs/UInt64', {
+    queueSize: 1,
+    latching: true
+  });
+
+  let num = new BN('1');
+  setInterval(() => {
+    num = num.shln(1);
+
+    let data = num.sub(new BN(1));
+    pub2.publish(new std_msgs.UInt64({data}));
+    console.log('pub %s', data.toString());
+  }, 1000);
 })
 .catch((err) => {
   rosnodejs.log.error(err.stack);

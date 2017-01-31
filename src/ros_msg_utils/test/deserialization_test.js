@@ -4,6 +4,7 @@ const chai = require('chai');
 const expect = chai.expect;
 const serialize = require('../lib/base_serialize.js');
 const deserialize = require('../lib/base_deserialize.js');
+const BN = require('bn.js');
 
 describe('Deserialization Tests', () => {
   it('Uint8', () => {
@@ -100,48 +101,50 @@ describe('Deserialization Tests', () => {
 
   it('Uint64', () => {
     const buf = Buffer.alloc(32);
-    const buffers = [
-      new Buffer([255,255,255,255,255,255,255,255]),
-      new Buffer([0,0,0,0,0,0,0,0]),
-      new Buffer([0,128,0,22,0,4,3,0]),
-      new Buffer([96,0,10,10,0,28,29,2])
+    const bignums = [
+      new BN('9223372036854775807'),
+      new BN('18446744073709551615'),
+      new BN('123'),
+      new BN('8080808080')
     ];
-    serialize.Array.uint64(buffers, buf, 0, 4);
+    serialize.Array.uint64(bignums, buf, 0, 4);
 
     const bufferOffset = [0];
-    expect(deserialize.uint64(buf, bufferOffset).equals(buffers[0])).to.be.true;
+    expect(deserialize.uint64(buf, bufferOffset).eq(bignums[0])).to.be.true;
     expect(bufferOffset[0]).to.equal(8);
-    expect(deserialize.uint64(buf, bufferOffset).equals(buffers[1])).to.be.true;
+    expect(deserialize.uint64(buf, bufferOffset).eq(bignums[1])).to.be.true;
     expect(bufferOffset[0]).to.equal(16);
-    expect(deserialize.uint64(buf, bufferOffset).equals(buffers[2])).to.be.true;
+    expect(deserialize.uint64(buf, bufferOffset).eq(bignums[2])).to.be.true;
     expect(bufferOffset[0]).to.equal(24);
-    expect(deserialize.uint64(buf, bufferOffset).equals(buffers[3])).to.be.true;
+    expect(deserialize.uint64(buf, bufferOffset).eq(bignums[3])).to.be.true;
     expect(bufferOffset[0]).to.equal(32);
   });
 
   it('Uint64 Array', () => {
     const buf = Buffer.alloc(36);
-    const buffers = [
-      new Buffer([255,255,255,255,255,255,255,255]),
-      new Buffer([0,0,0,0,0,0,0,0]),
-      new Buffer([0,128,0,22,0,4,3,0]),
-      new Buffer([96,0,10,10,0,28,29,2])
+
+    const bignums = [
+      new BN('9223372036854775807'),
+      new BN('18446744073709551615'),
+      new BN('123'),
+      new BN('8080808080')
     ];
-    serialize.Array.uint64(buffers.slice(0,3), buf, 0, -1);
-    serialize.Array.uint64(buffers.slice(3,4), buf, 28, 1);
+
+    serialize.Array.uint64(bignums.slice(0,3), buf, 0, -1);
+    serialize.Array.uint64(bignums.slice(3,4), buf, 28, 1);
 
     const bufferOffset = [0];
     let arr = deserialize.Array.uint64(buf, bufferOffset, -1);
     expect(arr.length).to.equal(3);
-    expect(arr[0].equals(buffers[0])).to.be.true;
-    expect(arr[1].equals(buffers[1])).to.be.true;
-    expect(arr[2].equals(buffers[2])).to.be.true;
+    expect(arr[0].eq(bignums[0])).to.be.true;
+    expect(arr[1].eq(bignums[1])).to.be.true;
+    expect(arr[2].eq(bignums[2])).to.be.true;
     expect(bufferOffset[0]).to.equal(28);
 
     arr = deserialize.Array.uint64(buf, bufferOffset, 1);
     expect(bufferOffset[0]).to.equal(36);
     expect(arr.length).to.equal(1);
-    expect(arr[0].equals(buffers[3])).to.be.true;
+    expect(arr[0].eq(bignums[3])).to.be.true;
   });
 
   it('Int8', () => {
@@ -238,46 +241,48 @@ describe('Deserialization Tests', () => {
 
   it('Int64', () => {
     const buf = Buffer.alloc(32);
-    const buffers = [
-      new Buffer([255,255,255,255,255,255,255,255]),
-      new Buffer([0,0,0,0,0,0,0,0]),
-      new Buffer([0,128,0,22,0,4,3,0]),
-      new Buffer([96,0,10,10,0,28,29,2])
+    const numbers = [
+      '9223372036854775807',
+      '-9223372036854775807',
+      '123456789',
+      '-987654321'
     ];
-    serialize.Array.int64(buffers, buf, 0, 4);
+    const bignums = numbers.map((num) => new BN(num));
+    serialize.Array.int64(bignums, buf, 0, 4);
 
     const bufferOffset = [0];
-    expect(deserialize.int64(buf, bufferOffset).equals(buffers[0])).to.be.true;
+    expect(deserialize.int64(buf, bufferOffset).eq(bignums[0])).to.be.true;
     expect(bufferOffset[0]).to.equal(8);
-    expect(deserialize.int64(buf, bufferOffset).equals(buffers[1])).to.be.true;
+    expect(deserialize.int64(buf, bufferOffset).eq(bignums[1])).to.be.true;
     expect(bufferOffset[0]).to.equal(16);
-    expect(deserialize.int64(buf, bufferOffset).equals(buffers[2])).to.be.true;
+    expect(deserialize.int64(buf, bufferOffset).eq(bignums[2])).to.be.true;
     expect(bufferOffset[0]).to.equal(24);
-    expect(deserialize.int64(buf, bufferOffset).equals(buffers[3])).to.be.true;
+    expect(deserialize.int64(buf, bufferOffset).eq(bignums[3])).to.be.true;
     expect(bufferOffset[0]).to.equal(32);
   });
 
   it('Int64 Array', () => {
     const buf = Buffer.alloc(36);
-    const buffers = [
-      new Buffer([255,255,255,255,255,255,255,255]),
-      new Buffer([0,0,0,0,0,0,0,0]),
-      new Buffer([0,128,0,22,0,4,3,0]),
-      new Buffer([96,0,10,10,0,28,29,2])
+    const numbers = [
+      '9223372036854775807',
+      '-9223372036854775807',
+      '123456789',
+      '-987654321'
     ];
-    serialize.Array.int64(buffers.slice(0,2), buf, 0, 2);
-    serialize.Array.int64(buffers.slice(2,4), buf, 16, -1);
+    const bignums = numbers.map((num) => new BN(num));
+    serialize.Array.int64(bignums.slice(0,2), buf, 0, 2);
+    serialize.Array.int64(bignums.slice(2,4), buf, 16, -1);
 
     const bufferOffset = [0];
     let arr = deserialize.Array.int64(buf, bufferOffset, 2);
-    expect(arr[0].equals(buffers[0])).to.be.true;
-    expect(arr[1].equals(buffers[1])).to.be.true;
+    expect(arr[0].eq(bignums[0])).to.be.true;
+    expect(arr[1].eq(bignums[1])).to.be.true;
     expect(arr.length).to.equal(2);
     expect(bufferOffset[0]).to.equal(16);
     arr = deserialize.Array.int64(buf, bufferOffset, -1);
     expect(bufferOffset[0]).to.equal(36);
-    expect(arr[0].equals(buffers[2])).to.be.true;
-    expect(arr[1].equals(buffers[3])).to.be.true;
+    expect(arr[0].eq(bignums[2])).to.be.true;
+    expect(arr[1].eq(bignums[3])).to.be.true;
     expect(arr.length).to.equal(2);
   });
 

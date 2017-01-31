@@ -3,6 +3,7 @@
 const chai = require('chai');
 const expect = chai.expect;
 const msgUtils = require('../src/utils/message_utils.js');
+const BN = require('bn.js');
 
 describe('gennodejsTests', () => {
   msgUtils.loadMessagePackage('std_msgs');
@@ -203,17 +204,16 @@ describe('gennodejsTests', () => {
     });
 
     it('int64', (done) => {
-      // rosnodejs takes in raw buffer for 64bit integer msgs
-      const intData = new Buffer([1, 2, 3, 0, 0, 0, 1, 6]);
+      const intData = new BN('9223372036854765802');
 
-      const msgBuffer = new Buffer(intData);
+      const msgBuffer = intData.toBuffer('le', 8);
 
       const msgBuffer2 =  new Buffer(8);
       const Int64 = msgUtils.getHandlerForMsgType('std_msgs/Int64');
       Int64.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(intData.equals(Int64.deserialize(msgBuffer2, [0]).data)).to.be.true;
+      expect(intData.eq(Int64.deserialize(msgBuffer2, [0]).data)).to.be.true;
 
       expect((new Int64()).data).to.equal(0);
 
@@ -221,17 +221,17 @@ describe('gennodejsTests', () => {
     });
 
     it('uint64', (done) => {
-      // rosnodejs takes in raw buffer for 64bit integer msgs
-      const intData = new Buffer([1, 2, 3, 0, 0, 0, 1, 6]);
+      const intData = new BN('9223372036854765802');
 
-      const msgBuffer = new Buffer(intData);
+      const msgBuffer = intData.toBuffer('le', 8);
 
       const msgBuffer2 =  new Buffer(8);
       const UInt64 = msgUtils.getHandlerForMsgType('std_msgs/UInt64');
       UInt64.serialize({data: intData}, msgBuffer2, 0);
 
       expect(msgBuffer.equals(msgBuffer2)).to.be.true;
-      expect(intData.equals(UInt64.deserialize(msgBuffer2, [0]).data)).to.be.true;
+      let des = UInt64.deserialize(msgBuffer2, [0]).data;
+      expect(intData.eq(des)).to.be.true;
 
       expect((new UInt64()).data).to.equal(0);
 
