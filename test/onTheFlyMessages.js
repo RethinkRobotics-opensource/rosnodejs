@@ -6,7 +6,7 @@ const msgUtils = require('../src/utils/message_utils.js');
 const messages = require('../src/utils/messageGeneration/messages.js');
 const BN = require('bn.js');
 
-describe('gennodejsTests', () => {
+describe('On The Fly Message Tests', () => {
 
   before((done) => {
     messages.getAll()

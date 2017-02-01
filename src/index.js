@@ -232,8 +232,8 @@ let Rosnodejs = {
   /**
    * @return {NodeHandle} for initialized node
    */
-  getNodeHandle() {
-    return new NodeHandle(rosNode);
+  getNodeHandle(namespace) {
+    return new NodeHandle(rosNode, namespace);
   },
 
   get nodeHandle() {
