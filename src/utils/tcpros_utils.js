@@ -92,7 +92,8 @@ let TcprosUtils = {
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
       typePrefix + type,
-      latchingPrefix + latching
+      latchingPrefix + latching,
+      messageDefinitionPrefix + messageDefinition
     ];
     return serializeStringFields(fields);
   },

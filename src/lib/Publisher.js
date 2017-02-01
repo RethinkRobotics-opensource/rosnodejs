@@ -204,7 +204,8 @@ class Publisher extends EventEmitter {
         this._nodeHandle.getNodeName(),
         this._messageHandler.md5sum(),
         this.getType(),
-        this.getLatching());
+        this.getLatching(),
+        this._messageHandler.messageDefinition());
     subscriber.write(respHeader);
 
     // if this publisher had the tcpNoDelay option set
