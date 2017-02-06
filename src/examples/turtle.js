@@ -6,7 +6,7 @@
 
 'use strict';
 
-let rosnodejs = require('./index.js');
+let rosnodejs = require('../index.js');
 rosnodejs.initNode('/my_node', {onTheFly: true}).then((rosNode) => {
 
   // get list of existing publishers, subscribers, and services
@@ -75,10 +75,10 @@ rosnodejs.initNode('/my_node', {onTheFly: true}).then((rosNode) => {
   // wait two seconds for previous example to complete
   setTimeout(function() {
       let shapeActionGoal = rosnodejs.require('turtle_actionlib').msg.ShapeActionGoal;
-      let ac = nh.actionClient({
-          type: "turtle_actionlib/ShapeAction",
-          actionServer: "/turtle_shape"
-        });
+      let ac = rosnodejs.nh.actionClient(
+        "/turtle_shape",
+        "turtle_actionlib/ShapeAction"
+      );
       ac.sendGoal(new shapeActionGoal({
             goal: {
               edges: 3,
