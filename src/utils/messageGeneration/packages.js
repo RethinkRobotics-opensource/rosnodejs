@@ -274,6 +274,24 @@ function findPackagesInDirectoryChain(directories) {
 
 // ---------------------------------------------------------
 
+function getRosEnvVar(envVarName) {
+  const envVar = process.env[envVarName];
+
+  if (!envVar) {
+    throw new Error(`Unable to find required environment variable ${envVarName}`);
+  }
+
+  return envVar;
+}
+
+function getRosPackagePath() {
+  return getRosEnvVar('ROS_PACKAGE_PATH');
+}
+
+function getRosRoot() {
+ return getRosEnvVar('ROS_ROOT');
+}
+
 // Implements the same crawling algorithm as rospack find
 // See http://ros.org/doc/api/rospkg/html/rospack.html
 // packages = {};
@@ -283,7 +301,8 @@ exports.findPackage = function(packageName, callback) {
     callback(null, directory);
     return;
   }
-  var packagePath = process.env.ROS_PACKAGE_PATH;
+
+  const packagePath = getRosPackagePath();
   var rosPackagePaths = packagePath.split(':');
   var directories = rosPackagePaths;
   return findPackageInDirectoryChain(directories, packageName,
@@ -294,7 +313,7 @@ exports.findPackage = function(packageName, callback) {
 };
 
 exports.findMessagePackages = function() {
-  var packagePath = process.env.ROS_PACKAGE_PATH;
+  var packagePath = getRosPackagePath();
   var rosPackagePaths = packagePath.split(':');
   return findPackagesInDirectoryChain(rosPackagePaths);
 };
@@ -319,8 +338,8 @@ function forEachPackageInDirectory(directory, list, onEnd) {
 
 /** get list of package directories */
 exports.getAllPackages = function(done) {
-  var rosRoot = process.env.ROS_ROOT;
-  var packagePath = process.env.ROS_PACKAGE_PATH
+  var rosRoot = getRosRoot();
+  var packagePath = getRosPackagePath();
   var rosPackagePaths = packagePath.split(':')
   var directories = [rosRoot].concat(rosPackagePaths);
   async.reduce(directories, [], function(memo, directory, callback) {

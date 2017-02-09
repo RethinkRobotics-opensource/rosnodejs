@@ -24,10 +24,6 @@ const ActionClient = require('./ActionClient');
 
 class NodeHandle {
   constructor(node, namespace=null) {
-    // if (!(node instanceof RosNode)) {
-    //   throw new Error('Unable to create NodeHandle from type ' + typeof(node));
-    // }
-
     this._node = node;
 
     this._namespace = namespace;
