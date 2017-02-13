@@ -8,11 +8,11 @@
   ],
   "scripts": {
     "test": "mocha test/directory.js",
-    "gennodejsTest": "mocha test/gennodejsTest.js",
+    "gennodejsTest": "mocha test/gennodejsTest.js test/onTheFlyMessages.js",
     "stressTest": "mocha test/stress.js",
     "flatten": "node tools/flatten.js",
-    "generate": "node tools/generateMessages.js",
-    "compile": "babel --presets es2015 index.js -d dist/ && for dir in utils utils/messageGeneration utils/log lib tools test examples; do babel --presets es2015 $dir -d dist/$dir; done",
+    "generate": "node dist/tools/generateMessages.js",
+    "compile": "babel --presets es2015 src/ -d dist/",
     "prepublish": "npm run compile"
   },
   "author": "chris smith",
@@ -30,10 +30,10 @@
   "dependencies": {
     "argparse": "1.0.7",
     "async": "2.0.1",
+    "bn.js": "^4.11.6",
     "bunyan": "1.8.1",
     "md5": "2.1.0",
     "moment": "2.12.0",
-    "ros_msg_utils": "1.0.2",
     "walker": "1.0.7",
     "xmlrpc": "chfritz/node-xmlrpc"
   }

@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const serUtils = require('../utils/serialization_utils.js');
+const serUtils = require('../src/utils/serialization_utils.js');
 const DeserializeStream = serUtils.DeserializeStream;
 
 describe('DeserializeStream', () => {

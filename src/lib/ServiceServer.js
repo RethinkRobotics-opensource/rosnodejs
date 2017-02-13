@@ -19,7 +19,7 @@
 
 const net = require('net');
 const NetworkUtils = require('../utils/network_utils.js');
-const ros_msg_utils = require('ros_msg_utils');
+const ros_msg_utils = require('../ros_msg_utils');
 const base_serializers = ros_msg_utils.Serialize;
 const SerializationUtils = require('../utils/serialization_utils.js');
 const DeserializeStream = SerializationUtils.DeserializeStream;

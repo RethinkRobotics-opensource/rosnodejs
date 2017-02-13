@@ -156,16 +156,17 @@ class RosMsgSpec {
 
   /**
    * Tries to load and parse message file
-   * @param filePath {string|null} path to file - will load file from here if provided
-   * @param fileContents {string|null} file contents - will parse into desired fields
+   * @param [filePath] {string} path to file - will load file from here if provided
+   * @param [fileContents] {string} file contents - will parse into desired fields
    */
   loadFile(filePath=null, fileContents=null) {
-    this.fileContents = fileContents;
 
     if (filePath !== null) {
-      this._loadMessageFile(filePath);
+      fileContents = this._loadMessageFile(filePath);
     }
-    if (this.fileContents !== null) {
+    if (fileContents !== null) {
+      this.fileContents = this._extractRelevantMessage(fileContents);
+
       this._extractFields(this.fileContents);
     }
   }
@@ -207,12 +208,13 @@ class RosMsgSpec {
   }
 
   /**
-   * Reads file at specified location and caches its contents
+   * Reads file at specified location and returns its contents
    * @param fileName {string}
+   * @returns fileContents {string}
    * @private
    */
   _loadMessageFile(fileName) {
-    this.fileContents = fs.readFileSync(fileName, 'utf8');
+    return fs.readFileSync(fileName, 'utf8');
   }
 
   /**
@@ -285,13 +287,14 @@ class RosMsgSpec {
   };
 
   /**
-   * Parses through message definition for fields and constants
-   * Todo: move this to MsgSpec?
-   * @param content {string} raw message definition
+   * Takes a full definition and pulls out the piece relevant to this specific message spec
+   * (e.g. only the goal from the action message or only the request from the service message)
+   * @param fileContents string
+   * @returns {string}
    * @private
    */
-  _extractFields(content) {
-    let lines = content.split('\n').map((line) => line.trim());
+  _extractRelevantMessage(fileContents) {
+    let lines = fileContents.split('\n').map((line) => line.trim());
 
     switch (this.type) {
       case SRV_REQUEST_TYPE: {
@@ -325,7 +328,25 @@ class RosMsgSpec {
         break;
     }
 
-    lines.forEach(this._parseLine.bind(this));
+    return lines.join('\n');
+  }
+
+  /**
+   * Parses through message definition for fields and constants
+   * Todo: move this to MsgSpec?
+   * @param content {string} raw message definition
+   * @private
+   */
+  _extractFields(content) {
+    let lines = content.split('\n').map((line) => line.trim());
+
+    try {
+      lines.forEach(this._parseLine.bind(this));
+    }
+    catch (err) {
+      console.error('Error while parsing message %s: %s', this.getFullMessageName(), err);
+      throw err;
+    }
   }
 
   /**
@@ -343,12 +364,46 @@ class RosMsgSpec {
   getMd5sum() {
     return md5(this.getMd5text());
   }
+
+  /**
+   * Generates a depth-first list of all dependencies of this message in field order.
+   * @param [deps] {Array}
+   * @returns {Array}
+   */
+  getFullDependencies(deps = []) {
+    return [];
+  }
+
+  /**
+   * Computes the full text of a message/service.
+   * Necessary for rosbags.
+   * Mirrors gentools.
+   * See compute_full_text() in
+   *   https://github.com/ros/ros/blob/kinetic-devel/core/roslib/src/roslib/gentools.py
+   */
+  computeFullText() {
+    const w = new IndentedWriter();
+
+    const deps = this.getFullDependencies();
+    const sep = '='.repeat(80);
+    w.write(this.fileContents.trim())
+      .newline();
+
+    deps.forEach((dep) => {
+      w.write(sep)
+        .write(`MSG: ${dep.getFullMessageName()}`)
+        .write(dep.fileContents.trim())
+        .newline();
+    });
+
+    return w.get().trim();
+  }
 }
 
 /**
  * Subclass of RosMsgSpec
  * Implements logic for individual ros messages as well as separated parts of services and actions
- * (e.g. Request, Response, Goal, ActionResult, ...) 
+ * (e.g. Request, Response, Goal, ActionResult, ...)
  * @class MsgSpec
  */
 class MsgSpec extends RosMsgSpec {
@@ -472,6 +527,25 @@ class MsgSpec extends RosMsgSpec {
   generateMessageClassFile() {
     return MessageWriter.createMessageClass(this);
   }
+
+  /**
+   * Generates a depth-first list of all dependencies of this message in field order.
+   * @param [deps] {Array}
+   * @returns {Array}
+   */
+  getFullDependencies(deps = []) {
+    this.fields.forEach((field) => {
+      if (!field.isBuiltin) {
+        const fieldSpec = this.getMsgSpecForType(field.baseType);
+        if (deps.indexOf(fieldSpec) === -1) {
+          deps.push(fieldSpec);
+        }
+        fieldSpec.getFullDependencies(deps);
+      }
+    });
+
+    return deps;
+  }
 }
 
 /**
@@ -483,7 +557,7 @@ class SrvSpec extends RosMsgSpec {
   constructor(msgCache, packageName, messageName, type, filePath=null) {
     super(msgCache, packageName, messageName, type, filePath);
 
-    this._loadMessageFile(filePath);
+    this.fileContents = this._loadMessageFile(filePath);
 
     this.request = new MsgSpec(msgCache, packageName, messageName + 'Request', SRV_REQUEST_TYPE, null, this.fileContents);
     this.response = new MsgSpec(msgCache, packageName, messageName + 'Response', SRV_RESPONSE_TYPE, null, this.fileContents);
@@ -519,7 +593,7 @@ class ActionSpec extends RosMsgSpec {
   constructor(msgCache, packageName, messageName, type, filePath=null) {
     super(msgCache, packageName, messageName, type, filePath);
 
-    this._loadMessageFile(filePath);
+    this.fileContents = this._loadMessageFile(filePath);
 
     // Parse the action definition into its 3 respective parts
     this.goal = new MsgSpec(msgCache, packageName, messageName + 'Goal', ACTION_GOAL_TYPE, null, this.fileContents);
@@ -588,5 +662,12 @@ RosMsgSpec.SRV_TYPE = SRV_TYPE;
 RosMsgSpec.SRV_REQUEST_TYPE = SRV_REQUEST_TYPE;
 RosMsgSpec.SRV_RESPONSE_TYPE = SRV_RESPONSE_TYPE;
 RosMsgSpec.ACTION_TYPE = ACTION_TYPE;
+RosMsgSpec.ACTION_GOAL_TYPE = ACTION_GOAL_TYPE;
+RosMsgSpec.ACTION_FEEDBACK_TYPE = ACTION_FEEDBACK_TYPE;
+RosMsgSpec.ACTION_RESULT_TYPE = ACTION_RESULT_TYPE;
+RosMsgSpec.ACTION_ACTION_GOAL_TYPE = ACTION_ACTION_GOAL_TYPE;
+RosMsgSpec.ACTION_ACTION_FEEDBACK_TYPE = ACTION_ACTION_FEEDBACK_TYPE;
+RosMsgSpec.ACTION_ACTION_RESULT_TYPE = ACTION_ACTION_RESULT_TYPE;
+RosMsgSpec.ACTION_ACTION_TYPE = ACTION_ACTION_TYPE;
 
 module.exports = RosMsgSpec;

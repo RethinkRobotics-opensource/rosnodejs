@@ -96,20 +96,16 @@ class MessageManager {
     return null;
   }
 
-  buildPackageTree(outputDirectory) {
+  buildPackageTree(outputDirectory, writeFiles=true) {
     return this.initTree()
     .then(() => {
       this._packageChain = this._buildMessageDependencyChain();
 
-
-      return this._packageChain.reduce((prev, cur, index, pkgs) => {
-        const pkgName = pkgs[index];
-        // don't need to load deps for each package since all packages are being loaded
-        return prev.then(this.loadPackage.bind(this, pkgName, outputDirectory, false));
-      }, Promise.resolve());
-    })
-    .then(() => {
-      console.log('Finished building package tree');
+      // none of the loading here depends on message dependencies
+      // so don't worry about doing it in order, just do it all...
+      return Promise.all(this._packageChain.map((pkgName) => {
+        return this.loadPackage(pkgName, outputDirectory, false, writeFiles);
+      }));
     })
     .catch((err) => {
       console.error(err.stack);
@@ -121,7 +117,7 @@ class MessageManager {
     const deps = new Set();
     return this.initTree()
     .then(() => {
-      this.loadPackage(packageName, outputDirectory, true, (depName) => {
+      this.loadPackage(packageName, outputDirectory, true, true, (depName) => {
         if (!deps.has(depName)) {
           deps.add(depName);
           return true;
@@ -149,7 +145,7 @@ class MessageManager {
     });
   }
 
-  loadPackage(packageName, outputDirectory, loadDeps=true, filterDepFunc=null) {
+  loadPackage(packageName, outputDirectory, loadDeps=true, writeFiles=true, filterDepFunc=null) {
     if (this._loadingPkgs.has(packageName)) {
       return Promise.resolve();
     }
@@ -174,16 +170,20 @@ class MessageManager {
 
     // actions get parsed and are then cached with the rest of the messages
     // which is why there isn't a loadPackageActions
-    return this.initPackageLoad(packageName, outputDirectory)
-      .then(this.loadPackageMessages.bind(this, packageName, outputDirectory))
-      .then(this.loadPackageServices.bind(this, packageName, outputDirectory))
-      .then(() => {
-        this._loadingPkgs.set(packageName, PKG_LOADED);
-        console.log('Finished building package %s', packageName);
-      });
+    if (writeFiles) {
+      return this.initPackageWrite(packageName, outputDirectory)
+        .then(this.writePackageMessages.bind(this, packageName, outputDirectory))
+        .then(this.writePackageServices.bind(this, packageName, outputDirectory))
+        .then(() => {
+          this._loadingPkgs.set(packageName, PKG_LOADED);
+          console.log('Finished building package %s', packageName);
+        });
+    }
+    // else
+    return Promise.resolve();
   }
 
-  initPackageLoad(packageName, jsMsgDir) {
+  initPackageWrite(packageName, jsMsgDir) {
     const packageDir = path.join(jsMsgDir, packageName);
     packageCache[packageName].directory = packageDir;
 
@@ -260,7 +260,7 @@ class MessageManager {
     return Object.keys(packageCache[packageName].actions).length > 0;
   }
 
-  loadPackageMessages(packageName, jsMsgDir) {
+  writePackageMessages(packageName, jsMsgDir) {
     const msgDir = path.join(jsMsgDir, packageName, 'msg');
 
     const packageMsgs = packageCache[packageName].messages;
@@ -280,7 +280,7 @@ class MessageManager {
     return Promise.resolve();
   }
 
-  loadPackageServices(packageName, jsMsgDir) {
+  writePackageServices(packageName, jsMsgDir) {
     const msgDir = path.join(jsMsgDir, packageName, 'srv');
 
     const packageSrvs = packageCache[packageName].services;

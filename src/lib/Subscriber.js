@@ -249,7 +249,8 @@ class Subscriber extends EventEmitter {
   }
 
   _createTcprosHandshake() {
-    return TcprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType());
+    return TcprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(),
+                                       this.getTopic(), this.getType(), this._messageHandler.messageDefinition());
   }
 
   _handleMessage(client, msg) {
@@ -295,14 +296,15 @@ class Subscriber extends EventEmitter {
   }
 
   _handleMsgQueue(msgQueue) {
-    msgQueue.forEach((msg) => {
-      try {
+    try {
+      msgQueue.forEach((msg) => {
         this.emit('message', this._messageHandler.deserialize(msg));
-      }
-      catch (err) {
-        this._log.warn('Error while dispatching message ' + err);
-      }
-    });
+      });
+    }
+    catch (err) {
+      this._log.error('Error while dispatching message on topic %s: %s', this.getTopic(), err);
+      this.emit('error', err);
+    }
   }
 }
 

@@ -19,15 +19,18 @@
 
 let RosNode = require('./RosNode.js');
 const messageUtils = require('../utils/message_utils.js');
+const namespaceUtils = require('../utils/namespace_utils.js');
 const ActionClient = require('./ActionClient');
 
 class NodeHandle {
-  constructor(node) {
-    if (!(node instanceof RosNode)) {
-      throw new Error('Unable to create NodeHandle from type ' + typeof(node));
-    }
-
+  constructor(node, namespace=null) {
     this._node = node;
+
+    this._namespace = namespace;
+  }
+
+  setNamespace(namespace) {
+    this._namespace = namespace;
   }
 
   getNodeName() {
@@ -57,7 +60,7 @@ class NodeHandle {
     }
 
     try {
-      options.topic = topic;
+      options.topic = this._resolve(topic);
       if (typeof type === 'string' || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForMsgType(type, true);
@@ -93,7 +96,7 @@ class NodeHandle {
     }
 
     try {
-      options.topic = topic;
+      options.topic = this._resolve(topic);
       if (typeof type === 'string' || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForMsgType(type, true);
@@ -123,7 +126,6 @@ class NodeHandle {
    * @return {ServiceServer}
    */
   advertiseService(service, type, callback) {
-    let options = {service: service};
     if (!service) {
       throw new Error(`Unable to advertise unnamed service - got ${service}`);
     }
@@ -132,13 +134,13 @@ class NodeHandle {
     }
 
     try {
+      let options = {service: this._resolve(service)};
       if (typeof type === 'string' || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForSrvType(type, true);
       }
       else {
         options.typeClass = type;
-        // TODO: this is not terribly robust...
         options.type = type.datatype();
       }
 
@@ -164,7 +166,7 @@ class NodeHandle {
     if (!type) {
       throw new Error(`Unable to create service client ${service} without type - got ${type}`);
     }
-    options.service = service;
+    options.service = this._resolve(service);
 
     try {
       if (typeof type === 'string' || type instanceof String) {
@@ -191,6 +193,8 @@ class NodeHandle {
       throw new Error(`Unable to create action client ${actionServer} without type - got ${type}`);
     }
 
+    // don't namespace action client - topics will be resolved by
+    // advertising through this NodeHandle
     return new ActionClient({
       actionServer,
       type,
@@ -204,7 +208,7 @@ class NodeHandle {
    * @param topic {string} topic to unsubscribe from
    */
   unsubscribe(topic) {
-    return this._node.unsubscribe(topic);
+    return this._node.unsubscribe(this._resolve(topic));
   }
 
   /**
@@ -213,7 +217,7 @@ class NodeHandle {
    * @param topic {string} topic to unadvertise
    */
   unadvertise(topic) {
-    return this._node.unadvertise(topic);
+    return this._node.unadvertise(this._resolve(topic));
   }
 
   /**
@@ -221,7 +225,7 @@ class NodeHandle {
    * @param service {string} service to unadvertise
    */
   unadvertiseService(service) {
-    return this._node.unadvertiseService(service);
+    return this._node.unadvertiseService(this._resolve(service));
   }
 
   /**
@@ -231,6 +235,8 @@ class NodeHandle {
    * @return {Promise} resolved when service exists or timeout occurs. Returns true/false for service existence
    */
   waitForService(service, timeout) {
+    service = this._resolve(service);
+
     let _waitForService = (callback, timeout) => {
       setTimeout( () => {
         this._node.lookupService(service)
@@ -266,21 +272,27 @@ class NodeHandle {
 // Param Interface
 //------------------------------------------------------------------
   deleteParam(key) {
-    return this._node.deleteParam(key);
+    return this._node.deleteParam(this._resolve(key));
   }
 
   setParam(key, value) {
-    return this._node.setParam(key, value);
+    return this._node.setParam(this._resolve(key), value);
   }
 
   getParam(key) {
-    return this._node.getParam(key);
+    return this._node.getParam(this._resolve(key));
   }
 
   hasParam(key) {
-    return this._node.hasParam(key);
+    return this._node.hasParam(this._resolve(key));
   }
-};
+//------------------------------------------------------------------
+// Namespacing
+//------------------------------------------------------------------
+  _resolve(name) {
+    return namespaceUtils.resolve(name, this._namespace, this.getNodeName());
+  }
+}
 
 //------------------------------------------------------------------
 

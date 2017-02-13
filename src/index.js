@@ -30,13 +30,10 @@ const RosNode = require('./lib/RosNode.js');
 const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
 const ActionClient = require('./lib/ActionClient.js');
+const Time = require('./lib/Time.js');
+const packages = require('./utils/messageGeneration/packages.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
-
-// these will be modules, they depend on logger which isn't initialized yet
-// though so they'll be required later (in initNode)
-// let RosNode = null;
-// let NodeHandle = null;
 
 // will be initialized through call to initNode
 let log = Logging.getLogger();
@@ -142,6 +139,7 @@ let Rosnodejs = {
     return this._loadOnTheFlyMessages(options)
       .then(_checkMasterHelper)
       .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
+      .then(Time._initializeRosTime.bind(Time, this))
       .then(() => { return this.getNodeHandle(); })
       .catch((err) => {
         log.error('Error: ' + err);
@@ -152,11 +150,13 @@ let Rosnodejs = {
     rosNode = null;
   },
 
+  shutdown() {
+    return rosNode.shutdown();
+  },
+
   _loadOnTheFlyMessages({onTheFly}) {
     if (onTheFly) {
-      return new Promise((resolve, reject) => {
-        messages.getAll(resolve);
-      });
+      return messages.getAll();
     }
     // else
     return Promise.resolve();
@@ -187,8 +187,24 @@ let Rosnodejs = {
       })
   },
 
+  findPackage(packageName) {
+    return new Promise((resolve, reject) => {
+      packages.findPackage(packageName, (err, dir) => {
+        if (err) {
+          reject(err);
+        }
+        // else
+        resolve(dir);
+      });
+    });
+  },
+
   require(msgPackage) {
     return msgUtils.requireMsgPackage(msgPackage);
+  },
+
+  getAvailableMessagePackages() {
+    return msgUtils.getAvailableMessagePackages();
   },
 
   /** check that a message definition is loaded for a ros message
@@ -216,8 +232,8 @@ let Rosnodejs = {
   /**
    * @return {NodeHandle} for initialized node
    */
-  getNodeHandle() {
-    return new NodeHandle(rosNode);
+  getNodeHandle(namespace) {
+    return new NodeHandle(rosNode, namespace);
   },
 
   get nodeHandle() {
@@ -239,6 +255,9 @@ let Rosnodejs = {
     }
   },
 
+  get Time() {
+    return Time;
+  },
 
   //------------------------------------------------------------------
   // ActionLib

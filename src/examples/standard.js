@@ -58,7 +58,7 @@ rosnodejs.initNode('/test_node')
   let iter = 0;
   const msg = new std_msgs.String();
   setInterval(() => {
-    msg.data = msgStart + iter
+    msg.data = msgStart + iter;
     pub.publish(msg);
     ++iter;
     if (iter > 200) {

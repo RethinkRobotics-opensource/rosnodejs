@@ -3,10 +3,10 @@
 const net = require('net');
 const chai = require('chai');
 const expect = chai.expect;
-const rosnodejs = require('../index.js');
-const Subscriber = require('../lib/Subscriber.js');
+const rosnodejs = require('../src/index.js');
+const Subscriber = require('../src/lib/Subscriber.js');
 const xmlrpc = require('xmlrpc');
-const netUtils = require('../utils/network_utils.js');
+const netUtils = require('../src/utils/network_utils.js');
 
 const MASTER_PORT = 11234;
 
@@ -363,20 +363,17 @@ describe('Protocol Test', () => {
         level: 'error'
       });
 
-      Promise.resolve()
-      .then(() => {
-        sub.on('registered', () => {
-          const pub = nh.advertise(topic, 'std_msgs/String', {latching: true});
+      sub.on('registered', () => {
+        const pub = nh.advertise(topic, 'std_msgs/String', {latching: true});
 
-          pub.on('connection', () => {
-            pub.publish({});
-          });
+        pub.on('connection', () => {
+          pub.publish({});
         });
-      })
-      .catch((err) => {
-        console.log(err);
-        done();
-      })
+
+        pub.on('error', (err) => {
+          nh._node._spinner._queueLocked = false;
+        });
+      });
     });
 
     it('Resolve', (done) => {
