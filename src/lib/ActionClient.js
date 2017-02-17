@@ -55,7 +55,7 @@ class ActionClient extends EventEmitter {
                                      (msg) => { this._handleFeedback(msg); },
                                      { queueSize: 1 } );
 
-    this._statusSub = nh.subscribe(this._actionServer + '/result',
+    this._resultSub = nh.subscribe(this._actionServer + '/result',
                                    this._actionType + 'Result',
                                    (msg) => { this._handleResult(msg); },
                                    { queueSize: 1 } );
