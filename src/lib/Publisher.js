@@ -20,6 +20,11 @@
 const EventEmitter = require('events');
 const {rebroadcast} = require('../utils/event_utils.js');
 
+/**
+ * @class Publisher
+ * Public facing publishers class. Allows users to send messages to subscribers
+ * on a given topic.
+ */
 class Publisher extends EventEmitter {
   constructor(impl) {
     super();
@@ -27,28 +32,36 @@ class Publisher extends EventEmitter {
     ++impl.count;
     this._impl = impl;
 
+    this._topic = impl.getTopic();
+    this._type = impl.getType();
+
     rebroadcast('registered', this._impl, this);
     rebroadcast('connection', this._impl, this);
     rebroadcast('disconnect', this._impl, this);
     rebroadcast('error', this._impl, this);
   }
 
+  /**
+   * Get the topic this publisher is publishing on
+   * @returns {string}
+   */
   getTopic() {
-    if (this._impl) {
-      return this._impl.getTopic();
-    }
-    // else
-    return null;
+    return this._topic;
   }
 
+  /**
+   * Get the type of message this publisher is sending
+   *            (e.g. std_msgs/String)
+   * @returns {string}
+   */
   getType() {
-    if (this._impl) {
-      return this._impl.getType();
-    }
-    // else
-    return null;
+    return this._type;
   }
 
+  /**
+   * Check if this publisher is latching
+   * @returns {boolean}
+   */
   getLatching() {
     if (this._impl) {
       return this._impl.getLatching();
@@ -57,6 +70,10 @@ class Publisher extends EventEmitter {
     return false;
   }
 
+  /**
+   * Get the numbber of subscribers currently connected to this publisher
+   * @returns {number}
+   */
   getNumSubscribers() {
     if (this._impl) {
       return this._impl.getNumSubscribers();
@@ -65,22 +82,32 @@ class Publisher extends EventEmitter {
     return 0;
   }
 
+  /**
+   * Shuts down this publisher. If this is the last publisher on this topic
+   * for this node, closes the publisher and unregisters the topic from Master
+   * @returns {Promise}
+   */
   shutdown() {
     const topic= this.getTopic();
     if (this._impl) {
       const impl = this._impl
       this._impl = null;
-      this.removeAllListeners();
 
       --impl.count;
       if (impl.count <= 0) {
-        return impl.shutdown();
+        return impl.getNode().unadvertise(impl.getTopic());
       }
+
+      this.removeAllListeners();
     }
     // else
     return Promise.resolve();
   }
 
+  /**
+   * Check if this publisher has been shutdown
+   * @returns {boolean}
+   */
   isShutdown() {
     return !!this._impl;
   }

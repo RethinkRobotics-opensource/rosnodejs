@@ -24,6 +24,11 @@ const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
 
+/**
+ * Implementation class for a Publisher. Handles registration, connecting to
+ * subscribers, etc. Public-facing publisher classes will be given an instance
+ * of this to use
+ */
 class PublisherImpl extends EventEmitter {
   constructor(options, nodeHandle) {
     super();
@@ -81,31 +86,68 @@ class PublisherImpl extends EventEmitter {
     this._register();
   }
 
+  /**
+   * Uniquely identifies this publisher to the node's Spinner
+   * @returns {string}
+   */
   _getSpinnerId() {
     return `Publisher://${this.getTopic()}`;
   }
 
+  /**
+   * Get the name of the topic this subscriber is listening on
+   * @returns {string}
+   */
   getTopic() {
     return this._topic;
   }
 
+  /**
+   * Get the type of message this subscriber is handling
+   *            (e.g. std_msgs/String)
+   * @returns {string}
+   */
   getType() {
     return this._type;
   }
 
+  /**
+   * Check if this publisher is set to latch it's messages
+   * @returns {boolean}
+   */
   getLatching() {
     return this._latching;
   }
 
+  /**
+   * Get the count of subscribers connected to this publisher
+   * @returns {number}
+   */
   getNumSubscribers() {
     return Object.keys(this._subClients).length;
   }
 
-  shutdown() {
-    return this._nodeHandle.unadvertise(this.getTopic());
+  /**
+   * Get the list of client addresses connect to this publisher.
+   * Used for getBusInfo Slave API calls
+   * @returns {Array}
+   */
+  getClientUris() {
+    return Object.keys(this._subClients);
   }
 
-  _shutdown() {
+  /**
+   * Get the ros node this subscriber belongs to
+   * @returns {RosNode}
+   */
+  getNode() {
+    return this._nodeHandle;
+  }
+
+  /**
+   * Clears and closes all client connections for this publisher.
+   */
+  shutdown() {
     this._state = SHUTDOWN;
     this._log.debug('Shutting down publisher %s', this.getTopic());
 
@@ -119,13 +161,17 @@ class PublisherImpl extends EventEmitter {
     this._subClients = {};
   }
 
+  /**
+   * Check if this subscriber has been shutdown
+   * @returns {boolean}
+   */
   isShutdown() {
     return this._state === SHUTDOWN;
   }
 
   /**
-   * Schedule the msg for publishing - or publish immediately if we're
-   * supposed to
+   * Schedules the msg for publishing or publishes immediately if we're
+   * supposed to (throttleTime < 0)
    * @param msg {object} object type matching this._type
    * @param [throttleMs] {number} optional override for publisher setting
    */
@@ -148,7 +194,8 @@ class PublisherImpl extends EventEmitter {
   }
 
   /**
-   * Pulls all msgs off queue, serializes, and publishes them
+   * Pulls all msgs off queue, serializes, and publishes them to all clients.
+   * @param msgQueue {Array} Array of messages. Type of each message matches this._type
    */
   _handleMsgQueue(msgQueue) {
 
@@ -176,7 +223,7 @@ class PublisherImpl extends EventEmitter {
         });
 
         // if this publisher is supposed to latch,
-        // save the last message. Any subscribers that connect
+        // save the last message. Any subscribers that connects
         // before another call to publish() will receive this message
         if (this.getLatching()) {
           this._lastSentMsg = serializedMsg;
@@ -189,10 +236,17 @@ class PublisherImpl extends EventEmitter {
     }
   }
 
+  /**
+   * Handles a new connection from a subscriber to this publisher's node.
+   * Validates the connection header and sends a response header
+   * @param subscriber {Socket} client that sent the header
+   * @param header {Object} deserialized connection header.
+   */
   handleSubscriberConnection(subscriber, header) {
     let error = TcprosUtils.validateSubHeader(
       header, this.getTopic(), this.getType(),
       this._messageHandler.md5sum());
+
     if (error !== null) {
       this._log.error('Unable to validate subscriber connection header '
                       + JSON.stringify(header));
@@ -221,6 +275,7 @@ class PublisherImpl extends EventEmitter {
     subscriber.on('close', () => {
       this._log.info('Publisher %s client %s disconnected!',
                       this.getTopic(), subscriber.name);
+      subscriber.removeAllListeners();
       delete this._subClients[subscriber.name];
       this.emit('disconnect');
     });
@@ -233,17 +288,21 @@ class PublisherImpl extends EventEmitter {
       this._log.warn('Sub %s had error', subscriber.name);
     });
 
+    // if we've cached a message from latching, send it now
     if (this._lastSentMsg !== null) {
       this._log.debug('Sending latched msg to new subscriber');
       subscriber.write(this._lastSentMsg);
     }
 
-    // if handshake good, add to list, we'll start publishing to it
+    // handshake was good - we'll start publishing to it
     this._subClients[subscriber.name] = subscriber;
 
     this.emit('connection', header, subscriber.name);
   }
 
+  /**
+   * Makes an XMLRPC call to registers this publisher with the ROS master
+   */
   _register() {
     this._nodeHandle.registerPublisher(this._topic, this._type)
     .then((resp) => {

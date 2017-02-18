@@ -32,6 +32,11 @@ const protocols = [['TCPROS']];
 
 //-----------------------------------------------------------------------
 
+/**
+ * Implementation class for a Subscriber. Handles registration, connecting to
+ * publishers, etc. Public-facing subscriber classes will be given an instance
+ * of this to use
+ */
 class SubscriberImpl extends EventEmitter {
 
   constructor(options, nodeHandle) {
@@ -77,27 +82,51 @@ class SubscriberImpl extends EventEmitter {
     this._register();
   }
 
+  /**
+   * Uniquely identifies this subscriber to the node's Spinner
+   * @returns {string}
+   */
   _getSpinnerId() {
     return `Subscriber://${this.getTopic()}`;
   }
 
+  /**
+   * Get the name of the topic this subscriber is listening on
+   * @returns {string}
+   */
   getTopic() {
     return this._topic;
   }
 
+  /**
+   * Get the type of message this subscriber is handling
+   *            (e.g. std_msgs/String)
+   * @returns {string}
+   */
   getType() {
     return this._type;
   }
 
+  /**
+   * Get count of the publishers currently connected to this subscriber
+   * @returns {number}
+   */
   getNumPublishers() {
     return Object.keys(this._pubClients).length;
   }
 
-  shutdown() {
-    return this._nodeHandle.unsubscribe(this.getTopic());
+  /**
+   * Get the ros node this subscriber belongs to
+   * @returns {RosNode}
+   */
+  getNode() {
+    return this._nodeHandle;
   }
 
-  _shutdown() {
+  /**
+   * Clears and closes all client connections for this subscriber.
+   */
+  shutdown() {
     this._state = SHUTDOWN;
     this._log.debug('Shutting down subscriber %s', this.getTopic());
 
@@ -108,12 +137,23 @@ class SubscriberImpl extends EventEmitter {
     this._pubClients = {};
   }
 
+  /**
+   * @returns {boolean} true if this subscriber has been shutdown
+   */
   isShutdown() {
     return this._state === SHUTDOWN;
   }
 
   /**
-   * Send a topic request to each of the publishers we haven't connected to yet
+   * @returns {Array} URIs of all current clients
+   */
+  getClientUris() {
+    return Object.keys(this._pubClients);
+  }
+
+  /**
+   * Send a topic request to each of the publishers in the list.
+   * Assumes we have NOT connected to them.
    * @param pubs {Array} array of uris of nodes that are publishing this topic
    */
   requestTopicFromPubs(pubs) {
@@ -123,14 +163,10 @@ class SubscriberImpl extends EventEmitter {
     });
   }
 
-  disconnect() {
-
-  }
-
   /**
    * Handle an update from the ROS master with the list of current publishers. Connect to any new ones
    * and disconnect from any not included in the list.
-   * @param publisherList [Array.string]
+   * @param publisherList {Array.string}
    * @private
    */
   _handlePublisherUpdate(publisherList) {
@@ -150,6 +186,11 @@ class SubscriberImpl extends EventEmitter {
     });
   }
 
+  /**
+   * Sends a topicRequest XMLRPC message to the provided URI and initiates
+   *  the topic connection if possible.
+   * @param pubUri {string} URI of publisher to request a topic from
+   */
   _requestTopicFromPublisher(pubUri) {
     let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
     // send a topic request to the publisher's node
@@ -164,22 +205,35 @@ class SubscriberImpl extends EventEmitter {
       });
   }
 
+  /**
+   * disconnects and clears out the specified client
+   * @param clientId {string}
+   */
   _disconnectClient(clientId) {
     const client = this._pubClients[clientId];
-    this._log.debug('Disconnecting client %s', clientId);
-    client.end();
+    if (client) {
+      this._log.debug('Disconnecting client %s', clientId);
+      client.end();
 
-    client.$deserializer.removeAllListeners();
+      client.removeAllListeners();
+      client.$deserializer.removeAllListeners();
 
-    client.$deserializer.end();
-    client.unpipe(client.$deserializer);
+      client.$deserializer.end();
+      client.unpipe(client.$deserializer);
 
-    delete client.$deserializer;
-    delete client.$boundMessageHandler;
+      delete client.$deserializer;
+      delete client.$boundMessageHandler;
 
-    delete this._pubClients[clientId];
+      delete this._pubClients[clientId];
+
+      this.emit('disconnect');
+    }
   }
 
+  /**
+   * Registers the subscriber with the ROS master
+   * will connect to any existing publishers on the topic that are included in the response
+   */
   _register() {
     this._nodeHandle.registerSubscriber(this._topic, this._type)
     .then((resp) => {
@@ -210,6 +264,7 @@ class SubscriberImpl extends EventEmitter {
   }
 
   /**
+   * Handles the response to a topicRequest message (to connect to a publisher)
    * @param resp {Array} xmlrpc response to a topic request
    */
   _handleTopicRequestResponse(resp, nodeUri) {
@@ -218,9 +273,12 @@ class SubscriberImpl extends EventEmitter {
     }
 
     this._log.debug('Topic request response: ' + JSON.stringify(resp));
+
+    // resp[2] has port and address for where to connect
     let info = resp[2];
     let port = info[2];
     let address = info[1];
+
     let client = new Socket();
     client.name = address + ':' + port;
     client.nodeUri = nodeUri;
@@ -228,10 +286,12 @@ class SubscriberImpl extends EventEmitter {
     client.on('end', () => {
       this._log.info('Pub %s sent END', client.name, this.getTopic());
     });
+
     client.on('error', () => {
       this._log.warn('Pub %s error on topic %s', client.name, this.getTopic());
     });
 
+    // open the socket at the provided address, port
     client.connect(port, address, () => {
       if (this.isShutdown()) {
         client.end();
@@ -240,67 +300,86 @@ class SubscriberImpl extends EventEmitter {
 
       this._log.debug('Subscriber on ' + this.getTopic() + ' connected to publisher at ' + address + ':' + port);
       client.write(this._createTcprosHandshake());
-
-      this._pubClients[client.nodeUri] = client;
     });
 
-
+    // create a DeserializeStream to chunk out messages
     let deserializer = new DeserializeStream();
-
-    client.$boundMessageHandler = this._handleMessage.bind(this, client);
     client.$deserializer = deserializer;
-
     client.pipe(deserializer);
-    deserializer.on('message', client.$boundMessageHandler);
+
+    // create a one-time handler for the connection header
+    // if the connection is validated, we'll listen for more events
+    deserializer.once('message', this._handleConnectionHeader.bind(this, client));
   }
 
+  /**
+   * Convenience function - creates the connection header for this subscriber to send
+   * @returns {string}
+   */
   _createTcprosHandshake() {
     return TcprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(),
                                        this.getTopic(), this.getType(), this._messageHandler.messageDefinition());
   }
 
-  _handleMessage(client, msg) {
-    if (!client.$initialized) {
+  /**
+   * Handles the connection header from a publisher. If connection is validated,
+   * we'll start handling messages from the client.
+   * @param client {Socket} publisher client who sent the connection header
+   * @param msg {string} message received from the publisher
+   */
+  _handleConnectionHeader(client, msg) {
+    let header = TcprosUtils.parseTcpRosHeader(msg);
+    // check if the publisher had a problem with our connection header
+    if (header.error) {
+      this._log.error(header.error);
+      return;
+    }
 
-      let header = TcprosUtils.parseTcpRosHeader(msg);
-      // check if the publisher had a problem with our connection header
-      if (header.error) {
-        this._log.error(header.error);
-        return;
-      }
+    // now do our own validation of the publisher's header
+    const error = TcprosUtils.validatePubHeader(header, this.getType(), this._messageHandler.md5sum());
+    if (error) {
+      this._log.error(`Unable to validate subscriber ${this.getTopic()} connection header ${JSON.stringify(header)}`);
+      TcprosUtils.parsePubHeader(msg);
+      client.end(Serialize(error));
+      return;
+    }
+    // connection header was valid - we're good to go!
+    this._log.debug('Subscriber ' + this.getTopic() + ' got connection header ' + JSON.stringify(header));
 
-      // else validate publisher's header
-      const error = TcprosUtils.validatePubHeader(header, this.getType(), this._messageHandler.md5sum());
-      if (error) {
-        this._log.error(`Unable to validate subscriber ${this.getTopic()} connection header ${JSON.stringify(header)}`);
-        TcprosUtils.parsePubHeader(msg);
-        client.end(Serialize(error));
-        return;
-      }
+    // cache client now that we've verified the connection header
+    this._pubClients[client.nodeUri] = client;
 
-      this._log.debug('Subscriber ' + this.getTopic() + ' got connection header ' + JSON.stringify(header));
-      client.$initialized = true;
+    // pipe all future messages to _handleMessage
+    client.$deserializer.on('message', this._handleMessage.bind(this));
 
-      this.emit('connection', header, client.name);
+    this.emit('connection', header, client.name);
 
-      client.on('close', () => {
-        this._log.info('Pub %s closed on topic %s', client.name, this.getTopic());
-        this._log.debug('Subscriber ' + this.getTopic() + ' client ' + client.name + ' disconnected!');
-        delete this._pubClients[client.nodeUri];
+    // hook into close event to clean things up
+    client.on('close', () => {
+      this._log.warn('Pub %s closed on topic %s', client.name, this.getTopic());
+      this._log.warn('Subscriber ' + this.getTopic() + ' client ' + client.name + ' disconnected!');
+      this._disconnectClient(client.nodeUri);
+    });
+  }
 
-        this.emit('disconnect')
-      });
+  /**
+   * Handles a single message from a publisher. Passes message off to
+   * Spinner if we're queueing, otherwise handles it immediately.
+   * @param msg {string}
+   */
+  _handleMessage(msg) {
+    if (this._throttleMs < 0) {
+      this._handleMsgQueue([msg]);
     }
     else {
-      if (this._throttleMs < 0) {
-        this._handleMsgQueue([msg]);
-      }
-      else {
-        this._nodeHandle.getSpinner().ping(this._getSpinnerId(), msg);
-      }
+      this._nodeHandle.getSpinner().ping(this._getSpinnerId(), msg);
     }
   }
 
+  /**
+   * Deserializes and events for the list of messages
+   * @param msgQueue {Array} array of strings - each string is its own message.
+   */
   _handleMsgQueue(msgQueue) {
     try {
       msgQueue.forEach((msg) => {

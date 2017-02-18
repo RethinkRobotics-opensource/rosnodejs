@@ -139,7 +139,7 @@ class RosNode extends EventEmitter {
     if (sub) {
       this._debugLog.info('Unsubscribing from topic %s', topic);
       delete this._subscribers[topic];
-      sub._shutdown();
+      sub.shutdown();
       return this.unregisterSubscriber(topic);
     }
   }
@@ -149,7 +149,7 @@ class RosNode extends EventEmitter {
     if (pub) {
       this._debugLog.info('Unadvertising topic %s', topic);
       delete this._publishers[topic];
-      pub._shutdown();
+      pub.shutdown();
       return this.unregisterPublisher(topic);
     }
   }
@@ -537,7 +537,42 @@ class RosNode extends EventEmitter {
   }
 
   _handleGetBusInfo(err, params, callback) {
-    this._log.error('Not implemented');
+    const busInfo = [];
+    let count = 0;
+    Object.keys(this._subscribers).forEach((topic) => {
+      const sub = this._subscribers[topic];
+      sub.getClientUris().forEach((clientUri) => {
+        busInfo.push([
+          ++count,
+          clientUri,
+          'i',
+          'TCPROS',
+          sub.getTopic(),
+          true
+        ]);
+      });
+    });
+
+    Object.keys(this._publishers).forEach((topic) => {
+      const pub = this._publishers[topic];
+      pub.getClientUris().forEach((clientUri) => {
+        busInfo.push([
+          ++count,
+          clientUri,
+          'o',
+          'TCPROS',
+          pub.getTopic(),
+          true
+        ]);
+      });
+    });
+
+    const resp = [
+      1,
+      this.getNodeName(),
+      busInfo
+    ];
+    callback(null, resp);
   }
 
   _handleGetBusStats(err, params, callback) {

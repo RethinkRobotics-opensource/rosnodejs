@@ -22,12 +22,20 @@ const {rebroadcast} = require('../utils/event_utils.js');
 
 //-----------------------------------------------------------------------
 
+/**
+ * @class Subscriber
+ * Public facing subscriber class. Allows users to listen to messages from
+ * publishers on a given topic.
+ */
 class Subscriber extends EventEmitter {
   constructor(impl) {
     super();
 
     ++impl.count;
     this._impl = impl;
+
+    this._topic = impl.getTopic();
+    this._type = impl.getType();
 
     rebroadcast('registered', this._impl, this);
     rebroadcast('connection', this._impl, this);
@@ -36,22 +44,27 @@ class Subscriber extends EventEmitter {
     rebroadcast('message', this._impl, this);
   }
 
+  /**
+   * Get the topic this publisher is publishing on
+   * @returns {string}
+   */
   getTopic() {
-    if (this._impl) {
-      return this._impl.getTopic();
-    }
-    // else
-    return null;
+    return this._topic;
   }
 
+  /**
+   * Get the type of message this publisher is sending
+   *            (e.g. std_msgs/String)
+   * @returns {string}
+   */
   getType() {
-    if (this._impl) {
-      return this._impl.getType();
-    }
-    // else
-    return null;
+    return this._type;
   }
 
+  /**
+   * Get the numbber of publishers currently connected to this subscriber
+   * @returns {number}
+   */
   getNumPublishers() {
     if (this._impl) {
       return this._impl.getNumPublishers();
@@ -60,21 +73,31 @@ class Subscriber extends EventEmitter {
     return 0;
   }
 
+  /**
+   * Shuts down this subscriber. If this is the last subscriber on this topic
+   * for this node, closes the subscriber and unregisters the topic from Master
+   * @returns {Promise}
+   */
   shutdown() {
     if (this._impl) {
       const impl = this._impl
       this._impl = null;
-      this.removeAllListeners();
 
       --impl.count;
       if (impl.count <= 0) {
-        return impl.shutdown();
+        return impl.getNode().unsubscribe(impl.getTopic());
       }
+
+      this.removeAllListeners();
     }
     // else
     return Promise.resolve();
   }
 
+  /**
+   * Check if this publisher has been shutdown
+   * @returns {boolean}
+   */
   isShutdown() {
     return !!this._impl;
   }
