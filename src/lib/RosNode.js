@@ -24,6 +24,8 @@ let SlaveApiClient = require('./SlaveApiClient.js');
 let ParamServerApiClient = require('./ParamServerApiClient.js');
 let Subscriber = require('./Subscriber.js');
 let Publisher = require('./Publisher.js');
+const PublisherImpl = require('./impl/PublisherImpl.js');
+const SubscriberImpl = require('./impl/SubscriberImpl.js');
 let ServiceClient = require('./ServiceClient.js');
 let ServiceServer = require('./ServiceServer.js');
 const Spinner = require('../utils/GlobalSpinner.js');
@@ -93,22 +95,24 @@ class RosNode extends EventEmitter {
 
   advertise(options) {
     let topic = options.topic;
-    let pub = this._publishers[topic];
-    if (!pub) {
-      pub = new Publisher(options, this);
-      this._publishers[topic] = pub;
+    let pubImpl = this._publishers[topic];
+    if (!pubImpl) {
+      pubImpl = new PublisherImpl(options, this);
+      this._publishers[topic] = pubImpl;
     }
-    return pub;
+
+    return new Publisher(pubImpl);
   }
 
   subscribe(options, callback) {
     let topic = options.topic;
-    let sub = this._subscribers[topic];
-    if (!sub) {
-      sub = new Subscriber(options, this);
-      this._subscribers[topic] = sub;
+    let subImpl = this._subscribers[topic];
+    if (!subImpl) {
+      subImpl = new SubscriberImpl(options, this);
+      this._subscribers[topic] = subImpl;
     }
 
+    const sub = new Subscriber(subImpl);
     if (callback && typeof callback === 'function') {
       sub.on('message', callback);
     }
@@ -134,8 +138,8 @@ class RosNode extends EventEmitter {
     const sub = this._subscribers[topic];
     if (sub) {
       this._debugLog.info('Unsubscribing from topic %s', topic);
-      sub.disconnect();
       delete this._subscribers[topic];
+      sub._shutdown();
       return this.unregisterSubscriber(topic);
     }
   }
@@ -144,8 +148,8 @@ class RosNode extends EventEmitter {
     const pub = this._publishers[topic];
     if (pub) {
       this._debugLog.info('Unadvertising topic %s', topic);
-      pub.disconnect();
       delete this._publishers[topic];
+      pub._shutdown();
       return this.unregisterPublisher(topic);
     }
   }
@@ -158,6 +162,18 @@ class RosNode extends EventEmitter {
       delete this._services[service];
       return this.unregisterService(service, server.getServiceUri());
     }
+  }
+
+  hasSubscriber(topic) {
+    return this._subscribers.hasOwnProperty(topic);
+  }
+
+  hasPublisher(topic) {
+    return this._publisheres.hasOwnProperty(topic);
+  }
+
+  hasService(service) {
+    return this._services.hasOwnProperty(service);
   }
 
   getNodeName() {

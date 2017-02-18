@@ -6,11 +6,13 @@ const CONNECTION_REFUSED='ECONNREFUSED';
 const TRY_AGAIN_LIST = [1, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8, 16, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
 class XmlrpcCall {
-  constructor(method, data, resolve, reject) {
+  constructor(method, data, resolve, reject, options={}) {
     this.method = method;
     this.data = data;
     this.resolve = resolve;
     this.reject = reject;
+
+    this.maxAttempts = options.maxAttempts || Infinity;
   }
 
   call(client) {
@@ -55,8 +57,8 @@ class XmlrpcClient extends EventEmitter {
     return this._xmlrpcClient;
   }
 
-  call(method, data, resolve, reject) {
-    const newCall = new XmlrpcCall(method, data, resolve, reject);
+  call(method, data, resolve, reject, options) {
+    const newCall = new XmlrpcCall(method, data, resolve, reject, options);
     const numCalls = this._callQueue.length;
     this._callQueue.push(newCall);
     // if nothing else was on the queue, try executing the call now
@@ -92,7 +94,9 @@ class XmlrpcClient extends EventEmitter {
     })
     .catch((err) => {
       this._log.info('Call %s %j failed! %s', call.method, call.data, err);
-      if (err instanceof Error && err.code === CONNECTION_REFUSED) {
+      if (err instanceof Error &&
+          err.code === CONNECTION_REFUSED &&
+          this._failedAttempts < call.maxAttempts) {
         // Call failed to connect - try to connect again.
         // All future calls would have same error since they're
         // directed at the same xmlrpc server.

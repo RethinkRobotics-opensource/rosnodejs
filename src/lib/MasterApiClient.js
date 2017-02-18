@@ -36,8 +36,8 @@ class MasterApiClient {
     return this._xmlrpcClient;
   }
 
-  _call(method, data, resolve, reject) {
-    this._xmlrpcClient.call(method, data, resolve, reject);
+  _call(method, data, resolve, reject, options) {
+    this._xmlrpcClient.call(method, data, resolve, reject, options);
   }
 
   registerService(callerId, service, serviceUri, uri) {

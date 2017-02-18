@@ -5,6 +5,7 @@ const chai = require('chai');
 const expect = chai.expect;
 const rosnodejs = require('../src/index.js');
 const Subscriber = require('../src/lib/Subscriber.js');
+const SubscriberImpl = require('../src/lib/impl/SubscriberImpl.js');
 const xmlrpc = require('xmlrpc');
 const netUtils = require('../src/utils/network_utils.js');
 
@@ -72,7 +73,6 @@ describe('Protocol Test', () => {
 
         const resp = [ 1, 'registered!', [] ];
         callback(null, resp);
-        done();
       });
 
       const nh = rosnodejs.nh;
@@ -80,6 +80,10 @@ describe('Protocol Test', () => {
         (data) => {},
         { queueSize: 1, throttleMs: 1000 }
       );
+
+      sub.on('registered', () => {
+        done();
+      })
     });
 
     it('unregisterSubscriber', (done) => {
@@ -492,11 +496,14 @@ describe('Protocol Test', () => {
       this.slow(1600);
       const nh = rosnodejs.nh;
       // manually construct a subscriber...
-      const sub = new Subscriber({
-        topic,
-        type: 'std_msgs/String',
-        typeClass: rosnodejs.require('std_msgs').msg.String
-      },nh._node);
+      const subImpl = new SubscriberImpl({
+          topic,
+          type: 'std_msgs/String',
+          typeClass: rosnodejs.require('std_msgs').msg.String
+        },
+        nh._node);
+
+      const sub = new Subscriber(subImpl);
 
       const SOCKET_CONNECT_CACHED = net.Socket.prototype.connect;
       const SOCKET_END_CACHED = net.Socket.prototype.end;
@@ -745,4 +752,3 @@ describe('Protocol Test', () => {
     });
   });
 });
-
