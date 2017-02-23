@@ -239,6 +239,10 @@ class LoggingManager {
     this._forEachLogger((logger) => logger.clearExpiredThrottledLogs(), true);
   }
 
+  stopLogCleanup() {
+    clearInterval(this._cleanLoggersInterval);
+  }
+
   _handleGetLoggers(req, resp) {
     if (this._externalLog.getLoggers !== null) {
       this._externalLog.getLoggers(req, resp);

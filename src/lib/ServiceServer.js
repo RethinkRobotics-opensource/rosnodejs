@@ -108,6 +108,10 @@ class ServiceServer extends EventEmitter {
   }
 
   handleClientConnection(client, header) {
+    if (this.isShutdown()) {
+      return;
+    }
+    // else
     // TODO: verify header data
     this._log.debug('Service %s handling new client connection ', this.getService());
 

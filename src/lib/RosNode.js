@@ -123,10 +123,13 @@ class RosNode extends EventEmitter {
   advertiseService(options, callback) {
     let service = options.service;
     let serv = this._services[service];
-    if (!serv) {
-      serv = new ServiceServer(options, callback, this);
-      this._services[service] = serv;
+    if (serv) {
+      this._log.warn('Tried to advertise a service that is already advertised in this node [%s]', service);
+      return;
     }
+    // else
+    serv = new ServiceServer(options, callback, this);
+    this._services[service] = serv;
     return serv;
   }
 
@@ -634,6 +637,8 @@ class RosNode extends EventEmitter {
 
       promises.push(shutdownServers());
       promises.push(clearXmlrpcQueues());
+
+      Logging.stopLogCleanup();
 
       process.removeListener('exit', exitHandler);
       process.removeListener('SIGINT', sigIntHandler);

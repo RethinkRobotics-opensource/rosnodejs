@@ -268,7 +268,7 @@ class PublisherImpl extends EventEmitter {
 
     // if this publisher had the tcpNoDelay option set
     // disable the nagle algorithm
-    if  (this._tcpNoDelay) {
+    if  (this._tcpNoDelay || header.tcp_nodelay === 1) {
       subscriber.setNoDelay(true);
     }
 

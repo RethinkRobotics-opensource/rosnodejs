@@ -565,6 +565,101 @@ describe('Protocol Test', () => {
       // if we haven't received a message by now we should be good
       setTimeout(done, 500);
     });
+
+    it('2 Publishers on Same Topic', function(done) {
+      this.slow(2000);
+      const nh = rosnodejs.nh;
+
+      let msg1;
+      const sub = nh.subscribe(topic, msgType, (msg) => {
+          msg1 = msg.data;
+      });
+
+      const pub1 = nh.advertise(topic, msgType, {latching: true});
+      const pub2 = nh.advertise(topic, msgType, {latching: true});
+
+      expect(pub1).to.not.equal(pub2);
+
+      pub1.publish({data: 1});
+
+      sub.once('message', ({data}) => {
+        expect(sub.getNumPublishers()).to.equal(1);
+        expect(data).to.equal(1);
+
+        pub2.publish({data: 2});
+        sub.once('message', ({data}) => {
+          expect(data).to.equal(2);
+
+          pub1.shutdown()
+          .then(() => {
+            expect(sub.getNumPublishers()).to.equal(1);
+
+            pub2.publish({data: 3});
+
+            sub.once('message', ({data}) => {
+              expect(data).to.equal(3);
+
+              pub2.shutdown()
+              .then(() =>  {
+                expect(sub.getNumPublishers()).to.equal(0);
+                done();
+              });
+            });
+          })
+        });
+      })
+    });
+
+    it('2 Subscribers on Same Topic', function(done) {
+      this.slow(2000);
+      const nh = rosnodejs.nh;
+
+      let msg1;
+      const sub1 = nh.subscribe(topic, msgType, (msg) => {
+          msg1 = msg.data;
+      });
+
+      let msg2;
+      const sub2 = nh.subscribe(topic, msgType, (msg) => {
+        msg2 = msg.data;
+      });
+
+      expect(sub1).to.not.equal(msg2);
+
+      const pub = nh.advertise(topic, msgType, {latching: true});
+
+      pub.publish({data: 1});
+
+      sub2.once('message', () => {
+        expect(pub.getNumSubscribers()).to.equal(1);
+
+        expect(msg1).to.equal(msg2);
+        pub.publish({data: 25});
+
+        sub2.once('message', () => {
+          expect(msg1).to.equal(msg2);
+          msg1 = null;
+          msg2 = null;
+
+          sub1.shutdown()
+          .then(() => {
+            pub.publish({data: 30});
+
+            sub2.once('message', () => {
+              expect(msg1).to.equal(null);
+              expect(msg2).to.equal(30);
+              expect(pub.getNumSubscribers()).to.equal(1);
+
+              sub2.shutdown()
+              .then(() => {
+                expect(pub.getNumSubscribers()).to.equal(0);
+                done();
+              });
+            });
+          });
+        });
+      });
+    });
   });
 
   describe('Service', () => {
