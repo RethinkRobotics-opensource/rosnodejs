@@ -17,106 +17,103 @@
 
 "use strict";
 
-const SerializationUtils = require('../utils/serialization_utils.js');
-const Serialize = SerializationUtils.Serialize;
-const TcprosUtils = require('../utils/tcpros_utils.js');
 const EventEmitter = require('events');
-const Logging = require('./Logging.js');
-const {REGISTERING, REGISTERED, SHUTDOWN} = require('../utils/ClientStates.js');
+const Ultron = require('ultron');
+const {rebroadcast} = require('../utils/event_utils.js');
 
+/**
+ * @class Publisher
+ * Public facing publishers class. Allows users to send messages to subscribers
+ * on a given topic.
+ */
 class Publisher extends EventEmitter {
-  constructor(options, nodeHandle) {
+  constructor(impl) {
     super();
-    this._topic = options.topic;
 
-    this._type = options.type;
+    ++impl.count;
+    this._impl = impl;
+    this._ultron = new Ultron(impl);
 
-    this._latching = !!options.latching;
+    this._topic = impl.getTopic();
+    this._type = impl.getType();
 
-    this._tcpNoDelay =  !!options.tcpNoDelay;
-
-
-    if (options.queueSize) {
-      this._queueSize = options.queueSize;
-    }
-    else {
-      this._queueSize = 1;
-    }
-
-    /**
-     * throttleMs interacts with queueSize to determine when to send
-     * messages.
-     *  < 0  : send immediately - no interaction with queue
-     * >= 0 : place event at end of event queue to publish message
-         after minimum delay (MS)
-     */
-    if (options.hasOwnProperty('throttleMs')) {
-      this._throttleMs = options.throttleMs;
-    }
-    else {
-      this._throttleMs = 0;
-    }
-
-    // OPTIONS STILL NOT HANDLED:
-    //  headers: extra headers to include
-    //  subscriber_listener: callback for new subscribers connect/disconnect
-
-    this._resolve = !!options.resolve;
-
-    this._lastSentMsg = null;
-
-    this._nodeHandle = nodeHandle;
-    this._nodeHandle.getSpinner().addClient(this, this._getSpinnerId(), this._queueSize, this._throttleMs);
-
-    this._log = Logging.getLogger('ros.rosnodejs');
-
-    this._subClients = {};
-
-    this._messageHandler = options.typeClass;
-
-    this._state = REGISTERING;
-    this._register();
+    rebroadcast('registered', this._ultron, this);
+    rebroadcast('connection', this._ultron, this);
+    rebroadcast('disconnect', this._ultron, this);
+    rebroadcast('error', this._ultron, this);
   }
 
-  _getSpinnerId() {
-    return `Publisher://${this.getTopic()}`;
-  }
-
+  /**
+   * Get the topic this publisher is publishing on
+   * @returns {string}
+   */
   getTopic() {
     return this._topic;
   }
 
+  /**
+   * Get the type of message this publisher is sending
+   *            (e.g. std_msgs/String)
+   * @returns {string}
+   */
   getType() {
     return this._type;
   }
 
+  /**
+   * Check if this publisher is latching
+   * @returns {boolean}
+   */
   getLatching() {
-    return this._latching;
+    if (this._impl) {
+      return this._impl.getLatching();
+    }
+    // else
+    return false;
   }
 
+  /**
+   * Get the numbber of subscribers currently connected to this publisher
+   * @returns {number}
+   */
   getNumSubscribers() {
-    return Object.keys(this._subClients).length;
+    if (this._impl) {
+      return this._impl.getNumSubscribers();
+    }
+    // else
+    return 0;
   }
 
+  /**
+   * Shuts down this publisher. If this is the last publisher on this topic
+   * for this node, closes the publisher and unregisters the topic from Master
+   * @returns {Promise}
+   */
   shutdown() {
-    this._nodeHandle.unadvertise(this.getTopic());
+    const topic= this.getTopic();
+    if (this._impl) {
+      const impl = this._impl
+      this._impl = null;
+      this._ultron.destroy();
+      this._ultron = null;
+
+      --impl.count;
+      if (impl.count <= 0) {
+        return impl.getNode().unadvertise(impl.getTopic());
+      }
+
+      this.removeAllListeners();
+    }
+    // else
+    return Promise.resolve();
   }
 
+  /**
+   * Check if this publisher has been shutdown
+   * @returns {boolean}
+   */
   isShutdown() {
-    return this._state === SHUTDOWN;
-  }
-
-  disconnect() {
-    this._state = SHUTDOWN;
-
-    Object.keys(this._subClients).forEach((clientId) => {
-      const client = this._subClients[clientId];
-      client.end();
-    });
-
-    // disconnect from the spinner in case we have any pending callbacks
-    this._nodeHandle.getSpinner().disconnect(this._getSpinnerId());
-    this._subClients = {};
+    return !!this._impl;
   }
 
   /**
@@ -126,141 +123,7 @@ class Publisher extends EventEmitter {
    * @param [throttleMs] {number} optional override for publisher setting
    */
   publish(msg, throttleMs) {
-    if (this.isShutdown()) {
-      return;
-    }
-
-    if (typeof throttleMs !== 'number') {
-      throttleMs = this._throttleMs;
-    }
-
-    if (throttleMs < 0) {
-      // short circuit JS event queue, publish "synchronously"
-      this._handleMsgQueue([msg]);
-    }
-    else {
-      this._nodeHandle.getSpinner().ping(this._getSpinnerId(), msg);
-    }
-  }
-
-  /**
-   * Pulls all msgs off queue, serializes, and publishes them
-   */
-  _handleMsgQueue(msgQueue) {
-
-    // There's a small chance that we were shutdown while the spinner was locked
-    // which could cause _handleMsgQueue to be called if this publisher was in there.
-    if (this.isShutdown()) {
-      return;
-    }
-
-    const numClients = this.getNumSubscribers();
-    if (numClients === 0) {
-      this._log.debugThrottle(2000, `Publishing message on ${this.getTopic()} with no subscribers`);
-    }
-
-    try {
-      msgQueue.forEach((msg) => {
-        if (this._resolve) {
-          msg = this._messageHandler.Resolve(msg);
-        }
-
-        const serializedMsg = TcprosUtils.serializeMessage(this._messageHandler, msg);
-
-        Object.keys(this._subClients).forEach((client) => {
-          this._subClients[client].write(serializedMsg);
-        });
-
-        // if this publisher is supposed to latch,
-        // save the last message. Any subscribers that connect
-        // before another call to publish() will receive this message
-        if (this.getLatching()) {
-          this._lastSentMsg = serializedMsg;
-        }
-      });
-    }
-    catch (err) {
-      this._log.error('Error when publishing message on topic %s: %s', this.getTopic(), err.stack);
-      this.emit('error', err);
-    }
-  }
-
-  handleSubscriberConnection(subscriber, header) {
-    let error = TcprosUtils.validateSubHeader(
-      header, this.getTopic(), this.getType(),
-      this._messageHandler.md5sum());
-    if (error !== null) {
-      this._log.error('Unable to validate subscriber connection header '
-                      + JSON.stringify(header));
-      subscriber.end(Serialize(error));
-      return;
-    }
-    // else
-    this._log.info('Pub %s got connection header %s', this.getTopic(), JSON.stringify(header));
-
-    // create and send response
-    let respHeader =
-      TcprosUtils.createPubHeader(
-        this._nodeHandle.getNodeName(),
-        this._messageHandler.md5sum(),
-        this.getType(),
-        this.getLatching(),
-        this._messageHandler.messageDefinition());
-    subscriber.write(respHeader);
-
-    // if this publisher had the tcpNoDelay option set
-    // disable the nagle algorithm
-    if  (this._tcpNoDelay) {
-      subscriber.setNoDelay(true);
-    }
-
-    subscriber.on('close', () => {
-      this._log.info('Publisher %s client %s disconnected!',
-                      this.getTopic(), subscriber.name);
-      delete this._subClients[subscriber.name];
-      this.emit('disconnect');
-    });
-
-    subscriber.on('end', () => {
-      this._log.info('Sub %s sent END', subscriber.name);
-    });
-
-    subscriber.on('error', () => {
-      this._log.warn('Sub %s had error', subscriber.name);
-    });
-
-    if (this._lastSentMsg !== null) {
-      this._log.debug('Sending latched msg to new subscriber');
-      subscriber.write(this._lastSentMsg);
-    }
-
-    // if handshake good, add to list, we'll start publishing to it
-    this._subClients[subscriber.name] = subscriber;
-
-    this.emit('connection', header, subscriber.name);
-  }
-
-  _register() {
-    this._nodeHandle.registerPublisher(this._topic, this._type)
-    .then((resp) => {
-      // if we were shutdown between the starting the registration and now, bail
-      if (this.isShutdown()) {
-        return;
-      }
-
-      this._log.info('Registered %s as a publisher: %j', this._topic, resp);
-      let code = resp[0];
-      let msg = resp[1];
-      let subs = resp[2];
-      if (code === 1) {
-        // registration worked
-        this._state = REGISTERED;
-        this.emit('registered');
-      }
-    })
-    .catch((err) => {
-      this._log.error('Error while registering publisher %s: %s', this.getTopic(), err);
-    })
+    this._impl.publish(msg, throttleMs);
   }
 }
 

@@ -74,6 +74,10 @@ class ServiceServer extends EventEmitter {
     return NetworkUtils.formatServiceUri(this._port);
   }
 
+  getClientUris() {
+    return Object.keys(this._clients);
+  }
+
   /**
    * The ROS client shutdown code is a little noodly. Users can close a client through
    * the ROS node or the client itself and both are correct. Either through a node.unadvertise()
@@ -104,6 +108,10 @@ class ServiceServer extends EventEmitter {
   }
 
   handleClientConnection(client, header) {
+    if (this.isShutdown()) {
+      return;
+    }
+    // else
     // TODO: verify header data
     this._log.debug('Service %s handling new client connection ', this.getService());
 

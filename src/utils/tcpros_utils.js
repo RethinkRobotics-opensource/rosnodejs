@@ -143,7 +143,7 @@ let TcprosUtils = {
     let info = {};
     const fields = deserializeStringFields(header);
     fields.forEach((field) => {
-      
+
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
@@ -164,7 +164,7 @@ let TcprosUtils = {
     let info = {};
     const fields = deserializeStringFields(header);
     fields.forEach((field) => {
-      
+
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
@@ -206,7 +206,7 @@ let TcprosUtils = {
     let info = {};
     const fields = deserializeStringFields(header);
     fields.forEach((field) => {
-      
+
       if (field.startsWith(md5Prefix)) {
         info.md5sum = field.substr(md5Prefix.length);
       }
