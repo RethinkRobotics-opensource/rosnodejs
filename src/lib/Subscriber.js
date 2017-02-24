@@ -64,7 +64,7 @@ class Subscriber extends EventEmitter {
   }
 
   /**
-   * Get the numbber of publishers currently connected to this subscriber
+   * Get the number of publishers currently connected to this subscriber
    * @returns {number}
    */
   getNumPublishers() {
