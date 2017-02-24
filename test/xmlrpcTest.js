@@ -579,6 +579,8 @@ describe('Protocol Test', () => {
       const pub2 = nh.advertise(topic, msgType, {latching: true});
 
       expect(pub1).to.not.equal(pub2);
+      expect(pub1._impl.listenerCount('connection')).to.equal(2);
+      expect(pub2._impl.listenerCount('connection')).to.equal(2);
 
       pub1.publish({data: 1});
 
@@ -592,6 +594,9 @@ describe('Protocol Test', () => {
 
           pub1.shutdown()
           .then(() => {
+            expect(pub1._impl).to.equal(null);
+            expect(pub2._impl.listenerCount('connection')).to.equal(1);
+
             expect(sub.getNumPublishers()).to.equal(1);
 
             pub2.publish({data: 3});
@@ -602,6 +607,7 @@ describe('Protocol Test', () => {
               pub2.shutdown()
               .then(() =>  {
                 expect(sub.getNumPublishers()).to.equal(0);
+                expect(pub2._impl).to.equal(null);
                 done();
               });
             });
@@ -624,7 +630,9 @@ describe('Protocol Test', () => {
         msg2 = msg.data;
       });
 
-      expect(sub1).to.not.equal(msg2);
+      expect(sub1).to.not.equal(sub2);
+      expect(sub1._impl.listenerCount('connection')).to.equal(2);
+      expect(sub2._impl.listenerCount('connection')).to.equal(2);
 
       const pub = nh.advertise(topic, msgType, {latching: true});
 
@@ -643,6 +651,8 @@ describe('Protocol Test', () => {
 
           sub1.shutdown()
           .then(() => {
+            expect(sub1._impl).to.equal(null);
+            expect(sub2._impl.listenerCount('connection')).to.equal(1);
             pub.publish({data: 30});
 
             sub2.once('message', () => {
@@ -652,6 +662,7 @@ describe('Protocol Test', () => {
 
               sub2.shutdown()
               .then(() => {
+                expect(sub2._impl).to.equal(null);
                 expect(pub.getNumSubscribers()).to.equal(0);
                 done();
               });

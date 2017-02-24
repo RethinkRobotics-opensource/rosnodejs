@@ -18,6 +18,7 @@
 "use strict";
 
 const EventEmitter = require('events');
+const Ultron = require('ultron');
 const {rebroadcast} = require('../utils/event_utils.js');
 
 /**
@@ -31,14 +32,15 @@ class Publisher extends EventEmitter {
 
     ++impl.count;
     this._impl = impl;
+    this._ultron = new Ultron(impl);
 
     this._topic = impl.getTopic();
     this._type = impl.getType();
 
-    rebroadcast('registered', this._impl, this);
-    rebroadcast('connection', this._impl, this);
-    rebroadcast('disconnect', this._impl, this);
-    rebroadcast('error', this._impl, this);
+    rebroadcast('registered', this._ultron, this);
+    rebroadcast('connection', this._ultron, this);
+    rebroadcast('disconnect', this._ultron, this);
+    rebroadcast('error', this._ultron, this);
   }
 
   /**
@@ -92,6 +94,8 @@ class Publisher extends EventEmitter {
     if (this._impl) {
       const impl = this._impl
       this._impl = null;
+      this._ultron.destroy();
+      this._ultron = null;
 
       --impl.count;
       if (impl.count <= 0) {

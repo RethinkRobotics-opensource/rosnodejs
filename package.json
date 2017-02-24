@@ -34,6 +34,7 @@
     "bunyan": "1.8.1",
     "md5": "2.1.0",
     "moment": "2.12.0",
+    "ultron": "1.1.0",
     "walker": "1.0.7",
     "xmlrpc": "chfritz/node-xmlrpc"
   }
