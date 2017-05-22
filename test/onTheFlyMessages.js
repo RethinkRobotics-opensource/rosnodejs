@@ -740,6 +740,20 @@ describe('On The Fly Message Tests', () => {
 
       done();
     });
+
+    it('Service with improper divider', (done) => {
+      // correct message divider is '---'
+      // we're allowing any line starting with '---' though, parroting genmsg
+      const HeaderService = msgUtils.getHandlerForSrvType('test_msgs/NonSpecServiceDivider');
+
+      const requestMsg = HeaderService.Request.messageDefinition().trim();
+      expect(requestMsg).to.equal('string data');
+
+      const responseMsg = HeaderService.Response.messageDefinition().trim();
+      expect(responseMsg).to.equal('uint8 response');
+
+      done();
+    });
   });
 
   describe('actions', () => {

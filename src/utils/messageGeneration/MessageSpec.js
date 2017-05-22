@@ -165,10 +165,14 @@ class RosMsgSpec {
       fileContents = this._loadMessageFile(filePath);
     }
     if (fileContents !== null) {
-      this.fileContents = this._extractRelevantMessage(fileContents);
+      this.fileContents = fileContents;
 
-      this._extractFields(this.fileContents);
+      this._parseMessage(fileContents);
     }
+  }
+
+  _parseMessage() {
+    throw new Error('Unable to parse message file for base class RosMsgSpec');
   }
 
   /**
@@ -215,138 +219,6 @@ class RosMsgSpec {
    */
   _loadMessageFile(fileName) {
     return fs.readFileSync(fileName, 'utf8');
-  }
-
-  /**
-   * TODO: move this to MsgSpec? Really only makes sense there...
-   * Given a line from the message file, parse it for useful contents
-   * @param line {string}
-   * @private
-   */
-  _parseLine(line) {
-    line = line.trim();
-
-    const lineEqualIndex   = line.indexOf('=');
-    const lineCommentIndex = line.indexOf('#');
-
-    // clear out comments if this line is not a constant
-    // string constants include EVERYTHING after the equals
-    if ((lineEqualIndex === -1 && lineCommentIndex !== -1)
-        || lineEqualIndex > lineCommentIndex)
-    {
-      line = line.replace(/#.*/, '');
-    }
-
-    if (line !== '') {
-
-      var firstSpace = line.indexOf(' ')
-        , fieldType  = line.substring(0, firstSpace).trim()
-        , field      = line.substring(firstSpace + 1).trim()
-        , equalIndex = field.indexOf('=')
-        , fieldName  = field.trim()
-        ;
-
-      if (equalIndex !== -1) {
-        fieldName = field.substring(0, equalIndex).trim();
-        if (fieldType !== 'string') {
-          const commentIndex = field.indexOf('#');
-          if (commentIndex !== -1) {
-            field = field.substring(0, commentIndex).trim();
-          }
-        }
-        const constant = field.substring(equalIndex + 1, field.length).trim();
-        const parsedConstant = fieldsUtil.parsePrimitive(fieldType, constant);
-
-        this.constants.push({
-          name        : fieldName
-          , type        : fieldType
-          , value       : parsedConstant
-          , stringValue : constant              // include the string value for md5 text
-          , index       : this.constants.length
-          , messageType : null
-        });
-      }
-      else {
-        // ROS lets you not include the package name if it's in the same package
-        // e.g. in tutorial_msgs/MyMsg
-        //    ComplexType fieldName  # this is assumed to be in tutorial_msgs
-        // TODO: would ROS automatically search for fields in other packages if possible??
-        //       we may need to support this...
-        const {baseType} = parseType(fieldType);
-        // if it's a header and isn't explicit, be explicit
-        if (isHeader(baseType) && !getPackageNameFromMessageType(baseType)) {
-          fieldType = 'std_msgs/' + fieldType;
-        }
-        else if (!fieldsUtil.isPrimitive(baseType) && !getPackageNameFromMessageType(baseType)) {
-          fieldType = this.packageName + '/' + fieldType;
-        }
-        let f = new Field(fieldName, fieldType);
-        this.fields.push(f);
-      }
-    }
-  };
-
-  /**
-   * Takes a full definition and pulls out the piece relevant to this specific message spec
-   * (e.g. only the goal from the action message or only the request from the service message)
-   * @param fileContents string
-   * @returns {string}
-   * @private
-   */
-  _extractRelevantMessage(fileContents) {
-    let lines = fileContents.split('\n').map((line) => line.trim());
-
-    switch (this.type) {
-      case SRV_REQUEST_TYPE: {
-        let divider = lines.indexOf(MSG_DIVIDER);
-        lines = lines.slice(0, divider);
-        break;
-      }
-      case SRV_RESPONSE_TYPE: {
-        let divider = lines.indexOf(MSG_DIVIDER);
-        lines = lines.slice(divider + 1);
-        break;
-      }
-      case ACTION_GOAL_TYPE: {
-        let divider = lines.indexOf(MSG_DIVIDER);
-        lines = lines.slice(0, divider);
-        break;
-      }
-      case ACTION_RESULT_TYPE: {
-        const divider1 = lines.indexOf(MSG_DIVIDER) + 1;
-        const divider2 = lines.indexOf(MSG_DIVIDER, divider1);
-        lines = lines.slice(divider1, divider2);
-        break;
-      }
-      case ACTION_FEEDBACK_TYPE: {
-        let divider = lines.indexOf(MSG_DIVIDER);
-        divider = lines.indexOf(MSG_DIVIDER, divider+1);
-        lines = lines.slice(divider + 1);
-        break;
-      }
-      default:
-        break;
-    }
-
-    return lines.join('\n');
-  }
-
-  /**
-   * Parses through message definition for fields and constants
-   * Todo: move this to MsgSpec?
-   * @param content {string} raw message definition
-   * @private
-   */
-  _extractFields(content) {
-    let lines = content.split('\n').map((line) => line.trim());
-
-    try {
-      lines.forEach(this._parseLine.bind(this));
-    }
-    catch (err) {
-      console.error('Error while parsing message %s: %s', this.getFullMessageName(), err);
-      throw err;
-    }
   }
 
   /**
@@ -413,6 +285,91 @@ class MsgSpec extends RosMsgSpec {
     this.fields = [];
 
     this.loadFile(filePath, fileContents);
+  }
+
+  /**
+   * Parses through message definition for fields and constants
+   * @param content {string} relevant portion of message definition
+   * @private
+   */
+  _parseMessage(content) {
+    let lines = content.split('\n').map((line) => line.trim());
+
+    try {
+      lines.forEach(this._parseLine.bind(this));
+    }
+    catch (err) {
+      console.error('Error while parsing message %s: %s', this.getFullMessageName(), err);
+      throw err;
+    }
+  }
+
+  /**
+   * Given a line from the message file, parse it for useful contents
+   * @param line {string}
+   * @private
+   */
+  _parseLine(line) {
+    line = line.trim();
+
+    const lineEqualIndex   = line.indexOf('=');
+    const lineCommentIndex = line.indexOf('#');
+
+    // clear out comments if this line is not a constant
+    // string constants include EVERYTHING after the equals
+    if ((lineEqualIndex === -1 && lineCommentIndex !== -1)
+        || lineEqualIndex > lineCommentIndex)
+    {
+      line = line.replace(/#.*/, '');
+    }
+
+    if (line !== '') {
+
+      var firstSpace = line.indexOf(' ')
+        , fieldType  = line.substring(0, firstSpace).trim()
+        , field      = line.substring(firstSpace + 1).trim()
+        , equalIndex = field.indexOf('=')
+        , fieldName  = field.trim()
+        ;
+
+      if (equalIndex !== -1) {
+        fieldName = field.substring(0, equalIndex).trim();
+        if (fieldType !== 'string') {
+          const commentIndex = field.indexOf('#');
+          if (commentIndex !== -1) {
+            field = field.substring(0, commentIndex).trim();
+          }
+        }
+        const constant = field.substring(equalIndex + 1, field.length).trim();
+        const parsedConstant = fieldsUtil.parsePrimitive(fieldType, constant);
+
+        this.constants.push({
+          name        : fieldName
+          , type        : fieldType
+          , value       : parsedConstant
+          , stringValue : constant              // include the string value for md5 text
+          , index       : this.constants.length
+          , messageType : null
+        });
+      }
+      else {
+        // ROS lets you not include the package name if it's in the same package
+        // e.g. in tutorial_msgs/MyMsg
+        //    ComplexType fieldName  # this is assumed to be in tutorial_msgs
+        // TODO: would ROS automatically search for fields in other packages if possible??
+        //       we may need to support this...
+        const {baseType} = parseType(fieldType);
+        // if it's a header and isn't explicit, be explicit
+        if (isHeader(baseType) && !getPackageNameFromMessageType(baseType)) {
+          fieldType = 'std_msgs/' + fieldType;
+        }
+        else if (!fieldsUtil.isPrimitive(baseType) && !getPackageNameFromMessageType(baseType)) {
+          fieldType = this.packageName + '/' + fieldType;
+        }
+        let f = new Field(fieldName, fieldType);
+        this.fields.push(f);
+      }
+    }
   }
 
   /**
@@ -558,9 +515,38 @@ class SrvSpec extends RosMsgSpec {
     super(msgCache, packageName, messageName, type, filePath);
 
     this.fileContents = this._loadMessageFile(filePath);
+    const {req, resp} = this._extractMessageSections(this.fileContents);
 
-    this.request = new MsgSpec(msgCache, packageName, messageName + 'Request', SRV_REQUEST_TYPE, null, this.fileContents);
-    this.response = new MsgSpec(msgCache, packageName, messageName + 'Response', SRV_RESPONSE_TYPE, null, this.fileContents);
+    this.request = new MsgSpec(msgCache, packageName, messageName + 'Request', SRV_REQUEST_TYPE, null, req);
+    this.response = new MsgSpec(msgCache, packageName, messageName + 'Response', SRV_RESPONSE_TYPE, null, resp);
+  }
+
+  /**
+   * Takes a full service definition and pulls out the request and response sections
+   * @param fileContents {string}
+   * @returns {object}
+   * @private
+   */
+  _extractMessageSections(fileContents) {
+    let lines = fileContents.split('\n').map((line) => line.trim());
+
+    const sections = {
+      req: '',
+      resp: ''
+    };
+
+    let currentSection = 'req';
+
+    lines.forEach((line) => {
+      if (line.startsWith(MSG_DIVIDER)) {
+        currentSection = 'resp';
+      }
+      else {
+        sections[currentSection] += `\n${line}`;
+      }
+    });
+
+    return sections;
   }
 
   getMd5text() {
@@ -594,12 +580,45 @@ class ActionSpec extends RosMsgSpec {
     super(msgCache, packageName, messageName, type, filePath);
 
     this.fileContents = this._loadMessageFile(filePath);
+    const {goal, result, feedback} = this._extractMessageSections(this.fileContents);
 
     // Parse the action definition into its 3 respective parts
-    this.goal = new MsgSpec(msgCache, packageName, messageName + 'Goal', ACTION_GOAL_TYPE, null, this.fileContents);
-    this.result = new MsgSpec(msgCache, packageName, messageName + 'Result', ACTION_RESULT_TYPE, null, this.fileContents);
-    this.feedback = new MsgSpec(msgCache, packageName, messageName + 'Feedback', ACTION_FEEDBACK_TYPE, null, this.fileContents);
+    this.goal = new MsgSpec(msgCache, packageName, messageName + 'Goal', ACTION_GOAL_TYPE, null, goal);
+    this.result = new MsgSpec(msgCache, packageName, messageName + 'Result', ACTION_RESULT_TYPE, null, result);
+    this.feedback = new MsgSpec(msgCache, packageName, messageName + 'Feedback', ACTION_FEEDBACK_TYPE, null, feedback);
     this.generateActionMessages();
+  }
+
+  /**
+   * Takes a full service definition and pulls out the request and response sections
+   * @param fileContents {string}
+   * @returns {object}
+   * @private
+   */
+  _extractMessageSections(fileContents) {
+    let lines = fileContents.split('\n').map((line) => line.trim());
+
+    const sections = {
+      goal: '',
+      result: '',
+      feedback: ''
+    };
+
+    let currentSection = 'goal';
+
+    lines.forEach((line) => {
+      if (line.startsWith(MSG_DIVIDER)) {
+        currentSection = {
+          goal: 'result',
+          result: 'feedback'
+        }[currentSection];
+      }
+      else {
+        sections[currentSection] += `\n${line}`;
+      }
+    });
+
+    return sections;
   }
 
   /**
