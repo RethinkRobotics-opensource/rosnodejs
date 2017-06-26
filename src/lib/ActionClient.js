@@ -41,29 +41,33 @@ class ActionClient extends EventEmitter {
 
     const nh = options.nh;
 
-    // FIXME: support user options for these parameters
+    const goalOptions = Object.assign({ queueSize: 10, latching: true }, options.goal);
     this._goalPub = nh.advertise(this._actionServer + '/goal',
                                  this._actionType + 'Goal',
-                                 { queueSize: 1, latching: true });
+                                 goalOptions);
 
+    const cancelOptions = Object.assign({ queueSize: 10, latching: true }, options.cancel);
     this._cancelPub = nh.advertise(this._actionServer + '/cancel',
                                    'actionlib_msgs/GoalID',
-                                   { queueSize: 1, latching: true });
+                                   cancelOptions);
 
+    const statusOptions = Object.assign({ queueSize: 1 }, options.status);
     this._statusSub = nh.subscribe(this._actionServer + '/status',
                                    'actionlib_msgs/GoalStatusArray',
                                    (msg) => { this._handleStatus(msg); },
-                                   { queueSize: 1 } );
+                                   statusOptions);
 
+    const feedbackOptions = Object.assign({ queueSize: 1 }, options.feedback);
     this._feedbackSub = nh.subscribe(this._actionServer + '/feedback',
                                      this._actionType + 'Feedback',
                                      (msg) => { this._handleFeedback(msg); },
-                                     { queueSize: 1 } );
+                                     feedbackOptions);
 
+    const resultOptions = Object.assign({ queueSize: 1 }, options.result);
     this._resultSub = nh.subscribe(this._actionServer + '/result',
                                    this._actionType + 'Result',
                                    (msg) => { this._handleResult(msg); },
-                                   { queueSize: 1 } );
+                                   resultOptions);
 
     this._goals = {};
     this._goalCallbacks = {};
@@ -134,6 +138,6 @@ class ActionClient extends EventEmitter {
     });
     return id;
   }
-};
+}
 
 module.exports = ActionClient;

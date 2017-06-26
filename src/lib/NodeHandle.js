@@ -185,7 +185,7 @@ class NodeHandle {
     }
   }
 
-  actionClient(actionServer, type) {
+  actionClient(actionServer, type, options={}) {
     if (!actionServer) {
       throw new Error(`Unable to create action client to unspecified server - [${actionServer}]`);
     }
@@ -195,11 +195,11 @@ class NodeHandle {
 
     // don't namespace action client - topics will be resolved by
     // advertising through this NodeHandle
-    return new ActionClient({
+    return new ActionClient(Object.assign({}, options, {
       actionServer,
       type,
       nh: this
-    });
+    }));
   }
 
   /**
