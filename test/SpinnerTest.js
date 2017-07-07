@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const Spinner = require('../src/utils/GlobalSpinner.js');
+const GlobalSpinner = require('../src/utils/spinners/GlobalSpinner.js');
 
 let handleList = [];
 let spinner;
@@ -19,10 +19,10 @@ class DummyClient {
   }
 }
 
-describe('Spinner', () => {
+describe('GlobalSpinner', () => {
 
   beforeEach(() => {
-    spinner = new Spinner(null, true);
+    spinner = new GlobalSpinner({emit: true});
     handleList = [];
   });
 
@@ -122,8 +122,47 @@ describe('Spinner', () => {
           expect(spinner._lockedOpCache.length).to.equal(0);
           expect(spinner._clientCallQueue.length).to.equal(0);
           expect(spinner._clientQueueMap.has(client.id)).to.be.false;
+          handleList = [];
 
-          done();
+          spinner.addClient(client, client.id, 3, 0);
+          spinner.ping(client.id, 'junk');
+
+          expect(spinner._lockedOpCache.length).to.equal(0);
+
+          // lock the queue so the next disconnect is cached
+          spinner._queueLocked = true;
+
+          spinner.disconnect(client.id);
+          spinner.addClient(client, client.id, 3, 0);
+          spinner.ping(client.id, 'junk');
+          spinner.ping(client.id, 'junk');
+
+          expect(spinner._lockedOpCache.length).to.equal(4);
+
+          spinner.once('tick', () => {
+            // things that got in before we locked the spinner
+            expect(handleList.length).to.equal(1);
+            expect(handleList[0].queue.length).to.equal(1);
+            expect(spinner._lockedOpCache.length).to.equal(0);
+            expect(spinner._clientCallQueue.length).to.equal(1);
+            expect(spinner._clientQueueMap.has(client.id)).to.be.true;
+            handleList = [];
+
+            // things that got in after we locked the spinner
+            spinner.once('tick', () => {
+              expect(handleList.length).to.equal(1);
+              expect(handleList[0].queue.length).to.equal(2);
+              expect(spinner._lockedOpCache.length).to.equal(0);
+              expect(spinner._clientCallQueue.length).to.equal(0);
+              expect(spinner._clientQueueMap.has(client.id)).to.be.true;
+
+              spinner.disconnect(client.id);
+
+              expect(spinner._clientQueueMap.has(client.id)).to.be.false;
+
+              done();
+            });
+          });
         });
       });
     });
@@ -143,7 +182,7 @@ describe('Spinner', () => {
       spinner.on('tick', () => {
         if (spinner._clientCallQueue.length === 0) {
           const lastTick = Date.now();
-          const tDiff = lastTick - firstTick;
+          const tDiff = lastTick - firstTick + 1;
           expect(tDiff).to.be.at.least(throttleMs);
 
           done();

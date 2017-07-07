@@ -28,7 +28,7 @@ const PublisherImpl = require('./impl/PublisherImpl.js');
 const SubscriberImpl = require('./impl/SubscriberImpl.js');
 let ServiceClient = require('./ServiceClient.js');
 let ServiceServer = require('./ServiceServer.js');
-const Spinner = require('../utils/GlobalSpinner.js');
+const GlobalSpinner = require('../utils/spinners/GlobalSpinner.js');
 let NetworkUtils = require('../utils/network_utils.js');
 let messageUtils = require('../utils/message_utils.js');
 let tcprosUtils = require('../utils/tcpros_utils.js');
@@ -78,7 +78,7 @@ class RosNode extends EventEmitter {
 
     this._setupExitHandler();
 
-    this._spinner = new Spinner();
+    this._setupSpinner(options.spinner);
   }
 
   getLogger() {
@@ -580,6 +580,30 @@ class RosNode extends EventEmitter {
 
   _handleGetBusStats(err, params, callback) {
     this._log.error('Not implemented');
+  }
+
+  /**
+   * Initializes the spinner for this node.
+   * @param [spinnerOpts] {object} either an instance of a spinner to use or the parameters to configure one
+   * @param [spinnerOpts.type] {string} type of spinner to create
+   */
+  _setupSpinner(spinnerOpts) {
+    if (spinnerOpts) {
+      const { type } = spinnerOpts;
+      switch (type) {
+        case 'Global':
+          this._spinner = new GlobalSpinner(spinnerOpts);
+          break;
+        default:
+          // if the above didn't work, assume they created their own spinner.
+          // just use it.
+          this._spinner = spinnerOpts;
+          break;
+      }
+    }
+    else {
+      this._spinner = new GlobalSpinner();
+    }
   }
 
   // HAVEN'T TESTED YET

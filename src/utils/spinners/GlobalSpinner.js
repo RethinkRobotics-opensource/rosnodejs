@@ -2,53 +2,14 @@
 
 const DEFAULT_SPIN_RATE_HZ = 200;
 const events = require('events');
-const LoggingManager = require('../lib/Logging.js');
+const LoggingManager = require('../../lib/Logging.js');
 const log = LoggingManager.getLogger('ros.spinner');
+
+const ClientQueue = require('./ClientQueue.js');
 
 const PING_OP = 'ping';
 const DELETE_OP = 'delete';
-
-/**
- * @class ClientQueue
- * Queue of messages to handle for an individual client (subscriber or publisher)
- */
-class ClientQueue {
-  constructor(client, queueSize, throttleMs) {
-    if (queueSize < 1) {
-      throw new Error(`Unable to create client message queue with size ${queueSize} - minimum is 1`);
-    }
-
-    this._client = client;
-
-    this._queue = [];
-    this._queueSize = queueSize;
-
-    this.throttleMs = throttleMs;
-    this._handleTime = null;
-  }
-
-  push(item) {
-    this._queue.push(item);
-    if (this.length > this._queueSize) {
-      this._queue.shift();
-    }
-  }
-
-  get length() {
-    return this._queue.length;
-  }
-
-  handleClientMessages(time) {
-    if (this._handleTime === null || time - this._handleTime >= this.throttleMs) {
-      this._handleTime = time;
-      this._client._handleMsgQueue(this._queue);
-      this._queue = [];
-      return true;
-    }
-    // else
-    return false;
-  }
-}
+const ADD_OP = 'add';
 
 /**
  * @class GlobalSpinner
@@ -66,15 +27,16 @@ class ClientQueue {
  * ping and disconnect operations are replayed in order.
  */
 class GlobalSpinner extends events {
-  constructor(spinRate=DEFAULT_SPIN_RATE_HZ, emit=false) {
+  constructor({spinRate=null, emit=false} = {}) {
     super();
 
-    if (typeof spinRate !== 'number') {
-      spinRate = DEFAULT_SPIN_RATE_HZ;
+    if (typeof spinRate === 'number') {
+      this._spinTime = 1 / spinRate;
+    }
+    else {
+      this._spinTime = 0;
     }
 
-    this._spinTime = 1 / spinRate;
-    this._expectedSpinExpire = null;
     this._spinTimer = null;
 
     this._clientCallQueue = [];
@@ -92,8 +54,21 @@ class GlobalSpinner extends events {
     this._emit = emit;
   }
 
+  clear()  {
+    clearTimeout(this._spinTimer);
+    this._queueLocked = false;
+    this._clientQueueMap.forEach((clientQueue) => {
+      clientQueue.destroy();
+    });
+    this._clientQueueMap.clear();
+    this._clientCallQueue = [];
+  }
+
   addClient(client, clientId, queueSize, throttleMs) {
-    if (queueSize > 0) {
+    if (this._queueLocked) {
+      this._lockedOpCache.push({op: ADD_OP, client, clientId, queueSize, throttleMs});
+    }
+    else if (queueSize > 0) {
       this._clientQueueMap.set(clientId, new ClientQueue(client, queueSize, throttleMs));
     }
   }
@@ -147,26 +122,18 @@ class GlobalSpinner extends events {
   _handleLockedOpCache() {
     const len = this._lockedOpCache.length;
     for (let i = 0; i < len; ++i) {
-      const {op, clientId, msg} = this._lockedOpCache[i];
+      const {op, clientId, msg, client, queueSize, throttleMs} = this._lockedOpCache[i];
       if (op === PING_OP) {
         this.ping(clientId, msg);
       }
       else if (op === DELETE_OP) {
         this.disconnect(clientId);
       }
+      else if (op === ADD_OP) {
+        this.addClient(client, clientId, queueSize, throttleMs);
+      }
     }
     this._lockedOpCache = [];
-  }
-
-  _getClientsWithQueuedMessages() {
-    const clients = {};
-    this._clientQueueMap.forEach((value, clientId) => {
-      const queueSize = value.length;
-      clients[clientId] = queueSize;
-      if (queueSize > 0 && this._clientCallQueue.indexOf(clientId) === -1) {
-        throw new Error(`Client ${clientId} has ${value.length} queued messages but is not in call list!`);
-      }
-    });
   }
 
   _setTimer() {
@@ -180,7 +147,6 @@ class GlobalSpinner extends events {
       else {
         this._spinTimer = setTimeout(this._handleQueue.bind(this), this._spinTime);
       }
-      this._expectedSpinExpire = Date.now() + this._spinTime;
     }
   }
 

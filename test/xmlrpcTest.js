@@ -51,6 +51,8 @@ describe('Protocol Test', () => {
       nh._node._subscribers = {};
       nh._node._publishers = {};
 
+      nh._node._spinner.clear();
+
       // remove any master api handlers we set up
       masterStub.removeAllListeners();
     });
@@ -306,6 +308,8 @@ describe('Protocol Test', () => {
       nh._node._services = {};
       nh._node._subscribers = {};
       nh._node._publishers = {};
+
+      nh._node._spinner.clear();
 
       // remove any master api handlers we set up
       masterStub.removeAllListeners();
@@ -719,6 +723,8 @@ describe('Protocol Test', () => {
       nh._node._services = {};
       nh._node._subscribers = {};
       nh._node._publishers = {};
+
+      nh._node._spinner.clear();
 
       // remove any master api handlers we set up
       masterStub.removeAllListeners();

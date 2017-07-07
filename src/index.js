@@ -133,7 +133,8 @@ let Rosnodejs = {
 
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
-    rosNode = new RosNode(nodeName, rosMasterUri);
+    const nodeOpts = options.node || {};
+    rosNode = new RosNode(nodeName, rosMasterUri, nodeOpts);
 
 
     return this._loadOnTheFlyMessages(options)
