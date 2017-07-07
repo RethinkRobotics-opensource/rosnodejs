@@ -29,6 +29,7 @@ class OutputCapture {
 
 describe('Logging', () => {
   const outputCapture = new OutputCapture();
+  let masterStub;
 
   const reset = function() {
     outputCapture.flush();
@@ -38,8 +39,12 @@ describe('Logging', () => {
     rosnodejs.log.rootLogger._onceLogs = new Set();
   };
 
-  before(() => {
-    return rosnodejs.initNode('/testNode', {rosMasterUri: `http://localhost:${MASTER_PORT}`, logging: {skipRosLogging: true}})
+  before((done) => {
+    masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => {
+      rosnodejs.initNode('/testNode', {
+        rosMasterUri: `http://localhost:${MASTER_PORT}`,
+        logging: {skipRosLogging: true}
+      })
       .then(() => {
         rosnodejs.log.addStream({
           type: 'raw',
@@ -48,11 +53,22 @@ describe('Logging', () => {
         });
 
         rosnodejs.log.setLevel('trace');
+        done();
+      });
+    });
+
+    masterStub.on('getUri', (err, params, callback) => {
+        const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
+        callback(null, resp);
       });
   });
 
-  after(()=> {
-    rosnodejs.reset();
+  after((done)=> {
+    rosnodejs.shutdown()
+    .then(() => {
+      rosnodejs.reset();
+      masterStub.close(() => { done(); });
+    });
   });
 
   it('Levels', () => {
@@ -284,19 +300,19 @@ describe('Logging', () => {
   });
 
   describe('Rosout', () => {
-    let masterStub;
+    let pubInfo = null;
+    let subInfo = null;
+
     before((done) => {
-      rosnodejs.reset();
-      masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => { done(); });
-    });
-
-    after((done) => {
-      masterStub.close(() => { done(); });
-    });
-
-    beforeEach(() => {
-      let pubInfo = null;
-      let subInfo = null;
+      rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.reset();
+        return rosnodejs.initNode('/testNode', {logging: {waitOnRosOut: false, level: 'info'},
+                                  rosMasterUri: `http://localhost:${MASTER_PORT}`});
+      })
+      .then(() => {
+        done();
+      });
 
       masterStub.on('getUri', (err, params, callback) => {
         const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
@@ -350,20 +366,9 @@ describe('Logging', () => {
         const resp =  [1, 'You did it!', 1];
         callback(null, resp);
       });
-
-      // rosnodejs.log.setLevel('info');
-      return rosnodejs.initNode('/testNode', {logging: {waitOnRosOut: false, level: 'info'},
-                                rosMasterUri: `http://localhost:${MASTER_PORT}`});
     });
 
-    afterEach(() => {
-      const nh = rosnodejs.nh;
-
-      // clear out any service, subs, pubs
-      nh._node._services = {};
-      nh._node._subscribers = {};
-      nh._node._publishers = {};
-
+    after(() => {
       // remove any master api handlers we set up
       masterStub.removeAllListeners();
     });

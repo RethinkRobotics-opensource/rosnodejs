@@ -36,11 +36,11 @@ class MasterApiClient {
     return this._xmlrpcClient;
   }
 
-  _call(method, data, resolve, reject, options) {
+  _call(method, data, resolve, reject, options = {}) {
     this._xmlrpcClient.call(method, data, resolve, reject, options);
   }
 
-  registerService(callerId, service, serviceUri, uri) {
+  registerService(callerId, service, serviceUri, uri, options) {
     let data = [
       callerId,
       service,
@@ -49,11 +49,11 @@ class MasterApiClient {
     ];
 
     return new Promise((resolve, reject) => {
-      this._call('registerService', data, resolve, reject);
+      this._call('registerService', data, resolve, reject, options);
     });
   }
 
-  unregisterService(callerId, service, serviceUri) {
+  unregisterService(callerId, service, serviceUri, options) {
     let data = [
       callerId,
       service,
@@ -61,11 +61,11 @@ class MasterApiClient {
     ];
 
     return new Promise((resolve, reject) => {
-      this._call('unregisterService', data, resolve, reject);
+      this._call('unregisterService', data, resolve, reject, options);
     });
   }
 
-  registerSubscriber(callerId, topic, topicType, uri) {
+  registerSubscriber(callerId, topic, topicType, uri, options) {
     let data = [
       callerId,
       topic,
@@ -73,22 +73,22 @@ class MasterApiClient {
       uri
     ];
     return new Promise((resolve, reject) => {
-      this._call('registerSubscriber', data, resolve, reject);
+      this._call('registerSubscriber', data, resolve, reject, options);
     });
   }
 
-  unregisterSubscriber(callerId, topic, uri) {
+  unregisterSubscriber(callerId, topic, uri, options) {
     let data = [
       callerId,
       topic,
       uri
     ];
     return new Promise((resolve, reject) => {
-      this._call('unregisterSubscriber', data, resolve, reject);
+      this._call('unregisterSubscriber', data, resolve, reject, options);
     });
   }
 
-  registerPublisher(callerId, topic, topicType, uri) {
+  registerPublisher(callerId, topic, topicType, uri, options) {
     let data = [
       callerId,
       topic,
@@ -96,25 +96,25 @@ class MasterApiClient {
       uri
     ];
     return new Promise((resolve, reject) => {
-      this._call('registerPublisher', data, resolve, reject);
+      this._call('registerPublisher', data, resolve, reject, options);
     });
   }
 
-  unregisterPublisher(callerId, topic, uri) {
+  unregisterPublisher(callerId, topic, uri, options) {
     let data = [
       callerId,
       topic,
       uri
     ];
     return new Promise((resolve, reject) => {
-      this._call('unregisterPublisher', data, resolve, reject);
+      this._call('unregisterPublisher', data, resolve, reject, options);
     });
   }
 
-  lookupNode(callerId, nodeName) {
+  lookupNode(callerId, nodeName, options) {
     let data = [callerId, nodeName];
     return new Promise((resolve, reject) => {
-      this._call('lookupNode', data, resolve, reject);
+      this._call('lookupNode', data, resolve, reject, options);
     });
   }
 
@@ -128,34 +128,41 @@ class MasterApiClient {
 
   /** return an object containing all current publishers (by topic),
       subscribers (by topic), and services (by name) */
-  getSystemState(callerId) {
+  getSystemState(callerId, options) {
     function toObject(memo, sublist) {
       memo[sublist[0]] = sublist[1];
       return memo;
     }
+
     let data = [callerId];
     return new Promise((resolve, reject) => {
-      this._call('getSystemState', data, function(data) {
-        return resolve({
-          publishers: data[2][0].reduce(toObject, {}),
-          subscribers: data[2][1].reduce(toObject, {}),
-          services: data[2][2].reduce(toObject, {})
-        });
-      }, reject);
+      this._call(
+        'getSystemState',
+        data,
+        function(data) {
+          return resolve({
+            publishers: data[2][0].reduce(toObject, {}),
+            subscribers: data[2][1].reduce(toObject, {}),
+            services: data[2][2].reduce(toObject, {})
+          });
+        },
+        reject,
+        options
+      );
     });
   }
 
-  getUri(callerId) {
+  getUri(callerId, options) {
     let data = [callerId];
     return new Promise((resolve, reject) => {
-      this._call('getUri', data, resolve, reject);
+      this._call('getUri', data, resolve, reject, options);
     });
   }
 
-  lookupService(callerId, service) {
+  lookupService(callerId, service, options) {
     let data = [callerId, service];
     return new Promise((resolve, reject) => {
-      this._call('lookupService', data, resolve, reject);
+      this._call('lookupService', data, resolve, reject, options);
     });
   }
 };

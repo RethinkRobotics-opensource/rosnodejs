@@ -8,6 +8,7 @@ const Subscriber = require('../src/lib/Subscriber.js');
 const SubscriberImpl = require('../src/lib/impl/SubscriberImpl.js');
 const xmlrpc = require('xmlrpc');
 const netUtils = require('../src/utils/network_utils.js');
+const MasterStub = require('./utils/MasterStub.js');
 
 const MASTER_PORT = 11234;
 
@@ -22,34 +23,68 @@ describe('Protocol Test', () => {
   rosnodejs.require('std_msgs');
   rosnodejs.require('std_srvs');
   let masterStub;
+  const initArgs = {
+    rosMasterUri: `http://localhost:${MASTER_PORT}`,
+    logging: {skipRosLogging: true}
+  };
   const nodeName = '/testNode';
 
-  before((done) => {
+  function startMasterStub(done) {
     masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => { done(); });
+  }
+
+  function stopMasterStub(done) {
+    masterStub.close(() => { done(); });
+  }
+
+  function clearOutClients(node) {
+    Object.keys(node._services).forEach((service) => {
+      node._services[service].disconnect();
+    });
+
+    Object.keys(node._subscribers).forEach((sub) => {
+      node._subscribers[sub].shutdown();
+    });
+
+    Object.keys(node._publishers).forEach((pub) => {
+      node._publishers[pub].shutdown();
+    });
+
+    node._services = {};
+    node._subscribers = {};
+    node._publishers = {};
+  }
+
+  before((done) => {
+    startMasterStub(() => {
+      rosnodejs.initNode(nodeName, initArgs)
+      .then(() => {
+        done()
+      });
+    });
+
+    masterStub.on('getUri', (err, params, callback) => {
+      const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
+      callback(null, resp);
+    });
   });
 
   after((done) => {
-    masterStub.close(() => { done(); });
+    stopMasterStub(() => {
+      rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.reset();
+        done();
+      })
+    });
   });
 
   describe('Xmlrpc', () => {
-
-    beforeEach(() => {
-      masterStub.on('getUri', (err, params, callback) => {
-        const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
-        callback(null, resp);
-      });
-
-      return rosnodejs.initNode(nodeName, {rosMasterUri: `http://localhost:${MASTER_PORT}`, logging: {skipRosLogging: true}});
-    });
-
     afterEach(() => {
       const nh = rosnodejs.nh;
 
       // clear out any service, subs, pubs
-      nh._node._services = {};
-      nh._node._subscribers = {};
-      nh._node._publishers = {};
+      clearOutClients(nh._node);
 
       nh._node._spinner.clear();
 
@@ -298,16 +333,14 @@ describe('Protocol Test', () => {
         pubInfo = null;
       });
 
-      return rosnodejs.initNode(nodeName);
+      return rosnodejs.initNode(nodeName, initArgs);
     });
 
     afterEach(() => {
       const nh = rosnodejs.nh;
 
       // clear out any service, subs, pubs
-      nh._node._services = {};
-      nh._node._subscribers = {};
-      nh._node._publishers = {};
+      clearOutClients(nh._node);
 
       nh._node._spinner.clear();
 
@@ -713,16 +746,14 @@ describe('Protocol Test', () => {
         }
       });
 
-      return rosnodejs.initNode(nodeName);
+      return rosnodejs.initNode(nodeName, initArgs);
     });
 
     afterEach(() => {
       const nh = rosnodejs.nh;
 
       // clear out any service, subs, pubs
-      nh._node._services = {};
-      nh._node._subscribers = {};
-      nh._node._publishers = {};
+      clearOutClients(nh._node);
 
       nh._node._spinner.clear();
 
@@ -861,6 +892,111 @@ describe('Protocol Test', () => {
           done();
         }
       })
+    });
+  });
+
+  describe('Shutdown', () => {
+    let masterStub;
+    before((done) => {
+      stopMasterStub(() => {
+        masterStub = new MasterStub('localhost', MASTER_PORT);
+        masterStub.provideAll();
+      });
+
+      return rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.reset();
+        done();
+      });
+    });
+
+    after(() => {
+      masterStub.shutdown();
+    });
+
+    it('Shutdown after successful start with master running', function(done) {
+      rosnodejs.initNode(nodeName, initArgs)
+      .then(() => {
+        return rosnodejs.shutdown();
+      })
+      .then(() => {
+        rosnodejs.reset();
+        expect(gotEvent).to.be.true;
+        done();
+      });
+
+      let gotEvent = false;
+      rosnodejs.on('shutdown', () => {
+        gotEvent = true;
+      });
+    });
+
+    it('Shutdown after successful start with master down', function(done) {
+      rosnodejs.initNode(nodeName, initArgs)
+      .then(() => {
+        return masterStub.shutdown();
+      })
+      .then(() => {
+        return rosnodejs.shutdown();
+      })
+      .then(() => {
+        rosnodejs.reset();
+        expect(gotEvent).to.be.true;
+        done();
+      });
+
+      let gotEvent = false;
+      rosnodejs.on('shutdown', () => {
+        gotEvent = true;
+      });
+    });
+
+    it('Shutdown when unable to connect to master', function(done) {
+      rosnodejs.initNode(nodeName, initArgs)
+      .then(() => {
+        throwNext('Node should not have initialized!');
+      });
+
+      let gotEvent = false;
+      rosnodejs.on('shutdown', () => {
+        gotEvent = true;
+      });
+
+      setTimeout(() => {
+        rosnodejs.shutdown()
+        .then(() => {
+          rosnodejs.reset();
+          expect(gotEvent).to.be.true;
+          done();
+        });
+      }, 500);
+    });
+
+    it('Spinner is cleared out when shutdown', function(done) {
+      masterStub.listen();
+      masterStub.provideAll();
+
+      let gotEvent = false;
+
+      rosnodejs.initNode(nodeName, initArgs)
+      .then((nh) => {
+        const pub = nh.advertise('/chatter', 'std_msgs/String');
+        const sub = nh.subscribe('/chatter', 'std_msgs/String');
+        pub.publish({data: 'hi'});
+
+        rosnodejs.shutdown()
+        .then(() => {
+          rosnodejs.reset();
+          expect(gotEvent).to.be.true;
+          expect(nh._node._spinner._spinTimer.clientCallQueue).to.be.empty;
+          expect
+          done();
+        });
+      });
+
+      rosnodejs.on('shutdown', () => {
+        gotEvent = true;
+      });
     });
   });
 });

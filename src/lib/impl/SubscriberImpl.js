@@ -214,6 +214,7 @@ class SubscriberImpl extends EventEmitter {
     if (client) {
       this._log.debug('Disconnecting client %s', clientId);
       client.end();
+      client.destroy();
 
       client.removeAllListeners();
       client.$deserializer.removeAllListeners();

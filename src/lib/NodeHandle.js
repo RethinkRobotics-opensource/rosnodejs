@@ -37,6 +37,10 @@ class NodeHandle {
     return this._node.getNodeName();
   }
 
+  isShutdown() {
+    return this._node && this._node.isShutdown();
+  }
+
 //------------------------------------------------------------------
 // Pubs, Subs, Services
 //------------------------------------------------------------------
