@@ -28,7 +28,7 @@ const PublisherImpl = require('./impl/PublisherImpl.js');
 const SubscriberImpl = require('./impl/SubscriberImpl.js');
 let ServiceClient = require('./ServiceClient.js');
 let ServiceServer = require('./ServiceServer.js');
-const Spinner = require('../utils/GlobalSpinner.js');
+const GlobalSpinner = require('../utils/spinners/GlobalSpinner.js');
 let NetworkUtils = require('../utils/network_utils.js');
 let messageUtils = require('../utils/message_utils.js');
 let tcprosUtils = require('../utils/tcpros_utils.js');
@@ -78,7 +78,9 @@ class RosNode extends EventEmitter {
 
     this._setupExitHandler();
 
-    this._spinner = new Spinner();
+    this._setupSpinner(options.spinner);
+
+    this._shutdown = false;
   }
 
   getLogger() {
@@ -137,33 +139,33 @@ class RosNode extends EventEmitter {
     return new ServiceClient(options, this);
   }
 
-  unsubscribe(topic) {
+  unsubscribe(topic, options) {
     const sub = this._subscribers[topic];
     if (sub) {
       this._debugLog.info('Unsubscribing from topic %s', topic);
       delete this._subscribers[topic];
       sub.shutdown();
-      return this.unregisterSubscriber(topic);
+      return this.unregisterSubscriber(topic, options);
     }
   }
 
-  unadvertise(topic) {
+  unadvertise(topic, options) {
     const pub = this._publishers[topic];
     if (pub) {
       this._debugLog.info('Unadvertising topic %s', topic);
       delete this._publishers[topic];
       pub.shutdown();
-      return this.unregisterPublisher(topic);
+      return this.unregisterPublisher(topic, options);
     }
   }
 
-  unadvertiseService(service) {
+  unadvertiseService(service, options) {
     const server = this._services[service];
     if (server) {
       this._debugLog.info('Unadvertising service %s', service);
       server.disconnect();
       delete this._services[service];
-      return this.unregisterService(service, server.getServiceUri());
+      return this.unregisterService(service, server.getServiceUri(), options);
     }
   }
 
@@ -172,7 +174,7 @@ class RosNode extends EventEmitter {
   }
 
   hasPublisher(topic) {
-    return this._publisheres.hasOwnProperty(topic);
+    return this._publishers.hasOwnProperty(topic);
   }
 
   hasService(service) {
@@ -187,58 +189,91 @@ class RosNode extends EventEmitter {
 // Master API
 //------------------------------------------------------------------
 
-  registerService(service) {
+  registerService(service, options) {
     return this._whenReady()
     .then(() => {
-      return this._masterApi.registerService(this._nodeName, service, NetworkUtils.formatServiceUri(this._tcprosPort), this._getXmlrpcUri());
+      return this._masterApi.registerService(
+        this._nodeName,
+        service,
+        NetworkUtils.formatServiceUri(this._tcprosPort),
+        this._getXmlrpcUri(),
+        options
+      );
     });
   }
 
-  unregisterService(service) {
+  unregisterService(service, options) {
     return this._whenReady()
     .then(() => {
-      return this._masterApi.unregisterService(this._nodeName, service, NetworkUtils.formatServiceUri(this._tcprosPort));
+      return this._masterApi.unregisterService(
+        this._nodeName,
+        service,
+        NetworkUtils.formatServiceUri(this._tcprosPort),
+        options
+      );
     });
   }
 
-  registerSubscriber(topic, topicType) {
+  registerSubscriber(topic, topicType, options) {
     return this._whenReady()
     .then(() => {
-      return this._masterApi.registerSubscriber(this._nodeName, topic, topicType, this._getXmlrpcUri());
+      return this._masterApi.registerSubscriber(
+        this._nodeName,
+        topic,
+        topicType,
+        this._getXmlrpcUri(),
+        options
+      );
     });
   }
 
-  unregisterSubscriber(topic) {
+  unregisterSubscriber(topic, options) {
     return this._whenReady()
     .then(() => {
-      return this._masterApi.unregisterSubscriber(this._nodeName, topic, this._getXmlrpcUri());
+      return this._masterApi.unregisterSubscriber(
+        this._nodeName,
+        topic,
+        this._getXmlrpcUri(),
+        options
+      );
     });
   }
 
-  registerPublisher(topic, topicType) {
+  registerPublisher(topic, topicType, options) {
     return this._whenReady()
     .then(() => {
-      return this._masterApi.registerPublisher(this._nodeName, topic, topicType, this._getXmlrpcUri());
+      return this._masterApi.registerPublisher(
+        this._nodeName,
+        topic,
+        topicType,
+        this._getXmlrpcUri(),
+        options
+      );
     });
   }
 
-  unregisterPublisher(topic) {
+  unregisterPublisher(topic, options) {
     return this._whenReady()
     .then(() => {
-      return this._masterApi.unregisterPublisher(this._nodeName, topic, this._getXmlrpcUri());
+      return this._masterApi.unregisterPublisher(
+        this._nodeName,
+        topic,
+        this._getXmlrpcUri(),
+        options
+      );
     });
   }
 
-  lookupNode(nodeName) {
-    return this._masterApi.lookupNode(this._nodeName, nodeName);
+  lookupNode(nodeName, options) {
+    return this._masterApi.lookupNode(this._nodeName, nodeName, options);
   }
 
-  lookupService(service) {
-    return this._masterApi.lookupService(this._nodeName, service);
+  lookupService(service, options) {
+    return this._masterApi.lookupService(this._nodeName, service, options);
   }
 
-  getMasterUri() {
-    return this._masterApi.getUri(this._nodeName);
+  getMasterUri(options) {
+    return this._masterApi.getUri(this._nodeName, options);
   }
 
   /**
@@ -308,8 +343,11 @@ class RosNode extends EventEmitter {
   }
 
   shutdown() {
-    this.emit('shutdown');
     return this._exit();
+  }
+
+  isShutdown() {
+    return this._shutdown;
   }
 
   _setupSlaveApi(xmlrpcPort=null) {
@@ -318,39 +356,42 @@ class RosNode extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
-      let server = xmlrpc.createServer({host: '0.0.0.0', port: xmlrpcPort}, () => {
+      const server = xmlrpc.createServer({host: '0.0.0.0', port: xmlrpcPort}, () => {
         const {port} = server.httpServer.address();
         this._debugLog.debug('Slave API Listening on port ' + port);
         this._xmlrpcPort = port;
-        this._slaveApiServer = server;
 
-        this._slaveApiServer.on('NotFound', (method, params) => {
-          this._log.warn('Method ' + method + ' does not exist: ' + params);
-        });
 
-        this._slaveApiServer.on('requestTopic', this._handleTopicRequest.bind(this));
-        this._slaveApiServer.on('publisherUpdate', this._handlePublisherUpdate.bind(this));
-        this._slaveApiServer.on('paramUpdate', this._handleParamUpdate.bind(this));
-        this._slaveApiServer.on('getPublications', this._handleGetPublications.bind(this));
-        this._slaveApiServer.on('getSubscriptions', this._handleGetSubscriptions.bind(this));
-        this._slaveApiServer.on('getPid', this._handleGetPid.bind(this));
-        this._slaveApiServer.on('shutdown', this._handleShutdown.bind(this));
-        this._slaveApiServer.on('getMasterUri', this._handleGetMasterUri.bind(this));
-        this._slaveApiServer.on('getBusInfo', this._handleGetBusInfo.bind(this));
-        this._slaveApiServer.on('getBusStats', this._handleGetBusStats.bind(this));
         resolve(port);
         this.emit('slaveApiSetupComplete', port);
       });
 
+      server.on('NotFound', (method, params) => {
+        this._log.warn('Method ' + method + ' does not exist: ' + params);
+      });
+
+      server.on('requestTopic', this._handleTopicRequest.bind(this));
+      server.on('publisherUpdate', this._handlePublisherUpdate.bind(this));
+      server.on('paramUpdate', this._handleParamUpdate.bind(this));
+      server.on('getPublications', this._handleGetPublications.bind(this));
+      server.on('getSubscriptions', this._handleGetSubscriptions.bind(this));
+      server.on('getPid', this._handleGetPid.bind(this));
+      server.on('shutdown', this._handleShutdown.bind(this));
+      server.on('getMasterUri', this._handleGetMasterUri.bind(this));
+      server.on('getBusInfo', this._handleGetBusInfo.bind(this));
+      server.on('getBusStats', this._handleGetBusStats.bind(this));
+
       server.httpServer.on('clientError', (err, socket) => {
         this._log.error('XMLRPC Server socket error: %j', err);
       });
+
+      this._slaveApiServer = server;
     });
   }
 
   _setupTcprosServer(tcprosPort=null) {
     let _createServer = (callback) => {
-      let server = net.createServer((connection) => {
+      const server = net.createServer((connection) => {
         let conName = connection.remoteAddress + ":"
           + connection.remotePort;
         connection.name = conName;
@@ -401,6 +442,8 @@ class RosNode extends EventEmitter {
       }
       server.listen(tcprosPort, '0.0.0.0');
 
+      this._tcprosServer = server;
+
       // it's possible the port was taken before we could use it
       server.on('error', (err) => {
         this._log.warn('Error on tcpros server! %j', err);
@@ -411,11 +454,8 @@ class RosNode extends EventEmitter {
         const {port} = server.address();
         this._debugLog.info('Listening on %j', server.address());
         this._tcprosPort = port;
-        this._server = server;
         callback(port);
       });
-
-      this._tcprosServer = server;
     };
 
     return new Promise((resolve, reject) => {
@@ -582,7 +622,30 @@ class RosNode extends EventEmitter {
     this._log.error('Not implemented');
   }
 
-  // HAVEN'T TESTED YET
+  /**
+   * Initializes the spinner for this node.
+   * @param [spinnerOpts] {object} either an instance of a spinner to use or the parameters to configure one
+   * @param [spinnerOpts.type] {string} type of spinner to create
+   */
+  _setupSpinner(spinnerOpts) {
+    if (spinnerOpts) {
+      const { type } = spinnerOpts;
+      switch (type) {
+        case 'Global':
+          this._spinner = new GlobalSpinner(spinnerOpts);
+          break;
+        default:
+          // if the above didn't work, assume they created their own spinner.
+          // just use it.
+          this._spinner = spinnerOpts;
+          break;
+      }
+    }
+    else {
+      this._spinner = new GlobalSpinner();
+    }
+  }
+
   _setupExitHandler() {
     // we need to catch that this process is about to exit so we can unregister all our
     // publishers, subscribers, and services
@@ -591,53 +654,81 @@ class RosNode extends EventEmitter {
     let sigIntHandler;
 
     let exitImpl = function(killProcess=false) {
-      this._log.debug('Ros node ' + this._nodeName + ' beginning shutdown at ' + Date.now());
-      let promises = [];
+      this._shutdown = true;
+      this.emit('shutdown');
 
-      // remove subscribers first so that master doesn't send
-      // publisherUpdate messages
-      Object.keys(this._subscribers).forEach((topic) => {
-        promises.push(this.unsubscribe(topic));
-      });
-
-      Object.keys(this._publishers).forEach((topic) => {
-        promises.push(this.unadvertise(topic));
-      });
-
-      Object.keys(this._services).forEach((service) => {
-        promises.push(this.unadvertiseService(service));
-      });
+      this._log.info('Ros node ' + this._nodeName + ' beginning shutdown at ' + Date.now());
 
       const clearXmlrpcQueues = () => {
-        return Promise.resolve(() => {
-          this._masterApi.getXmlrpcClient().clear();
-        }).
-        catch((err) => {
-          // no op
-        });
+        this._masterApi.getXmlrpcClient().clear();
       };
 
       const shutdownServer = (server, name) => {
         return new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            this._log.info('Timed out shutting down %s server', name);
+            resolve();
+          }, 200);
+
           server.close(() => {
+            clearTimeout(timeout);
+            this._log.info('Server %s shutdown', name);
             resolve();
           });
         })
         .catch((err) => {
           // no op
+          this._log.warn('Error shutting down server %s: %s', name, err);
+        });
+      };
+
+      // shutdown servers first so we don't accept any new connections
+      // while unregistering
+      const promises = [
+        shutdownServer(this._slaveApiServer, 'slaveapi'),
+        shutdownServer(this._tcprosServer, 'tcpros')
+      ];
+
+      // clear out any existing calls that may block us when we try to unregister
+      clearXmlrpcQueues();
+
+      // remove all publishers, subscribers, and services.
+      // remove subscribers first so that master doesn't send
+      // publisherUpdate messages.
+      // set maxAttempts so that we don't spend forever trying to connect
+      // to a possibly non-existant ROS master.
+      const unregisterPromises = [];
+      Object.keys(this._subscribers).forEach((topic) => {
+        unregisterPromises.push(this.unsubscribe(topic, { maxAttempts: 1 }));
+      });
+
+      Object.keys(this._publishers).forEach((topic) => {
+        unregisterPromises.push(this.unadvertise(topic, { maxAttempts: 1 }));
+      });
+
+      Object.keys(this._services).forEach((service) => {
+        unregisterPromises.push(this.unadvertiseService(service, { maxAttempts: 1 }));
+      });
+
+      // catch any errors while unregistering
+      // and don't bother external callers about it.
+      promises.push(
+        Promise.all(unregisterPromises)
+        .then((err) => {
+          this._log.info('Finished unregistering from ROS master!');
         })
-      };
+        .catch((err) => {
+          // no-op
+          this._log.warn('Error unregistering from ROS master: %s', err);
+          // TODO: should we check that err.code === 'ECONNREFUSED'??
+        })
+        .then(() => {
+          // clear out anything that's left
+          clearXmlrpcQueues();
+        })
+      );
 
-      const shutdownServers = () => {
-        return Promise.all([
-          shutdownServer(this._slaveApiServer, 'slaveapi'),
-          shutdownServer(this._tcprosServer, 'tcpros')
-        ]);
-      };
-
-      promises.push(shutdownServers());
-      promises.push(clearXmlrpcQueues());
-
+      this._spinner.clear();
       Logging.stopLogCleanup();
 
       process.removeListener('exit', exitHandler);

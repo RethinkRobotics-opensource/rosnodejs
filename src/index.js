@@ -38,37 +38,28 @@ const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
 // will be initialized through call to initNode
 let log = Logging.getLogger();
 let rosNode = null;
+let pingMasterTimeout = null;
 
 //------------------------------------------------------------------
 
-function _checkMasterHelper(timeout=500) {
-  let firstCheck = true;
-
+function _checkMasterHelper(timeout=100) {
   const localHelper = (resolve) => {
-    setTimeout(() => {
+    pingMasterTimeout = setTimeout(() => {
       // also check that the slave api server is set up
       if (!rosNode.slaveApiSetupComplete()) {
         localHelper(resolve);
         return;
       }
-      // else
-      if (firstCheck) {
-        // hook into master api connection errors.
-        // api client will continue trying to connect
-        rosNode._masterApi.getXmlrpcClient().once('ECONNREFUSED', (err) => {
-          log.warn(`Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
-        });
-        firstCheck = false;
-      }
-      rosNode.getMasterUri()
+      rosNode.getMasterUri({ maxAttempts: 1 })
       .then(() => {
         log.infoOnce(`Connected to master at ${rosNode.getRosMasterUri()}!`);
+        pingMasterTimeout = null;
         resolve();
       })
       .catch((err, resp) => {
-        log.warnThrottle(60000, 'Unable to connect to master. ' + err);
+        log.warnThrottle(60000, `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
         localHelper(resolve);
-      })
+      });
     }, timeout);
   };
 
@@ -133,8 +124,8 @@ let Rosnodejs = {
 
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
-    rosNode = new RosNode(nodeName, rosMasterUri);
-
+    const nodeOpts = options.node || {};
+    rosNode = new RosNode(nodeName, rosMasterUri, nodeOpts);
 
     return this._loadOnTheFlyMessages(options)
       .then(_checkMasterHelper)
@@ -142,7 +133,7 @@ let Rosnodejs = {
       .then(Time._initializeRosTime.bind(Time, this))
       .then(() => { return this.getNodeHandle(); })
       .catch((err) => {
-        log.error('Error: ' + err);
+        log.error('Error during initialization: ' + err);
       });
   },
 
@@ -151,7 +142,34 @@ let Rosnodejs = {
   },
 
   shutdown() {
-    return rosNode.shutdown();
+    clearTimeout(pingMasterTimeout);
+    if (this.ok()) {
+      return rosNode.shutdown();
+    }
+    // else
+    return Promise.resolve();
+  },
+
+  ok() {
+    return rosNode && !rosNode.isShutdown();
+  },
+
+  on(evt, handler) {
+    if (rosNode) {
+      rosNode.on(evt, handler);
+    }
+  },
+
+  once(evt, handler) {
+    if (rosNode) {
+      rosNode.once(evt, handler);
+    }
+  },
+
+  removeListener(evt, handler) {
+    if (rosNode) {
+      rosNode.removeListener(evt, handler);
+    }
   },
 
   _loadOnTheFlyMessages({onTheFly}) {

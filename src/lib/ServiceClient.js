@@ -237,8 +237,6 @@ class ServiceClient extends EventEmitter {
           resolve(this._messageHandler.Response.deserialize(msg));
         }
         else {
-          msg = TcprosUtils.deserializeString(msg);
-          this._log.warn('Service error: %s', msg);
           const error = new Error(msg);
           error.code = 'E_ROSSERVICEFAILED';
           reject(error);

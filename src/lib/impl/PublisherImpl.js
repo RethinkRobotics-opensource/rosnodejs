@@ -154,6 +154,7 @@ class PublisherImpl extends EventEmitter {
     Object.keys(this._subClients).forEach((clientId) => {
       const client = this._subClients[clientId];
       client.end();
+      client.destroy();
     });
 
     // disconnect from the spinner in case we have any pending callbacks

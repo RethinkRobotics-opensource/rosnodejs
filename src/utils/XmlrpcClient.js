@@ -93,6 +93,7 @@ class XmlrpcClient extends EventEmitter {
       call.resolve(resp);
     })
     .catch((err) => {
+      ++this._failedAttempts;
       this._log.info('Call %s %j failed! %s', call.method, call.data, err);
       if (err instanceof Error &&
           err.code === CONNECTION_REFUSED &&
@@ -100,6 +101,7 @@ class XmlrpcClient extends EventEmitter {
         // Call failed to connect - try to connect again.
         // All future calls would have same error since they're
         // directed at the same xmlrpc server.
+        this._log.info('Trying call again on attempt %d of %d', this._failedAttempts, call.maxAttempts);
         this._scheduleTryAgain();
         this.emit(CONNECTION_REFUSED, err, this._failedAttempts);
       }
@@ -132,7 +134,6 @@ class XmlrpcClient extends EventEmitter {
     if (this._timeout + 1 < TRY_AGAIN_LIST.length) {
       ++this._timeout;
     }
-    ++this._failedAttempts;
     this._log.info('Scheduling call again in %dms', timeout);
     this._timeoutId = setTimeout(this._tryExecuteCall.bind(this), timeout);
   }
