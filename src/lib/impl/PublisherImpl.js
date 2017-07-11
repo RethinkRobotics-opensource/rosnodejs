@@ -154,7 +154,6 @@ class PublisherImpl extends EventEmitter {
     Object.keys(this._subClients).forEach((clientId) => {
       const client = this._subClients[clientId];
       client.end();
-      client.destroy();
     });
 
     // disconnect from the spinner in case we have any pending callbacks
@@ -274,19 +273,21 @@ class PublisherImpl extends EventEmitter {
     }
 
     subscriber.on('close', () => {
-      this._log.info('Publisher %s client %s disconnected!',
-                      this.getTopic(), subscriber.name);
+      this._log.info('Publisher client socket %s on topic %s disconnected',
+                     subscriber.name, this.getTopic());
       subscriber.removeAllListeners();
       delete this._subClients[subscriber.name];
       this.emit('disconnect');
     });
 
     subscriber.on('end', () => {
-      this._log.info('Sub %s sent END', subscriber.name);
+      this._log.info('Publisher client socket %s on topic %s ended the connection',
+                     subscriber.name, this.getTopic());
     });
 
-    subscriber.on('error', () => {
-      this._log.warn('Sub %s had error', subscriber.name);
+    subscriber.on('error', (err) => {
+      this._log.warn('Publisher client socket %s on topic %s had error: %s',
+                     subscriber.name, this.getTopic(), err);
     });
 
     // if we've cached a message from latching, send it now
