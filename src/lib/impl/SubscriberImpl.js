@@ -78,6 +78,8 @@ class SubscriberImpl extends EventEmitter {
 
     this._pubClients = {};
 
+    this._pendingPubClients = {};
+
     this._state = REGISTERING;
     this._register();
   }
@@ -131,10 +133,12 @@ class SubscriberImpl extends EventEmitter {
     this._log.debug('Shutting down subscriber %s', this.getTopic());
 
     Object.keys(this._pubClients).forEach(this._disconnectClient.bind(this));
+    Object.keys(this._pendingPubClients).forEach(this._disconnectClient.bind(this));
 
     // disconnect from the spinner in case we have any pending callbacks
     this._nodeHandle.getSpinner().disconnect(this._getSpinnerId());
     this._pubClients = {};
+    this._pendingPubClients = {};
   }
 
   /**
@@ -210,11 +214,16 @@ class SubscriberImpl extends EventEmitter {
    * @param clientId {string}
    */
   _disconnectClient(clientId) {
-    const client = this._pubClients[clientId];
+    let client = this._pubClients[clientId];
+
+    const hasValidatedClient = !!client;
+    if (!hasValidatedClient) {
+      client = this._pendingPubClients[clientId];
+    }
+
     if (client) {
-      this._log.debug('Disconnecting client %s', clientId);
+      this._log.debug('Subscriber %s disconnecting client %s', this.getTopic(), clientId);
       client.end();
-      client.destroy();
 
       client.removeAllListeners();
       client.$deserializer.removeAllListeners();
@@ -223,11 +232,13 @@ class SubscriberImpl extends EventEmitter {
       client.unpipe(client.$deserializer);
 
       delete client.$deserializer;
-      delete client.$boundMessageHandler;
 
       delete this._pubClients[clientId];
+      delete this._pendingPubClients[clientId];
 
-      this.emit('disconnect');
+      if (hasValidatedClient) {
+        this.emit('disconnect');
+      }
     }
   }
 
@@ -285,11 +296,20 @@ class SubscriberImpl extends EventEmitter {
     client.nodeUri = nodeUri;
 
     client.on('end', () => {
-      this._log.info('Pub %s sent END', client.name, this.getTopic());
+      this._log.info('Subscriber client socket %s on topic %s ended the connection',
+                     client.name, this.getTopic());
     });
 
-    client.on('error', () => {
-      this._log.warn('Pub %s error on topic %s', client.name, this.getTopic());
+    client.on('error', (err) => {
+      this._log.warn('Subscriber client socket %s on topic %s had error: %s',
+                     client.name, this.getTopic(), err);
+    });
+
+    // hook into close event to clean things up
+    client.on('close', () => {
+      this._log.info('Subscriber client socket %s on topic %s disconnected',
+                     client.name, this.getTopic());
+      this._disconnectClient(client.nodeUri);
     });
 
     // open the socket at the provided address, port
@@ -307,6 +327,11 @@ class SubscriberImpl extends EventEmitter {
     let deserializer = new DeserializeStream();
     client.$deserializer = deserializer;
     client.pipe(deserializer);
+
+    // cache client in "pending" map.
+    // It's not validated yet so we don't want it to show up as a client.
+    // Need to keep track of it in case we're shutdown before it can be validated.
+    this._pendingPubClients[client.nodeUri] = client;
 
     // create a one-time handler for the connection header
     // if the connection is validated, we'll listen for more events
@@ -329,6 +354,11 @@ class SubscriberImpl extends EventEmitter {
    * @param msg {string} message received from the publisher
    */
   _handleConnectionHeader(client, msg) {
+    if (this.isShutdown()) {
+      this._disconnectClient(client.nodeUri);
+      return;
+    }
+
     let header = TcprosUtils.parseTcpRosHeader(msg);
     // check if the publisher had a problem with our connection header
     if (header.error) {
@@ -349,18 +379,13 @@ class SubscriberImpl extends EventEmitter {
 
     // cache client now that we've verified the connection header
     this._pubClients[client.nodeUri] = client;
+    // remove client from pending map now that it's validated
+    delete this._pendingPubClients[client.nodeUri];
 
     // pipe all future messages to _handleMessage
     client.$deserializer.on('message', this._handleMessage.bind(this));
 
     this.emit('connection', header, client.name);
-
-    // hook into close event to clean things up
-    client.on('close', () => {
-      this._log.warn('Pub %s closed on topic %s', client.name, this.getTopic());
-      this._log.warn('Subscriber ' + this.getTopic() + ' client ' + client.name + ' disconnected!');
-      this._disconnectClient(client.nodeUri);
-    });
   }
 
   /**

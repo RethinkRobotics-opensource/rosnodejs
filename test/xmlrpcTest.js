@@ -566,7 +566,7 @@ describe('Protocol Test', () => {
           SOCKET_END_CACHED.call(this);
         };
 
-        sub._handleTopicRequestResponse([1, 'ok', ['TCPROS', 'junk_address', 1234]], 'http://junk_address:1234');
+        subImpl._handleTopicRequestResponse([1, 'ok', ['TCPROS', 'junk_address', 1234]], 'http://junk_address:1234');
         sub.shutdown();
       });
     });
@@ -594,13 +594,44 @@ describe('Protocol Test', () => {
       });
       let pub = nh.advertise(topic, msgType);
 
-      pub.on('connected', () => {
+      pub.on('connection', () => {
         pub.publish({data: 1});
         pub.shutdown();
       });
 
       // if we haven't received a message by now we should be good
       setTimeout(done, 500);
+    });
+
+    it('Shutdown Subscriber With Pending Publisher Client', function(done) {
+      this.slow(1600);
+      const nh = rosnodejs.nh;
+      const sub = nh.subscribe(topic, msgType, () => {
+        throwNext('Subscriber should never have gotten messages!');
+      });
+      let pub = nh.advertise(topic, msgType);
+
+      // when publisher emits 'connection', it has validated
+      // the subscriber's connection header and sent a response back
+      // the subscriber will not have validated the publisher's connection
+      // header though so it should have a pending publisher entry.
+      pub.on('connection', () => {
+        const impl = sub._impl;
+
+        expect(Object.keys(impl._pendingPubClients)).to.have.lengthOf(1);
+        expect(impl._pubClients).to.be.empty;
+
+        sub.shutdown();
+
+        expect(impl._pendingPubClients).to.be.empty;
+        expect(impl._pubClients).to.be.empty;
+
+        setTimeout(() => {
+          expect(impl._pendingPubClients).to.be.empty;
+          expect(impl._pubClients).to.be.empty;
+          done();
+        }, 500);
+      });
     });
 
     it('2 Publishers on Same Topic', function(done) {
