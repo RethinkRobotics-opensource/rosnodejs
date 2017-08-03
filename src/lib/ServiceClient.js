@@ -137,9 +137,9 @@ class ServiceClient extends EventEmitter {
         oldCall.reject(err);
       }
 
-      // if there weren't any other calls in the queue, execute this new call
+      // if there weren't any other calls in the queue and there's no current call, execute this new call
       // otherwise new call will be handled in order when others complete
-      if (this._callQueue.length === 1) {
+      if (this._callQueue.length === 1 && this._currentCall === null) {
         this._executeCall();
       }
     });
@@ -212,7 +212,7 @@ class ServiceClient extends EventEmitter {
 
         // connect to the service's tcpros server
         return this._connectToService(serviceHost, call);
-      })
+      });
     }
     else {
       // this is a persistent service that we've already set up
