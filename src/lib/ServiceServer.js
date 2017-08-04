@@ -45,6 +45,9 @@ class ServiceServer extends EventEmitter {
 
     this._requestCallback = callback;
 
+    if (!options.typeClass) {
+      throw new Error(`Unable to load service for service ${this.getService()} with type ${this.getType()}`);
+    }
     this._messageHandler = options.typeClass;
 
     this._clients = {};

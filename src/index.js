@@ -29,9 +29,11 @@ const LogFormatter = require('./utils/log/LogFormatter.js');
 const RosNode = require('./lib/RosNode.js');
 const NodeHandle = require('./lib/NodeHandle.js');
 const Logging = require('./lib/Logging.js');
-const ActionClient = require('./lib/ActionClient.js');
+const ActionClientInterface = require('./lib/ActionClientInterface.js');
 const Time = require('./lib/Time.js');
 const packages = require('./utils/messageGeneration/packages.js');
+
+const ActionServer = require('./actions/ActionServer.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
 
@@ -295,9 +297,10 @@ let Rosnodejs = {
         goal: { edges: 3,  radius: 1 } }));
    */
   getActionClient(options) {
-    options.nh = this.nh;
-    return new ActionClient(options);
+    return this.nh.actionClientInterface(options);
   }
 };
+
+Rosnodejs.ActionServer = ActionServer;
 
 module.exports = Rosnodejs;

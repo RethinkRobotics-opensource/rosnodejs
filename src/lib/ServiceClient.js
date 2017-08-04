@@ -72,6 +72,9 @@ class ServiceClient extends EventEmitter {
 
     this._nodeHandle = nodeHandle;
 
+    if (!options.typeClass) {
+      throw new Error(`Unable to load service for service client ${this.getService()} with type ${this.getType()}`);
+    }
     this._messageHandler = options.typeClass;
 
     this._serviceClient = null;

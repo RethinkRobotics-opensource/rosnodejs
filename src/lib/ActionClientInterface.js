@@ -23,7 +23,7 @@ const EventEmitter = require('events');
 let GoalID = null;
 let Header = null;
 
-class ActionClient extends EventEmitter {
+class ActionClientInterface extends EventEmitter {
   constructor(options) {
     super();
 
@@ -158,4 +158,4 @@ class ActionClient extends EventEmitter {
   }
 }
 
-module.exports = ActionClient;
+module.exports = ActionClientInterface;

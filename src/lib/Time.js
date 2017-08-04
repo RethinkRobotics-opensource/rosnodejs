@@ -37,6 +37,11 @@ const Time = {
 
   rosTimeToDate: timeUtils.rosTimeToDate,
   dateToRosTime: timeUtils.dateToRosTime,
+  epoch:         timeUtils.epoch,
+  isZeroTime:    timeUtils.isZeroTime,
+  toNumber:      timeUtils.toNumber,
+  toSeconds:     timeUtils.toSeconds,
+  timeComp:      timeUtils.timeComp
 };
 
 module.exports = Time;

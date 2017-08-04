@@ -17,21 +17,48 @@
 
 'use strict';
 
+const NSEC_TO_SEC = 1e-9;
+const USEC_TO_SEC = 1e-6;
+const MSEC_TO_SEC = 1e-3;
+
 module.exports = {
   rosTimeToDate(rosTime) {
     var date = new Date();
     // setTime takes in ms since epoch
-    date.setTime(rosTime.secs * 1000 + Math.floor(rosTime.nsecs / 1000000));
+    date.setTime(rosTime.secs * 1000 + Math.floor(rosTime.nsecs * USEC_TO_SEC));
     return date;
   },
 
   dateToRosTime(date) {
-    var secs = Math.floor(date / 1000);
+    var secs = Math.floor(date * MSEC_TO_SEC);
     var nsecs = date % 1000 * 1000000;
     return {'secs': secs, 'nsecs': nsecs};
   },
 
   now() {
     return this.dateToRosTime(Date.now());
+  },
+
+  epoch() {
+    return {
+      secs: 0,
+      nsecs: 0
+    };
+  },
+
+  isZeroTime(t) {
+    return t.secs === 0 && t.nsecs === 0;
+  },
+
+  toNumber(t) {
+    return this.toSeconds(t);
+  },
+
+  toSeconds(t) {
+    return t.secs + t.nsecs * NSEC_TO_SEC;
+  },
+
+  timeComp(a, b) {
+    return Math.sign(this.toNumber(a) - this.toNumber(b));
   }
 };
