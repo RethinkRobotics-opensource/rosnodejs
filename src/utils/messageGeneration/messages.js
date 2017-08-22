@@ -181,7 +181,7 @@ function buildMessageFromSpec(msgSpec) {
         Request,
         Response,
         md5sum: () => { return md5Sum; },
-        dataType: () => { return fullMsg; }
+        datatype: () => { return fullMsg; }
       };
       setMessageInRegistry(fullMsg, service, type);
       break;
