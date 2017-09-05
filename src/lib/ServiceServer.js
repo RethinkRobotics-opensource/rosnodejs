@@ -154,22 +154,29 @@ class ServiceServer extends EventEmitter {
 
     // call service callback
     let resp = new this._messageHandler.Response();
-    let success = this._requestCallback(req, resp);
+    let result = this._requestCallback(req, resp);
+    Promise.resolve(result)
+    .then((success) => {
+      // client should already have been closed, so if we got here just cut out early
+      if (this.isShutdown()) {
+        return;
+      }
 
-    const serializeResponse = TcprosUtils.serializeServiceResponse(
-      this._messageHandler.Response,
-      resp,
-      success
-    );
+      const serializeResponse = TcprosUtils.serializeServiceResponse(
+        this._messageHandler.Response,
+        resp,
+        success
+      );
 
-    // send service response
-    client.write(serializeResponse);
+      // send service response
+      client.write(serializeResponse);
 
-    if (!client.$persist) {
-      this._log.debug('Closing non-persistent client');
-      client.end();
-      delete this._clients[client.name];
-    }
+      if (!client.$persist) {
+        this._log.debug('Closing non-persistent client');
+        client.end();
+        delete this._clients[client.name];
+      }
+    });
   }
 
   _register() {

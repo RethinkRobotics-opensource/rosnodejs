@@ -235,7 +235,14 @@ class ServiceClient extends EventEmitter {
     call.serviceClient.write(serializedRequest);
 
     return new Promise((resolve, reject) => {
+      const closeHandler = () => {
+        this._log.debug('Service %s client disconnected during call!', this.getService());
+        reject(new Error('Connection was closed'));
+      }
+
       call.serviceClient.$deserializeStream.once('message', (msg, success) => {
+        call.serviceClient.removeListener('close', closeHandler);
+
         if (success) {
           resolve(this._messageHandler.Response.deserialize(msg));
         }
@@ -245,6 +252,9 @@ class ServiceClient extends EventEmitter {
           reject(error);
         }
       });
+
+      // if the connection closes while waiting for a response, reject the request
+      call.serviceClient.on('close', closeHandler);
     });
   }
 

@@ -812,6 +812,25 @@ describe('Protocol Test', () => {
       })
     });
 
+    it('Asynchronous Call and Response', (done) => {
+      const nh = rosnodejs.nh;
+      const serv = nh.advertiseService(service, srvType, (req, resp) => {
+        return Promise.resolve(true);
+      });
+
+      const client = nh.serviceClient(service, srvType);
+      nh.waitForService(service)
+      .then(() => {
+        return client.call({});
+      })
+      .then(() => {
+        done();
+      })
+      .catch((err) => {
+        throwNext(err);
+      })
+    });
+
     it('Service Failure', (done) => {
       const nh = rosnodejs.nh;
       const serv = nh.advertiseService(service, srvType, (req, resp) => {
@@ -879,6 +898,52 @@ describe('Protocol Test', () => {
 
       // if the service callback hasn't been called by now we should be good
       setTimeout(done, 500);
+    });
+
+    it('Service Shutdown Handling Call', function(done) {
+      this.slow(1600);
+
+      const nh = rosnodejs.nh;
+      const serv = nh.advertiseService(service, srvType, (req, resp) => {
+        serv.shutdown();
+
+        return true;
+      });
+
+      const client = nh.serviceClient(service, srvType);
+      nh.waitForService(service)
+      .then(() => {
+        return client.call({});
+      })
+      .catch((err) => {
+        expect(err.message).to.equal('Connection was closed');
+        done();
+      });
+    });
+
+    it('Service Shutdown Handling Asynchronous Call', function(done) {
+      this.slow(1600);
+
+      const nh = rosnodejs.nh;
+      const serv = nh.advertiseService(service, srvType, (req, resp) => {
+
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            serv.shutdown();
+            resolve(true);
+          }, 0);
+        });
+      });
+
+      const client = nh.serviceClient(service, srvType);
+      nh.waitForService(service)
+      .then(() => {
+        return client.call({});
+      })
+      .catch((err) => {
+        expect(err.message).to.equal('Connection was closed');
+        done();
+      });
     });
 
     it('Service Unregistered During Call', (done) => {
