@@ -139,13 +139,22 @@ class ActionClient extends EventEmitter {
     return id;
   }
 
+  /**
+   * Shuts down this ActionClient. It shuts down publishers, subscriptions
+   * and removes all attached event listeners.
+   * @returns {Promise}
+   */
+
   shutdown() {
     this.removeAllListeners();
-    this._goalPub.shutdown();
-    this._cancelPub.shutdown();
-    this._statusSub.shutdown();
-    this._feedbackSub.shutdown();
-    this._resultSub.shutdown();
+
+    return Promise.all([
+      this._goalPub.shutdown(),
+      this._cancelPub.shutdown(),
+      this._statusSub.shutdown(),
+      this._feedbackSub.shutdown(),
+      this._resultSub.shutdown()
+    ]);
   }
 }
 
