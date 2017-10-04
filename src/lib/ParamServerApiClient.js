@@ -89,12 +89,8 @@ class ParamServerApiClient {
 
     return new Promise((resolve, reject) => {
       this._call('hasParam', data, (resp) => {
-        if (resp[0] !== 1) {
-          reject(resp);
-        } else {
-          // resp[2] is whether it actually has param and presumably all anyone  cares about
-          resolve(resp[2]);
-        }
+        // resp[2] is whether it actually has param and presumably all anyone  cares about
+        resolve(resp[2]);
       }, reject);
     });
   }
@@ -106,12 +102,8 @@ class ParamServerApiClient {
 
     return new Promise((resolve, reject) => {
       this._call('getParamNames', data, (resp) => {
-        if (resp[0] !== 1) {
-          reject(resp);
-        } else {
-          // resp[2] is parameter name list and presumably all anyone cares about
-          resolve(resp[2]);
-        }
+        // resp[2] is parameter name list and presumably all anyone cares about
+        resolve(resp[2]);
       }, reject);
     });
   }
