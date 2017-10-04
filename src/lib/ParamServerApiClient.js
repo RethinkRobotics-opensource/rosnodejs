@@ -88,15 +88,10 @@ class ParamServerApiClient {
     ];
 
     return new Promise((resolve, reject) => {
-      this._xmlrpcClient.methodCall('hasParam', data, (err, resp) => {
-        if (err || resp[0] !== 1) {
-          reject(err, resp);
-        }
-        else {
-          // resp[2] is whether it actually has param and presumably all anyone  cares about
-          resolve(resp[2]);
-        }
-      });
+      this._call('hasParam', data, (resp) => {
+        // resp[2] is whether it actually has param and presumably all anyone  cares about
+        resolve(resp[2]);
+      }, reject);
     });
   }
 
@@ -106,15 +101,10 @@ class ParamServerApiClient {
     ];
 
     return new Promise((resolve, reject) => {
-      this._xmlrpcClient.methodCall('getParamNames', data, (err, resp) => {
-        if (err || resp[0] !== 1) {
-          reject(err, resp);
-        }
-        else {
-          // resp[2] is parameter name list and presumably all anyone cares about
-          resolve(resp[2]);
-        }
-      });
+      this._call('getParamNames', data, (resp) => {
+        // resp[2] is parameter name list and presumably all anyone cares about
+        resolve(resp[2]);
+      }, reject);
     });
   }
 }
