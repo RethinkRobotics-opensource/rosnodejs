@@ -1031,4 +1031,114 @@ describe('Protocol Test', () => {
       });
     });
   });
+
+  describe('Parameters', function() {
+    let masterStub;
+
+    before((done) => {
+      masterStub = new MasterStub('localhost', MASTER_PORT);
+      masterStub.provideAll();
+
+      return rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.reset();
+        return rosnodejs.initNode(nodeName, initArgs);
+      })
+      .then(() => done());
+    });
+
+    after((done) => {
+      masterStub.shutdown();
+      return rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.reset();
+        done();
+      });
+    });
+
+    it('Set', function(done) {
+      const nh = rosnodejs.nh;
+
+      nh.setParam('/key', 2)
+      .then(() => {
+        expect(masterStub._params['/key']).to.equal(2);
+        done();
+      });
+    });
+
+    it('Get', function(done) {
+      const nh = rosnodejs.nh;
+
+      nh.getParam('/key')
+      .then((result) => {
+        expect(result).to.equal(2);
+        expect(masterStub._params['/key']).to.equal(2);
+        done();
+      });
+    });
+
+    it('Has', function(done) {
+      const nh = rosnodejs.nh;
+
+      nh.hasParam('/key')
+      .then((result) => {
+        expect(result).to.be.true;
+        expect(masterStub._params['/key']).to.equal(2);
+        done();
+      });
+    });
+
+    it('Delete', function(done) {
+      const nh = rosnodejs.nh;
+
+      nh.deleteParam('/key')
+      .then(() => {
+        expect(masterStub._params['/key']).to.be.undefined;
+        done();
+      });
+    });
+
+    it('Full', function(done) {
+      const nh = rosnodejs.nh;
+
+      nh.getParam('/missing')
+      .then(() => throwNext('Get should reject'))
+      .catch(() => {
+        return nh.hasParam('/missing')
+      })
+      .catch(() => throwNext('Has should resolve'))
+      .then((result) => {
+        expect(result).to.be.false;
+        return nh.setParam('/exists', 1);
+      })
+      .catch(() => throwNext('Set should resolve'))
+      .then(() => {
+        expect(masterStub._params['/exists']).to.equal(1);
+        return nh.hasParam('/exists');
+      })
+      .catch(() => throwNext('Has should resolve'))
+      .then((result) => {
+        expect(result).to.be.true;
+        return nh.getParam('/exists');
+      })
+      .catch(() => throwNext('Get should resolve'))
+      .then((result) => {
+        expect(result).to.equal(1);
+        return nh.deleteParam('/missing');
+      })
+      .then(() => throwNext('Delete should reject'))
+      .catch((err) => {
+        return nh.deleteParam('/exists');
+      })
+      .catch(() => throwNext('Delete should resolve'))
+      .then(() => {
+        return nh.hasParam('/exists');
+      })
+      .catch(() => throwNext('Has should resolve'))
+      .then((result) => {
+        expect(result).to.be.false;
+        done();
+      });
+    });
+  });
 });
