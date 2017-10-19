@@ -20,7 +20,8 @@
 let RosNode = require('./RosNode.js');
 const messageUtils = require('../utils/message_utils.js');
 const namespaceUtils = require('../utils/namespace_utils.js');
-const ActionClient = require('./ActionClient');
+const ActionClientInterface = require('./ActionClientInterface.js');
+const ActionServerInterface = require('./ActionServerInterface.js');
 
 class NodeHandle {
   constructor(node, namespace=null) {
@@ -189,7 +190,14 @@ class NodeHandle {
     }
   }
 
-  actionClient(actionServer, type, options={}) {
+  /**
+   * @deprecated - use actionClientInterface
+   */
+  actionClient(...args) {
+    return this.actionClientInterface(...args);
+  }
+
+  actionClientInterface(actionServer, type, options={}) {
     if (!actionServer) {
       throw new Error(`Unable to create action client to unspecified server - [${actionServer}]`);
     }
@@ -197,9 +205,30 @@ class NodeHandle {
       throw new Error(`Unable to create action client ${actionServer} without type - got ${type}`);
     }
 
+    if (!type.endsWith('Action')) {
+      type += 'Action';
+    }
+
     // don't namespace action client - topics will be resolved by
     // advertising through this NodeHandle
-    return new ActionClient(Object.assign({}, options, {
+    return new ActionClientInterface(Object.assign({}, options, {
+      actionServer,
+      type,
+      nh: this
+    }));
+  }
+
+  actionServerInterface(actionServer, type, options={}) {
+    if (!actionServer) {
+      throw new Error(`Unable to create unspecified action server  [${actionServer}]`);
+    }
+    else if (!type) {
+      throw new Error(`Unable to create action server ${actionServer} without type - got ${type}`);
+    }
+
+    // don't namespace action server - topics will be resolved by
+    // advertising through this NodeHandle
+    return new ActionServerInterface(Object.assign({}, options, {
       actionServer,
       type,
       nh: this

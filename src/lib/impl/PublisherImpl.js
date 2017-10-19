@@ -80,6 +80,9 @@ class PublisherImpl extends EventEmitter {
 
     this._subClients = {};
 
+    if (!options.typeClass) {
+      throw new Error(`Unable to load message for publisher ${this.getTopic()} with type ${this.getType()}`);
+    }
     this._messageHandler = options.typeClass;
 
     this._state = REGISTERING;

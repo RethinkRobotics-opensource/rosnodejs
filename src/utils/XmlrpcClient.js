@@ -22,10 +22,11 @@ class XmlrpcCall {
           reject(err);
         }
         else if (resp[0] !== 1) {
-          const error = new Error('ROS XMLRPC Error');
+          const msg = resp[1];
+          const error = new Error(`ROS XMLRPC Error: ${msg}`);
           error.code = 'EROSAPIERROR';
           error.statusCode = resp[0];
-          error.statusMessage = resp[1];
+          error.statusMessage = msg;
           error.value = resp[2];
           reject(error);
         }

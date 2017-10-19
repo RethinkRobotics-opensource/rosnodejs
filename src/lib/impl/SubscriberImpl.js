@@ -74,6 +74,9 @@ class SubscriberImpl extends EventEmitter {
 
     this._log = Logging.getLogger('ros.rosnodejs');
 
+    if (!options.typeClass) {
+      throw new Error(`Unable to load message for subscriber ${this.getTopic()} with type ${this.getType()}`);
+    }
     this._messageHandler = options.typeClass;
 
     this._pubClients = {};
