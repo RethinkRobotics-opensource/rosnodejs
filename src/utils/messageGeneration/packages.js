@@ -200,6 +200,7 @@ function findPackageInDirectory(directory, packageName, callback) {
 function findPackagesInDirectory(directory) {
   const promises = [];
   promises.push(new Promise((resolve) => {
+    const subPromises = [];
     packageWalk(directory)
       .on('package', (packageName, dir, fileName) => {
         packageName = packageName.toLowerCase();
@@ -210,7 +211,7 @@ function findPackagesInDirectory(directory) {
             services: {},
             actions: {}
           };
-          promises.push(new Promise((resolve) => {
+          subPromises.push(new Promise((resolve) => {
             messageWalk(dir, null)
               .on('message', (name, file) => {
                 packageEntry.messages[name] = {file};
@@ -232,7 +233,9 @@ function findPackagesInDirectory(directory) {
           }));
         }
       })
-      .on('end', resolve);
+      .on('end', () => {
+        Promise.all(subPromises).then(resolve);
+      });
   }));
 
   return Promise.all(promises);
