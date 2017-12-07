@@ -307,27 +307,12 @@ class NodeHandle {
   }
 
   /**
-   * A list of topics with types
    * @typedef {Object} TopicList
-   * @property {Object[]} topics Contains objects of the format:
-   *                    {
-   *                      name: <string>,
-   *                      type: <string>
-   *                    }
+   * @property {{name: string, type: string}[]} topics Array of topics
    */
 
-  /**
-   * List representation of a system state
-   * @typedef {Object} SystemState
-   * @property {Object.<...string:Array<string>>} publishers dictionary object
-   * containing a list of published topics and their publisher[s]
-   * @property {Object.<...string:Array<string>>} subscribers dictionary object
-   * containing a list of subscribed topics and their subscriber[s]
-   * @property {Object.<...string:Array<string>>} services dictionary object
-   * containing a list of services and their provider[s]
-   */
-
-  /**
+   
+  /** 
    * Get list of topics that can be subscribed to. This does not return
    * topics that have no publishers.
    * 
@@ -335,8 +320,6 @@ class NodeHandle {
    *                          specified subgraph. Subgraph namespace is
    *                          resolved relative to this node's namespace.
    *                          Will return all names if no subgraph is given.
-   * @reject {Error}
-   * @fulfill {TopicList}
    * @return {Promise.<TopicList>}
    */
   getPublishedTopics(subgraph="") {
@@ -346,20 +329,27 @@ class NodeHandle {
   /**
    * Retrieve list topic names and their types.
    * 
-   * @reject {Error}
-   * @fulfill {TopicList}
    * @return {Promise.<TopicList>}
    */
   getTopicTypes() {
     return this._node.getTopicTypes();
   }
 
+
+  /**
+   * @typedef {Object} SystemState
+   * @property {{...string:Array.<string>}} publishers An object with topic names as keys and 
+   * an array of publishers as values
+   * @property {{...string:Array.<string>}} subscribers An object with topic names as keys and 
+   * an array of subscribers as values
+   * @property {{...string:Array.<string>}} services An object with service names as keys and
+   * an array of providers as values
+   */
+
   /**
    * Retrieve list representation of system state (i.e. publishers,
    * subscribers, and services).
    * 
-   * @reject {Error}
-   * @fulfill {TopicList}
    * @return {Promise.<SystemState>}
    */
   getSystemState(){
