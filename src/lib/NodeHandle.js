@@ -316,7 +316,7 @@ class NodeHandle {
    * Get list of topics that can be subscribed to. This does not return
    * topics that have no publishers.
    * 
-   * @param subgraph {string} Restrict topic names to match within the
+   * @param {string} subgraph Restrict topic names to match within the
    *                          specified subgraph. Subgraph namespace is
    *                          resolved relative to this node's namespace.
    *                          Will return all names if no subgraph is given.
