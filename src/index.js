@@ -48,19 +48,18 @@ let pingMasterTimeout = null;
  * Helper function to see if the master is available and able to accept
  * connections.
  * @param {number} timeout time in ms between connection attempts
- * @param {number} maxTimeout maximum time in seconds to retry before timing out. 
+ * @param {number} maxTimeout maximum time in ms to retry before timing out. 
  * A negative number will make it retry forever. 0 will only make one attempt
  * before timing out.
  */
 function _checkMasterHelper(timeout=100, maxTimeout=-1) {
-  let startTime = Time.now().secs;
+  let startTime = Date.now();
   const localHelper = (resolve,reject) => {
     pingMasterTimeout = setTimeout(() => {
       // also check that the slave api server is set up   
       if (!rosNode.slaveApiSetupComplete()) {
-        console.error("hello slave api isnt setup yet");
-        if (Time.now().secs - startTime >= maxTimeout && !(maxTimeout < 0) ) {
-          let error = `Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`
+        if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ) {
+          log.error(`Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
           reject(Error('Unable to setup slave API server.'));
           return;
         }
@@ -74,15 +73,12 @@ function _checkMasterHelper(timeout=100, maxTimeout=-1) {
         resolve();
       })
       .catch((err, resp) => {
-        let error = `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet.`
-        if (Time.now().secs - startTime >= maxTimeout && !(maxTimeout < 0) ){
-          error += ' Timed out! Stopping...';
-          log.error(error);
+        if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ){
+          log.error(`Timed out before registering with master node [${rosNode.getRosMasterUri()}]: master may not be running yet.`);
           reject(Error('Registration with master timed out.'));
           return;
         } else {
-          error+= ' Will keep trying.';
-          log.warnThrottle(60000, error);
+          log.warnThrottle(60000, `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
           localHelper(resolve, reject);
         }
       });
