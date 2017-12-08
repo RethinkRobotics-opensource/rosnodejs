@@ -43,13 +43,28 @@ let rosNode = null;
 let pingMasterTimeout = null;
 
 //------------------------------------------------------------------
-
-function _checkMasterHelper(timeout=100) {
-  const localHelper = (resolve) => {
+/**
+ * @private
+ * Helper function to see if the master is available and able to accept
+ * connections.
+ * @param {number} timeout time in ms between connection attempts
+ * @param {number} maxTimeout maximum time in seconds to retry before timing out. 
+ * A negative number will make it retry forever. 0 will only make one attempt
+ * before timing out.
+ */
+function _checkMasterHelper(timeout=100, maxTimeout=-1) {
+  let startTime = Time.now().secs;
+  const localHelper = (resolve,reject) => {
     pingMasterTimeout = setTimeout(() => {
-      // also check that the slave api server is set up
+      // also check that the slave api server is set up   
       if (!rosNode.slaveApiSetupComplete()) {
-        localHelper(resolve);
+        console.error("hello slave api isnt setup yet");
+        if (Time.now().secs - startTime >= maxTimeout && !(maxTimeout < 0) ) {
+          let error = `Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`
+          reject(Error('Unable to setup slave API server.'));
+          return;
+        }
+        localHelper(resolve, reject);
         return;
       }
       rosNode.getMasterUri({ maxAttempts: 1 })
@@ -59,14 +74,23 @@ function _checkMasterHelper(timeout=100) {
         resolve();
       })
       .catch((err, resp) => {
-        log.warnThrottle(60000, `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
-        localHelper(resolve);
+        let error = `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet.`
+        if (Time.now().secs - startTime >= maxTimeout && !(maxTimeout < 0) ){
+          error += ' Timed out! Stopping...';
+          log.error(error);
+          reject(Error('Registration with master timed out.'));
+          return;
+        } else {
+          error+= ' Will keep trying.';
+          log.warnThrottle(60000, error);
+          localHelper(resolve, reject);
+        }
       });
     }, timeout);
   };
 
   return new Promise((resolve, reject) => {
-    localHelper(resolve);
+    localHelper(resolve,reject);
   });
 }
 
@@ -94,10 +118,19 @@ function _anonymizeNodeName(nodeName) {
 
 let Rosnodejs = {
   /**
-   * Initializes a ros node for this process. Only one ros node can exist per process
+   * Initializes a ros node for this process. Only one ros node can exist per process.
    * If called a second time with the same nodeName, returns a handle to that node.
-   * @param nodeName {string} name of the node to initialize
-   * @param options {object} overrides for this node
+   * @param {string} nodeName name of the node to initialize
+   * @param {object} options  overrides for this node
+   * @param {boolean}   options.anonymous Set node to be anonymous
+   * @param {object}    options.logging logger options for this node
+   * @param {function}  options.logging.getLoggers  the function for setting which loggers
+   *                                                to be used for this node
+   * @param {function}  options.logging.setLoggerLevel  the function for setting the logger
+   *                                                    level
+   * @param {string}    options.rosMasterUri the Master URI to use for this node
+   * @param {number}    options.timeout time in seconds to wait for node to be initialized
+   *                                    before timing out
    * @return {Promise} resolved when connection to master is established
    */
   initNode(nodeName, options) {
@@ -113,8 +146,8 @@ let Rosnodejs = {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
-      throw new Error('Unable to initialize node [' + nodeName + '] - node ['
-                      + rosNode.getNodeName() + '] already exists');
+      return Promise.reject( Error('Unable to initialize node [' + nodeName + '] - node ['
+                      + rosNode.getNodeName() + '] already exists'));
     }
 
     let rosMasterUri = process.env.ROS_MASTER_URI;
@@ -129,14 +162,18 @@ let Rosnodejs = {
     const nodeOpts = options.node || {};
     rosNode = new RosNode(nodeName, rosMasterUri, nodeOpts);
 
-    return this._loadOnTheFlyMessages(options)
-      .then(_checkMasterHelper)
+    return new Promise((resolve,reject)=>{
+      this._loadOnTheFlyMessages(options)
+      .then(()=>{return _checkMasterHelper(100, options.timeout);})
       .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
       .then(Time._initializeRosTime.bind(Time, this))
-      .then(() => { return this.getNodeHandle(); })
+      .then(() => { resolve(this.getNodeHandle()); })
       .catch((err) => {
         log.error('Error during initialization: ' + err);
+        this.shutdown();
+        reject(err);
       });
+    });
   },
 
   reset() {
