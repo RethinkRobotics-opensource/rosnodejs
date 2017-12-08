@@ -118,12 +118,40 @@ class MasterApiClient {
     });
   }
 
-  getPublishedTopics(callerId, subgraph) {
-    throw new Error('NOT SUPPORTED');
+  getPublishedTopics(callerId, subgraph, options) {
+    let data = [callerId, subgraph];
+    return new Promise((resolve,reject)=>{
+      this._call(
+        'getPublishedTopics', 
+        data, 
+        function(data) {
+          return resolve({
+            topics: data[2].map((topic) => { return {
+              name: topic[0], type: topic[1]
+            }})
+          })
+        }, 
+        reject,
+        options);
+    })
   }
 
-  getTopicTypes(callerId) {
-    throw new Error('NOT SUPPORTED');
+  getTopicTypes(callerId, options) {
+    let data = [callerId];
+    return new Promise((resolve,reject)=>{
+      this._call(
+        'getTopicTypes', 
+        data, 
+        function(data) {
+          return resolve({
+            topics: data[2].map((topic) => { return {
+              name: topic[0], type: topic[1]
+            }})
+          })
+        }, 
+        reject,
+        options);
+    })
   }
 
   /** return an object containing all current publishers (by topic),

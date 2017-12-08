@@ -23,6 +23,11 @@ const namespaceUtils = require('../utils/namespace_utils.js');
 const ActionClientInterface = require('./ActionClientInterface.js');
 const ActionServerInterface = require('./ActionServerInterface.js');
 
+/**
+ * Handle class for nodes created with rosnodejs
+ * @param node {RosNode} node that handle is attached to.
+ * @param namespace {string} namespace of node. @default null
+ */
 class NodeHandle {
   constructor(node, namespace=null) {
     this._node = node;
@@ -299,6 +304,56 @@ class NodeHandle {
 
   getMasterUri() {
     return this._node.getMasterUri();
+  }
+
+  /**
+   * @typedef {Object} TopicList
+   * @property {{name: string, type: string}[]} topics Array of topics
+   */
+
+   
+  /** 
+   * Get list of topics that can be subscribed to. This does not return
+   * topics that have no publishers.
+   * 
+   * @param {string} subgraph Restrict topic names to match within the
+   *                          specified subgraph. Subgraph namespace is
+   *                          resolved relative to this node's namespace.
+   *                          Will return all names if no subgraph is given.
+   * @return {Promise.<TopicList>}
+   */
+  getPublishedTopics(subgraph="") {
+    return this._node.getPublishedTopics(subgraph);
+  }
+
+  /**
+   * Retrieve list topic names and their types.
+   * 
+   * @return {Promise.<TopicList>}
+   */
+  getTopicTypes() {
+    return this._node.getTopicTypes();
+  }
+
+
+  /**
+   * @typedef {Object} SystemState
+   * @property {{...string:Array.<string>}} publishers An object with topic names as keys and 
+   * an array of publishers as values
+   * @property {{...string:Array.<string>}} subscribers An object with topic names as keys and 
+   * an array of subscribers as values
+   * @property {{...string:Array.<string>}} services An object with service names as keys and
+   * an array of providers as values
+   */
+
+  /**
+   * Retrieve list representation of system state (i.e. publishers,
+   * subscribers, and services).
+   * 
+   * @return {Promise.<SystemState>}
+   */
+  getSystemState(){
+    return this._node.getSystemState();    
   }
 
 //------------------------------------------------------------------

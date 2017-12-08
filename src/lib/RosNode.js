@@ -276,6 +276,18 @@ class RosNode extends EventEmitter {
     return this._masterApi.getUri(this._nodeName, options);
   }
 
+  getPublishedTopics(subgraph, options) {
+    return this._masterApi.getPublishedTopics(this._nodeName, subgraph, options);
+  }
+
+  getTopicTypes(options) {
+    return this._masterApi.getTopicTypes(this._nodeName, options);
+  }
+
+  getSystemState(options) {
+    return this._masterApi.getSystemState(this._nodeName, options);
+  }
+
   /**
    * Delays xmlrpc calls until our servers are set up
    * Since we need their ports for most of our calls.
