@@ -125,8 +125,9 @@ let Rosnodejs = {
    * @param {function}  options.logging.setLoggerLevel  the function for setting the logger
    *                                                    level
    * @param {string}    options.rosMasterUri the Master URI to use for this node
-   * @param {number}    options.timeout time in seconds to wait for node to be initialized
-   *                                    before timing out
+   * @param {number}    options.timeout time in ms to wait for node to be initialized
+   *                                    before timing out. A negative value will retry forever.
+   *                                    A value of '0' will try once before stopping. @default -1
    * @return {Promise} resolved when connection to master is established
    */
   initNode(nodeName, options) {
