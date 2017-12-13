@@ -10,7 +10,11 @@ function handleSimTimeMessage(msg) {
 const Time = {
   useSimTime: false,
 
-  _initializeRosTime(rosnodejs) {
+  _initializeRosTime(rosnodejs, notime) {
+    //Only for testing purposes!
+    if (notime) {
+      return Promise.resolve();
+    }
     const nh = rosnodejs.nh;
     return nh.getParam('/use_sim_time')
     .then((val) => {

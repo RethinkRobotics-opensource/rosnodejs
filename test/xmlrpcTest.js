@@ -25,7 +25,8 @@ describe('Protocol Test', () => {
   let masterStub;
   const initArgs = {
     rosMasterUri: `http://localhost:${MASTER_PORT}`,
-    logging: {skipRosLogging: true}
+    logging: {skipRosLogging: true},
+    notime: true
   };
   const nodeName = '/testNode';
 

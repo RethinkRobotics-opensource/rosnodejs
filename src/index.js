@@ -163,7 +163,7 @@ let Rosnodejs = {
       this._loadOnTheFlyMessages(options)
       .then(()=>{return _checkMasterHelper(100, options.timeout);})
       .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
-      .then(Time._initializeRosTime.bind(Time, this))
+      .then(Time._initializeRosTime.bind(Time, this, options.notime))
       .then(() => { resolve(this.getNodeHandle()); })
       .catch((err) => {
         log.error('Error during initialization: ' + err);

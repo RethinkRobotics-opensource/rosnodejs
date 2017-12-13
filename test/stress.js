@@ -174,7 +174,7 @@ describe('ClientShutdown', function() {
       console.error('Got unknown method call %s: %j', method, params);
     });
 
-    return rosnodejs.initNode('/my_node', {rosMasterUri: `http://localhost:${MASTER_PORT}`, logging: {testing: true}});
+    return rosnodejs.initNode('/my_node', {rosMasterUri: `http://localhost:${MASTER_PORT}`, logging: {testing: true}, notime:true});
   });
 
   afterEach(() => {

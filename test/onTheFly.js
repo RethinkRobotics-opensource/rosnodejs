@@ -20,6 +20,7 @@ describe('OnTheFly', function () {
     return rosnodejs.initNode('/testNode', {
       rosMasterUri: `http://localhost:${MASTER_PORT}`,
       onTheFly: true,
+      notime: true,
       logging: {skipRosLogging: true}})
       .then(() => {
         done();
