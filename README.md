@@ -12,7 +12,7 @@ rosnodejs.initNode('/my_node')
 });
 ```
 
-## Publish/Subscribe
+## Publish/Subscribe.
 ```
 const nh = rosnodejs.nh;
 const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
