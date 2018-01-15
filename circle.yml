@@ -9,9 +9,8 @@ dependencies:
     - ./scripts/setupNpm.sh
 
 test:
-  pre:
-    - mkdir -p $CIRCLE_TEST_REPORTS/mocha
   override:
+    - echo "done"
 
 deployment:
   all:
