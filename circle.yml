@@ -11,9 +11,7 @@ dependencies:
 test:
   pre:
     - mkdir -p $CIRCLE_TEST_REPORTS/mocha
-  post:
-    - npm run coverage
-    - mv coverage $CIRCLE_TEST_REPORTS
+  override:
 
 deployment:
   all:
