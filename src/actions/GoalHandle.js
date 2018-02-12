@@ -25,7 +25,7 @@ let GoalStatus = null;
 let GoalStatuses = null;
 
 class GoalHandle {
-  constructor(goalId, actionServer, status) {
+  constructor(goalId, actionServer, status, goal) {
     if (goalId.id === '') {
       goalId = actionServer.generateGoalId();
     }
@@ -35,6 +35,8 @@ class GoalHandle {
     }
 
     this.id = goalId.id;
+
+    this._goal = goal;
 
     this._as = actionServer;
 
@@ -59,6 +61,10 @@ class GoalHandle {
       GoalStatuses.ABORTED,
       GoalStatuses.SUCCEEDED
     ].includes(this._status.status);
+  }
+
+  getGoal() {
+    return this._goal;
   }
 
   getStatusId() {

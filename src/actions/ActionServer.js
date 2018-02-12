@@ -103,7 +103,7 @@ class ActionServer extends EventEmitter {
       return false;
     }
 
-    handle = new GoalHandle(msg.goal_id, this);
+    handle = new GoalHandle(msg.goal_id, this, null, msg.goal);
     this._goalHandleList.push(handle);
     this._goalHandleCache[handle.id] = handle;
 
@@ -115,7 +115,6 @@ class ActionServer extends EventEmitter {
       return false;
     }
     else {
-      // track goal, I guess
       this.emit('goal', handle);
     }
 
@@ -154,7 +153,7 @@ class ActionServer extends EventEmitter {
     // if the requested goal_id was not found and it is not empty,
     // then we need to store the cancel request
     if (cancelId !== '' && !goalIdFound) {
-      const handle = new GoalHandle(msg, this, GoalStatuses.RECALLING);
+      const handle = new GoalHandle(msg, this, GoalStatuses.RECALLING, msg.goal);
       this._goalHandleList.push(handle);
       this._goalHandleCache[handle.id] = handle;
     }
