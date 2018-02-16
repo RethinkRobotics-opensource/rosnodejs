@@ -36,6 +36,8 @@ const packages = require('./utils/messageGeneration/packages.js');
 const ActionServer = require('./actions/ActionServer.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
+const RemapUtils = require('./utils/remapping_utils.js');
+const names = require('./lib/Names.js');
 
 // will be initialized through call to initNode
 let log = Logging.getLogger();
@@ -43,74 +45,6 @@ let rosNode = null;
 let pingMasterTimeout = null;
 
 //------------------------------------------------------------------
-/**
- * @private
- * Helper function to see if the master is available and able to accept
- * connections.
- * @param {number} timeout time in ms between connection attempts
- * @param {number} maxTimeout maximum time in ms to retry before timing out.
- * A negative number will make it retry forever. 0 will only make one attempt
- * before timing out.
- */
-function _checkMasterHelper(timeout=100, maxTimeout=-1) {
-  let startTime = Date.now();
-  const localHelper = (resolve,reject) => {
-    pingMasterTimeout = setTimeout(() => {
-      // also check that the slave api server is set up
-      if (!rosNode.slaveApiSetupComplete()) {
-        if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ) {
-          log.error(`Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
-          reject(Error('Unable to setup slave API server.'));
-          return;
-        }
-        localHelper(resolve, reject);
-        return;
-      }
-      rosNode.getMasterUri({ maxAttempts: 1 })
-      .then(() => {
-        log.infoOnce(`Connected to master at ${rosNode.getRosMasterUri()}!`);
-        pingMasterTimeout = null;
-        resolve();
-      })
-      .catch((err, resp) => {
-        if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ){
-          log.error(`Timed out before registering with master node [${rosNode.getRosMasterUri()}]: master may not be running yet.`);
-          reject(Error('Registration with master timed out.'));
-          return;
-        } else {
-          log.warnThrottle(60000, `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
-          localHelper(resolve, reject);
-        }
-      });
-    }, timeout);
-  };
-
-  return new Promise((resolve, reject) => {
-    localHelper(resolve,reject);
-  });
-}
-
-/**
- * Very basic validation of node name - needs to start with a '/'
- * TODO: more
- * @return {string} name of node after validation
- */
-function _validateNodeName(nodeName) {
-  if (!nodeName.startsWith('/')) {
-    nodeName = '/' + nodeName;
-  }
-  return nodeName;
-}
-
-/**
- * Appends a random string of numeric characters to the end
- * of the node name. Follows rospy logic.
- * @param nodeName {string} string to anonymize
- * @return {string} anonymized nodeName
- */
-function _anonymizeNodeName(nodeName) {
-  return util.format('%s_%s_%s', nodeName, process.pid, Date.now());
-}
 
 let Rosnodejs = {
   /**
@@ -131,12 +65,25 @@ let Rosnodejs = {
    * @return {Promise} resolved when connection to master is established
    */
   initNode(nodeName, options) {
-    options = options || {};
-    if (options.anonymous) {
-      nodeName = _anonymizeNodeName(nodeName);
+    if (typeof nodeName !== 'string') {
+      throw new Error('The node name must be a string');
+    }
+    else if (nodeName.length === 0) {
+      throw new Error('The node name must not be empty!');
     }
 
-    nodeName = _validateNodeName(nodeName);
+    options = options || {};
+
+    // process remappings from command line arguments.
+    // First two are $ node <file> so we skip them
+    const remappings = RemapUtils.processRemapping(process.argv.slice(2));
+
+    // initialize netUtils from possible command line remappings
+    netUtils.init(remappings);
+
+    const [resolvedName, namespace] = _resolveNodeName(nodeName, remappings, options);
+
+    names.init(remappings, namespace);
 
     if (rosNode !== null) {
       if (nodeName === rosNode.getNodeName()) {
@@ -147,17 +94,14 @@ let Rosnodejs = {
                       + rosNode.getNodeName() + '] already exists'));
     }
 
-    let rosMasterUri = process.env.ROS_MASTER_URI;
-    if (options.rosMasterUri) {
-      rosMasterUri = options.rosMasterUri;
-    }
-
-    Logging.initializeNodeLogger(nodeName, options.logging);
+    Logging.initializeNodeLogger(resolvedName, options.logging);
 
     // create the ros node. Return a promise that will
     // resolve when connection to master is established
     const nodeOpts = options.node || {};
-    rosNode = new RosNode(nodeName, rosMasterUri, nodeOpts);
+    const rosMasterUri = options.rosMasterUri || remappings['__master'] || process.env.ROS_MASTER_URI;;
+
+    rosNode = new RosNode(resolvedName, rosMasterUri, nodeOpts);
 
     return new Promise((resolve,reject)=>{
       this._loadOnTheFlyMessages(options)
@@ -338,3 +282,85 @@ let Rosnodejs = {
 Rosnodejs.ActionServer = ActionServer;
 
 module.exports = Rosnodejs;
+
+//------------------------------------------------------------------
+// Local Helper Functions
+//------------------------------------------------------------------
+
+/**
+ * @private
+ * Helper function to see if the master is available and able to accept
+ * connections.
+ * @param {number} timeout time in ms between connection attempts
+ * @param {number} maxTimeout maximum time in ms to retry before timing out.
+ * A negative number will make it retry forever. 0 will only make one attempt
+ * before timing out.
+ */
+function _checkMasterHelper(timeout=100, maxTimeout=-1) {
+  const startTime = Date.now();
+
+  const localHelper = (resolve,reject) => {
+    pingMasterTimeout = setTimeout(() => {
+      // also check that the slave api server is set up
+      if (!rosNode.slaveApiSetupComplete()) {
+        if (Date.now() - startTime >= maxTimeout && maxTimeout >= 0) {
+          log.error(`Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
+          reject(new Error('Unable to setup slave API server.'));
+          return;
+        }
+        localHelper(resolve, reject);
+        return;
+      }
+      rosNode.getMasterUri({ maxAttempts: 1 })
+      .then(() => {
+        log.infoOnce(`Connected to master at ${rosNode.getRosMasterUri()}!`);
+        pingMasterTimeout = null;
+        resolve();
+      })
+      .catch((err, resp) => {
+        if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ){
+          log.error(`Timed out before registering with master node [${rosNode.getRosMasterUri()}]: master may not be running yet.`);
+          reject(new Error('Registration with master timed out.'));
+          return;
+        } else {
+          log.warnThrottle(60000, `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
+          localHelper(resolve, reject);
+        }
+      });
+    }, timeout);
+  };
+
+  return new Promise((resolve, reject) => {
+    localHelper(resolve,reject);
+  });
+}
+
+function _resolveNodeName(nodeName, remappings, options) {
+  let namespace = remappings['__ns'] || process.env.ROS_NAMESPACE || '';
+  namespace = names.clean(namespace);
+  if (namespace.length === 0 || !namespace.startsWith('/')) {
+    namespace = `/${namespace}`;
+  }
+
+  names.validate(namespace, true);
+
+  nodeName = remappings['__name'] || nodeName;
+  nodeName = names.resolve(namespace, nodeName);
+
+  // only anonymize node name if they didn't remap from the command line
+  if (options.anonymous && !remappings['__name']) {
+    nodeName = _anonymizeNodeName(nodeName);
+  }
+
+  return [nodeName, namespace]
+}
+
+/**
+ * Appends a random string of numeric characters to the end
+ * of the node name. Follows rospy logic.
+ * @param nodeName {string} string to anonymize
+ * @return {string} anonymized nodeName
+ */
+function _anonymizeNodeName(nodeName) {
+  return util.format('%s_%s_%s', nodeName, process.pid, Date.now());
+}
