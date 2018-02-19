@@ -43,7 +43,8 @@ describe('Logging', () => {
     masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => {
       rosnodejs.initNode('/testNode', {
         rosMasterUri: `http://localhost:${MASTER_PORT}`,
-        logging: {skipRosLogging: true}
+        logging: {skipRosLogging: true},
+        notime: true
       })
       .then(() => {
         rosnodejs.log.addStream({
@@ -308,7 +309,7 @@ describe('Logging', () => {
       .then(() => {
         rosnodejs.reset();
         return rosnodejs.initNode('/testNode', {logging: {waitOnRosOut: false, level: 'info'},
-                                  rosMasterUri: `http://localhost:${MASTER_PORT}`});
+                                  rosMasterUri: `http://localhost:${MASTER_PORT}`, notime: true});
       })
       .then(() => {
         done();
