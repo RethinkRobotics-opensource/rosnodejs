@@ -16,7 +16,12 @@ class RosMasterStub extends EventEmitter {
       registerSubscriber: this._onRegisterSubscriber.bind(this),
       unregisterSubscriber: this._onUnregisterSubscriber.bind(this),
       registerPublisher: this._onRegisterPublisher.bind(this),
-      unregisterPublisher: this._onUnregisterPublisher.bind(this)
+      unregisterPublisher: this._onUnregisterPublisher.bind(this),
+      deleteParam: this._deleteParam.bind(this),
+      setParam: this._setParam.bind(this),
+      getParam: this._getParam.bind(this),
+      hasParam: this._hasParam.bind(this),
+      getParamNames: this._getParamNames.bind(this)
     };
 
     this._providedApis = new Set();
@@ -26,6 +31,8 @@ class RosMasterStub extends EventEmitter {
       sub: null,
       pub: null
     };
+
+    this._params = {};
 
     this.listen();
   }
@@ -41,6 +48,7 @@ class RosMasterStub extends EventEmitter {
   }
 
   shutdown() {
+    this._params = {};
     this._providedApis.clear();
     this.removeAllListeners();
     return new Promise((resolve, reject) => {
@@ -133,6 +141,56 @@ class RosMasterStub extends EventEmitter {
     const resp =  [1, 'You did it!', this._clientCache.pub ? 1 : 0];
     callback(null, resp);
     this._clientCache.pub = null;
+  }
+
+  // Param stubbing
+  // NOTE: this is NOT a spec ParamServer implementation,
+  // but it provides simple stubs for calls
+
+  _deleteParam(err, params, callback) {
+    const key = params[1];
+    if (this._params.hasOwnProperty(key)) {
+      delete this._params[key];
+      const resp = [1, 'delete value for ' + key, 1];
+      callback(null, resp);
+    }
+    else {
+      const resp = [0, 'no value for ' + key, 1];
+      callback(null, resp);
+    }
+  }
+
+  _setParam(err, params, callback) {
+    const key = params[1];
+    const val = params[2];
+    this._params[key] = val;
+    const resp = [1, 'set value for ' + key, 1];
+    callback(null, resp);
+  }
+
+  _getParam(err, params, callback) {
+    const key = params[1];
+    const val = this._params[key];
+    if (val !== undefined) {
+      const resp = [1, 'data for ' + key, val];
+      callback(null, resp);
+    }
+    else {
+      const resp = [0, 'no data for ' + key, null];
+      callback(null, resp);
+    }
+  }
+
+  _hasParam(err, params, callback) {
+    const key = params[1];
+    const resp = [1, 'check param ' + key, this._params.hasOwnProperty(key)];
+    callback(null, resp);
+  }
+
+  _getParamNames(err, params, callback) {
+    const names = Object.keys(this._params);
+    const resp = [1, 'get param names', names];
+    callback(null, resp);
   }
 }
 
