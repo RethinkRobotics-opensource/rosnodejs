@@ -168,7 +168,7 @@ class ActionServer extends EventEmitter {
     const msg = this._createMessage('actionResult', { status, result });
     msg.header.stamp = timeUtils.now();
     msg.header.seq = this._getAndIncrementSeq('actionResult');
-    msg.header.frame = '';
+    msg.header.frame = '/map';
     this._asInterface.publishResult(msg);
     this.publishStatus();
   }
@@ -177,7 +177,7 @@ class ActionServer extends EventEmitter {
     const msg = this._createMessage('actionFeedback', { status, feedback });
     msg.header.stamp = timeUtils.now();
     msg.header.seq = this._getAndIncrementSeq('actionFeedback');
-    msg.header.frame = '';
+    msg.header.frame = '/map';
     this._asInterface.publishFeedback(msg);
     this.publishStatus();
   }
@@ -186,7 +186,7 @@ class ActionServer extends EventEmitter {
     const msg = new GoalStatusArrayMsg();
     msg.header.stamp = timeUtils.now();
     msg.header.seq = this._getAndIncrementSeq('status');
-    msg.header.frame = '';
+    msg.header.frame = '/map';
 
     let goalsToRemove = new Set();
 
