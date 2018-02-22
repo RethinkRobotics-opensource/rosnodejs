@@ -1,6 +1,6 @@
 {
   "name": "@sixriver/rosnodejs",
-  "version": "2.2.7",
+  "version": "2.2.8",
   "description": "Native ROS for nodejs",
   "main": "dist/index.js",
   "keywords": [
