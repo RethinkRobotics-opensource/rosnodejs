@@ -65,7 +65,9 @@ class ActionServer extends EventEmitter {
     this._pubSeqs = {
       result: 0,
       feedback: 0,
-      status: 0
+      status: 0,
+      actionResult: 0,
+      actionFeedback: 0,
     };
 
     this._goalHandleList = [];
