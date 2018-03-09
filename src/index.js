@@ -48,7 +48,7 @@ let pingMasterTimeout = null;
  * Helper function to see if the master is available and able to accept
  * connections.
  * @param {number} timeout time in ms between connection attempts
- * @param {number} maxTimeout maximum time in ms to retry before timing out. 
+ * @param {number} maxTimeout maximum time in ms to retry before timing out.
  * A negative number will make it retry forever. 0 will only make one attempt
  * before timing out.
  */
@@ -56,7 +56,7 @@ function _checkMasterHelper(timeout=100, maxTimeout=-1) {
   let startTime = Date.now();
   const localHelper = (resolve,reject) => {
     pingMasterTimeout = setTimeout(() => {
-      // also check that the slave api server is set up   
+      // also check that the slave api server is set up
       if (!rosNode.slaveApiSetupComplete()) {
         if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ) {
           log.error(`Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
@@ -320,18 +320,18 @@ let Rosnodejs = {
   /**
     Get an action client for a given type and action server.
 
+    **Deprecated**: Use rosNode.nh.actionClientInterface instead.
+
     Example:
-      let ac = rosNode.getActionClient({
-        type: "turtle_actionlib/ShapeAction",
-        actionServer: "/turtle_shape"
-      });
+      let ac = rosNode.nh.getActionClient(
+        "/turtle_shape", "turtle_actionlib/ShapeAction");
       let shapeActionGoal =
         rosnodejs.require('turtle_actionlib').msg.ShapeActionGoal;
-      ac.sendGoal(new shapeActionGoal({
-        goal: { edges: 3,  radius: 1 } }));
+      ac.sendGoal(new shapeActionGoal({ goal: { edges: 3,  radius: 1 } }));
    */
   getActionClient(options) {
-    return this.nh.actionClientInterface(options);
+    return this.nh.actionClientInterface(
+      options.actionServer, options.type, options);
   }
 };
 

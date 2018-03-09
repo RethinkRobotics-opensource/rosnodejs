@@ -202,7 +202,15 @@ class NodeHandle {
     return this.actionClientInterface(...args);
   }
 
-  actionClientInterface(actionServer, type, options={}) {
+  /**
+   * Create an action client
+   * @param  {String} actionServer name of the action server
+   * (e.g., "/turtle_shape")
+   * @param  {String} type action type 
+   * (e.g., "turtle_actionlib/ShapeAction")
+   * @return {[type]} an instance of ActionClientInterface
+   */
+  actionClientInterface(actionServer, type, options = {}) {
     if (!actionServer) {
       throw new Error(`Unable to create action client to unspecified server - [${actionServer}]`);
     }
@@ -311,11 +319,11 @@ class NodeHandle {
    * @property {{name: string, type: string}[]} topics Array of topics
    */
 
-   
-  /** 
+
+  /**
    * Get list of topics that can be subscribed to. This does not return
    * topics that have no publishers.
-   * 
+   *
    * @param {string} subgraph Restrict topic names to match within the
    *                          specified subgraph. Subgraph namespace is
    *                          resolved relative to this node's namespace.
@@ -328,7 +336,7 @@ class NodeHandle {
 
   /**
    * Retrieve list topic names and their types.
-   * 
+   *
    * @return {Promise.<TopicList>}
    */
   getTopicTypes() {
@@ -338,9 +346,9 @@ class NodeHandle {
 
   /**
    * @typedef {Object} SystemState
-   * @property {{...string:Array.<string>}} publishers An object with topic names as keys and 
+   * @property {{...string:Array.<string>}} publishers An object with topic names as keys and
    * an array of publishers as values
-   * @property {{...string:Array.<string>}} subscribers An object with topic names as keys and 
+   * @property {{...string:Array.<string>}} subscribers An object with topic names as keys and
    * an array of subscribers as values
    * @property {{...string:Array.<string>}} services An object with service names as keys and
    * an array of providers as values
@@ -349,11 +357,11 @@ class NodeHandle {
   /**
    * Retrieve list representation of system state (i.e. publishers,
    * subscribers, and services).
-   * 
+   *
    * @return {Promise.<SystemState>}
    */
   getSystemState(){
-    return this._node.getSystemState();    
+    return this._node.getSystemState();
   }
 
 //------------------------------------------------------------------
