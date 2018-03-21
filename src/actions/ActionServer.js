@@ -94,9 +94,9 @@ class ActionServer extends EventEmitter {
     let handle = this._getGoalHandle(newGoalId);
 
     if (handle) {
-      if (handle.status === GoalStatuses.RECALLING) {
-        handle.status = GoalStatuses.RECALLED;
-        this.publishResult(status.status, this._createMessage('result'));
+      if (handle._status.status === GoalStatuses.RECALLING) {
+        handle._status.status = GoalStatuses.RECALLED;
+        this.publishResult(handle._status.status, this._createMessage('result'));
       }
 
       handle._destructionTime = msg.goal_id.stamp;
@@ -134,7 +134,7 @@ class ActionServer extends EventEmitter {
     for (let i = 0, len = this._goalHandleList.length; i < len; ++i) {
       const handle = this._goalHandleList[i];
       const handleId = handle.id;
-      const handleStamp = handle.status.goal_id.stamp;
+      const handleStamp = handle._status.goal_id.stamp;
 
       if (shouldCancelEverything ||
           cancelId === handleId ||
