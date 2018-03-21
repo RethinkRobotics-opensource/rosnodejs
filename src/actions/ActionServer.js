@@ -96,7 +96,7 @@ class ActionServer extends EventEmitter {
     if (handle) {
       if (handle._status.status === GoalStatuses.RECALLING) {
         handle._status.status = GoalStatuses.RECALLED;
-        this.publishResult(handle._status.status, this._createMessage('result'));
+        this.publishResult(handle._status, this._createMessage('result'));
       }
 
       handle._destructionTime = msg.goal_id.stamp;
