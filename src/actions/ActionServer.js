@@ -103,7 +103,7 @@ class ActionServer extends EventEmitter {
       return false;
     }
 
-    handle = new GoalHandle(msg.goal_id, this);
+    handle = new GoalHandle(msg.goal_id, this, GoalStatuses.PENDING, msg.goal);
     this._goalHandleList.push(handle);
     this._goalHandleCache[handle.id] = handle;
 
