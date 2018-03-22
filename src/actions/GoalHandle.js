@@ -25,7 +25,14 @@ let GoalStatus = null;
 let GoalStatuses = null;
 
 class GoalHandle {
-  constructor(goalId, actionServer, status) {
+  /**
+   * goalId: An actionlib_msgs/GoalID.
+   * actionServer: The ActionServer processing this goal
+   * status: A number from actionlib_msgs/GoalStatus, like GoalStatuses.PENDING.
+   * goal: The goal message, e.g., a FibonacciGoal. May be left undefined if
+   *  this goal is used to represent a cancellation.
+   */
+  constructor(goalId, actionServer, status, goal) {
     if (goalId.id === '') {
       goalId = actionServer.generateGoalId();
     }
@@ -47,6 +54,8 @@ class GoalHandle {
       status: status || GoalStatuses.PENDING,
       goal_id: goalId
     });
+
+    this._goal = goal;
 
     this._destructionTime = timeUtils.epoch();
   }
@@ -71,6 +80,10 @@ class GoalHandle {
 
   getGoalStatus() {
     return this._status;
+  }
+
+  getGoal() {
+    return this._goal;
   }
 
   publishFeedback(feedback) {
