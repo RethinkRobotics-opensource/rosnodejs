@@ -33,7 +33,6 @@ class GoalHandle {
    *  this goal is used to represent a cancellation.
    */
   constructor(goalId, actionServer, status, goal) {
-    this.goal = goal;
     if (goalId.id === '') {
       goalId = actionServer.generateGoalId();
     }
@@ -55,6 +54,8 @@ class GoalHandle {
       status: status || GoalStatuses.PENDING,
       goal_id: goalId
     });
+
+    this._goal = goal;
 
     this._destructionTime = timeUtils.epoch();
   }
@@ -79,6 +80,10 @@ class GoalHandle {
 
   getGoalStatus() {
     return this._status;
+  }
+
+  getGoal() {
+    return this._goal;
   }
 
   publishFeedback(feedback) {
