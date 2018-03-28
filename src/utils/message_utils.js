@@ -170,12 +170,7 @@ let MessageUtils = {
   },
 
   loadMessagePackage(msgPackage) {
-    try {
-      messagePackageMap[msgPackage] = ros_msg_utils.Find(msgPackage);
-    }
-    catch (err) {
-      throw new Error(`Unable to include message package ${msgPackage} - ${err}`);
-    }
+    messagePackageMap[msgPackage] = ros_msg_utils.Find(msgPackage);
   },
 
   getPackage(msgPackage) {
@@ -193,12 +188,8 @@ let MessageUtils = {
     // pre-compiled versions
     let pack = this.getPackage(msgPackage);
     if (!pack) {
-      try {
-        this.loadMessagePackage(msgPackage);
-        return this.getPackage(msgPackage);
-      }
-      catch(err) {
-      }
+      this.loadMessagePackage(msgPackage);
+      return this.getPackage(msgPackage);
     }
     // else
     return pack;
