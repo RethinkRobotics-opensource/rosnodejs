@@ -42,7 +42,33 @@ nh.getParam('val')
   // do stuff
 });
 ```
-## Messages
+## Generating Messages
+
+Messages can be generated in a number of ways depending on the versions of ROS and Node.js you're using.
+- catkin - works in ROS Kinetic and later for Node.js v6+.
+```
+$ catkin_make
+OR
+$ catkin build
+```
+- `loadAllMessages()` - One-time "build" call available through `rosnodejs` for versions of ROS before Kinetic and Node.js v6+. Should be called separately and in advance of processes attempting to use messages.
+```
+const rosnodejs = require('rosnodejs');
+rosnodejs.loadAllPackages();
+```
+- On the fly - all versions of ROS and Node.js 4.5+. When generating on the fly, messages can not be required until the node has initialized.
+```
+const rosnodejs = require('rosnodejs');
+await rosnodejs.initNode('my_node', { onTheFly: true })
+const stdMsgs = rosnodejs.require('std_msgs');
+```
+
+| |Pre-Kinetic|Kinetic & Later|
+|:---:|:---:|:---:|
+|Node.js  >= v6|`loadAllMessages()`, on the fly|catkin, `loadAllMessages()`, on the fly|
+|Node.js < v6|on the fly|on the fly|
+
+## Using Messages
 ```
 const sensorMsgs = rosnodejs.require('sensor_msgs');
 
