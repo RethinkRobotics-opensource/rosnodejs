@@ -73,14 +73,24 @@ class ActionServer extends EventEmitter {
 
     this._lastCancelStamp = timeUtils.epoch();
 
+    this._statusFrequency = 5;
     this._statusListTimeout = 5;
+    this._statusHandle = null;
+
+    this._started = false;
   }
 
   generateGoalId() {
     return this._asInterface.generateGoalId();
   }
 
+  start() {
+    this._started = true;
+    this._statusHandle = setInterval(this.publishStatus.bind(this), 1000 / this._statusFrequency);
+  }
+
   shutdown() {
+    clearInterval(this._statusHandle);
     return this._asInterface.shutdown();
   }
 
@@ -89,6 +99,10 @@ class ActionServer extends EventEmitter {
   }
 
   _handleGoal(msg) {
+    if (!this._started) {
+      return;
+    }
+
     const newGoalId = msg.goal_id.id;
 
     let handle = this._getGoalHandle(newGoalId);
@@ -123,6 +137,10 @@ class ActionServer extends EventEmitter {
   }
 
   _handleCancel(msg) {
+    if (!this._started) {
+      return;
+    }
+
     const cancelId = msg.id;
     const cancelStamp = msg.stamp;
     const cancelStampIsZero = timeUtils.isZeroTime(cancelStamp);

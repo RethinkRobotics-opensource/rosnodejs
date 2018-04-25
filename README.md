@@ -96,11 +96,13 @@ const as = new rosnodejs.ActionServer({
   actionServer: '/turtle_shape'
 });
 
-as.on('goal, function (goal) {
+as.on('goal', function (goal) {
   goal.setAccepted();
 });
 
-const ac = nh.actionClientInterface('/turtle_shape, 'turtle_actionlib/ShapeAction');
+as.start();
+
+const ac = nh.actionClientInterface('/turtle_shape', 'turtle_actionlib/ShapeAction');
 ac.sendGoal({ goal: {edges: 3, radius: 1}});
 ```
 ## Run the turtlesim example
