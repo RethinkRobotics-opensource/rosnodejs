@@ -75,6 +75,7 @@ class ActionServer extends EventEmitter {
 
     this._statusFrequency = 5;
     this._statusListTimeout = 5;
+    this._statusHandle = null;
 
     this._started = false;
   }
@@ -85,10 +86,11 @@ class ActionServer extends EventEmitter {
 
   start() {
     this._started = true;
-    setInterval(this.publishStatus.bind(this), 1000 / this._statusFrequency);
+    this._statusHandle = setInterval(this.publishStatus.bind(this), 1000 / this._statusFrequency);
   }
 
   shutdown() {
+    clearInterval(this._statusHandle);
     return this._asInterface.shutdown();
   }
 
