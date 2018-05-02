@@ -41,12 +41,12 @@ class ActionClientInterface extends EventEmitter {
 
     const nh = options.nh;
 
-    const goalOptions = Object.assign({ queueSize: 10, latching: true }, options.goal);
+    const goalOptions = Object.assign({ queueSize: 10, latching: false }, options.goal);
     this._goalPub = nh.advertise(this._actionServer + '/goal',
                                  this._actionType + 'Goal',
                                  goalOptions);
 
-    const cancelOptions = Object.assign({ queueSize: 10, latching: true }, options.cancel);
+    const cancelOptions = Object.assign({ queueSize: 10, latching: false }, options.cancel);
     this._cancelPub = nh.advertise(this._actionServer + '/cancel',
                                    'actionlib_msgs/GoalID',
                                    cancelOptions);
