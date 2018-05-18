@@ -23,6 +23,7 @@ const EventEmitter = require('events');
 
 const ActionServerInterface = require('../lib/ActionServerInterface.js');
 const GoalHandle = require('./GoalHandle.js');
+const Time = require('../lib/Time.js');
 
 let GoalIdMsg = null;
 let GoalStatusMsg = null;
@@ -185,7 +186,7 @@ class ActionServer extends EventEmitter {
 
   publishResult(status, result) {
     const msg = this._createMessage('actionResult', { status, result });
-    msg.header.stamp = timeUtils.now();
+    msg.header.stamp = Time.now();
     msg.header.seq = this._getAndIncrementSeq('actionResult');
     this._asInterface.publishResult(msg);
     this.publishStatus();
@@ -193,7 +194,7 @@ class ActionServer extends EventEmitter {
 
   publishFeedback(status, feedback) {
     const msg = this._createMessage('actionFeedback', { status, feedback });
-    msg.header.stamp = timeUtils.now();
+    msg.header.stamp = Time.now();
     msg.header.seq = this._getAndIncrementSeq('actionFeedback');
     this._asInterface.publishFeedback(msg);
     this.publishStatus();
@@ -201,12 +202,12 @@ class ActionServer extends EventEmitter {
 
   publishStatus() {
     const msg = new GoalStatusArrayMsg();
-    msg.header.stamp = timeUtils.now();
+    msg.header.stamp = Time.now();
     msg.header.seq = this._getAndIncrementSeq('status');
 
     let goalsToRemove = new Set();
 
-    const now = timeUtils.toNumber(timeUtils.now());
+    const now = timeUtils.toNumber(Time.now());
 
     for (let i = 0, len = this._goalHandleList.length; i < len; ++i) {
       const goalHandle = this._goalHandleList[i];

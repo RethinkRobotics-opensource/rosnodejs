@@ -17,9 +17,9 @@
 
 'use strict';
 
-const timeUtils = require('../utils/time_utils.js');
 const msgUtils = require('../utils/message_utils.js');
 const EventEmitter = require('events');
+const Time = require('./Time.js');
 let GoalID = null;
 let Header = null;
 
@@ -100,7 +100,7 @@ class ActionClientInterface extends EventEmitter {
    * @param [goalId] {string} id of the goal to cancel
    */
   cancel(goalId) {
-    const cancelGoal = new GoalID({stamp: timeUtils.now()});
+    const cancelGoal = new GoalID({stamp: Time.now()});
     if (!goalId) {
       this._cancelPub.publish(cancelGoal);
     }
@@ -113,7 +113,7 @@ class ActionClientInterface extends EventEmitter {
   sendGoal(goal) {
     if (!goal.goal_id) {
       goal.goal_id = new GoalID({
-          stamp: timeUtils.now(),
+          stamp: Time.now(),
           id: this.generateGoalId()
         });
     }
