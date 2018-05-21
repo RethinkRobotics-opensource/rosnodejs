@@ -34,14 +34,18 @@ const Time = require('./lib/Time.js');
 const packages = require('./utils/messageGeneration/packages.js');
 
 const ActionServer = require('./actions/ActionServer.js');
+const ActionClient = require('./actions/ActionClient.js');
+const ClientStates = require('./actions/ClientStates.js');
+const SimpleActionClient = require('./actions/SimpleActionClient.js');
+const SimpleActionServer = require('./actions/SimpleActionServer.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
 const RemapUtils = require('./utils/remapping_utils.js');
 const names = require('./lib/Names.js');
+const ThisNode = require('./lib/ThisNode.js');
 
 // will be initialized through call to initNode
 let log = Logging.getLogger();
-let rosNode = null;
 let pingMasterTimeout = null;
 
 //------------------------------------------------------------------
@@ -85,13 +89,13 @@ let Rosnodejs = {
 
     names.init(remappings, namespace);
 
-    if (rosNode !== null) {
-      if (nodeName === rosNode.getNodeName()) {
+    if (ThisNode.node !== null) {
+      if (nodeName === ThisNode.getNodeName()) {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
       return Promise.reject( Error('Unable to initialize node [' + nodeName + '] - node ['
-                      + rosNode.getNodeName() + '] already exists'));
+                      + ThisNode.getNodeName() + '] already exists'));
     }
 
     Logging.initializeNodeLogger(resolvedName, options.logging);
@@ -101,7 +105,7 @@ let Rosnodejs = {
     const nodeOpts = options.node || {};
     const rosMasterUri = options.rosMasterUri || remappings['__master'] || process.env.ROS_MASTER_URI;;
 
-    rosNode = new RosNode(resolvedName, rosMasterUri, nodeOpts);
+    ThisNode.node = new RosNode(nodeName, rosMasterUri, nodeOpts);
 
     return new Promise((resolve,reject)=>{
       this._loadOnTheFlyMessages(options)
@@ -118,37 +122,37 @@ let Rosnodejs = {
   },
 
   reset() {
-    rosNode = null;
+    ThisNode.node = null;
   },
 
   shutdown() {
     clearTimeout(pingMasterTimeout);
     if (this.ok()) {
-      return rosNode.shutdown();
+      return ThisNode.node.shutdown();
     }
     // else
     return Promise.resolve();
   },
 
   ok() {
-    return rosNode && !rosNode.isShutdown();
+    return ThisNode.node && !ThisNode.node.isShutdown();
   },
 
   on(evt, handler) {
-    if (rosNode) {
-      rosNode.on(evt, handler);
+    if (ThisNode.node) {
+      ThisNode.node.on(evt, handler);
     }
   },
 
   once(evt, handler) {
-    if (rosNode) {
-      rosNode.once(evt, handler);
+    if (ThisNode.node) {
+      ThisNode.node.once(evt, handler);
     }
   },
 
   removeListener(evt, handler) {
-    if (rosNode) {
-      rosNode.removeListener(evt, handler);
+    if (ThisNode.node) {
+      ThisNode.node.removeListener(evt, handler);
     }
   },
 
@@ -231,15 +235,15 @@ let Rosnodejs = {
    * @return {NodeHandle} for initialized node
    */
   getNodeHandle(namespace) {
-    return new NodeHandle(rosNode, namespace);
+    return new NodeHandle(ThisNode.node, namespace);
   },
 
   get nodeHandle() {
-    return new NodeHandle(rosNode);
+    return new NodeHandle(ThisNode.node);
   },
 
   get nh() {
-    return new NodeHandle(rosNode);
+    return new NodeHandle(ThisNode.node);
   },
 
   get log() {
@@ -280,6 +284,10 @@ let Rosnodejs = {
 };
 
 Rosnodejs.ActionServer = ActionServer;
+Rosnodejs.ActionClient = ActionClient;
+Rosnodejs.SimpleActionServer = SimpleActionServer;
+Rosnodejs.SimpleActionClient = SimpleActionClient;
+Rosnodejs.SimpleClientGoalState = ClientStates.SimpleClientGoalState;
 
 module.exports = Rosnodejs;
 

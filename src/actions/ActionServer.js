@@ -17,7 +17,6 @@
 
 'use strict';
 
-const timeUtils = require('../lib/Time.js');
 const msgUtils = require('../utils/message_utils.js');
 const EventEmitter = require('events');
 
@@ -49,7 +48,24 @@ class ActionServer extends EventEmitter {
       GoalStatusArrayMsg = msgUtils.requireMsgPackage('actionlib_msgs').msg.GoalStatusArray;
     }
 
-    this._asInterface = new ActionServerInterface(options);
+    this._options = options;
+
+    this._pubSeqs = {
+      result: 0,
+      feedback: 0,
+      status: 0
+    };
+
+    this._goalHandleList = [];
+    this._goalHandleCache = {};
+
+    this._lastCancelStamp = Time.epoch();
+
+    this._statusListTimeout = { secs: 5, nsecs: 0 };
+  }
+
+  start() {
+    this._asInterface = new ActionServerInterface(this._options);
 
     this._asInterface.on('goal', this._handleGoal.bind(this));
     this._asInterface.on('cancel', this._handleCancel.bind(this));
@@ -63,36 +79,36 @@ class ActionServer extends EventEmitter {
       actionFeedback: msgUtils.getHandlerForMsgType(actionType + 'ActionFeedback')
     };
 
-    this._pubSeqs = {
-      result: 0,
-      feedback: 0,
-      status: 0
-    };
+    this.publishStatus();
 
-    this._goalHandleList = [];
-    this._goalHandleCache = {};
+    if (this._options.statusFrequency !== undefined) {
+      if (typeof this._options.statusFrequency !== 'number') {
+        throw new Error(`Invalid value (${this._options.statusFrequency}) for statusFrequency - expected number`);
+      }
 
-    this._lastCancelStamp = timeUtils.epoch();
+      const statusFreq = this._options.statusFrequency || 5;
 
-    this._statusFrequency = 5;
-    this._statusListTimeout = 5;
-    this._statusHandle = null;
-
-    this._started = false;
+      if (statusFreq > 0) {
+        this._statusFreqInt = setInterval(() => {
+          this.publishStatus();
+        }, 1000 / statusFreq);
+      }
+    }
   }
 
   generateGoalId() {
     return this._asInterface.generateGoalId();
   }
 
-  start() {
-    this._started = true;
-    this._statusHandle = setInterval(this.publishStatus.bind(this), 1000 / this._statusFrequency);
-  }
-
   shutdown() {
-    clearInterval(this._statusHandle);
-    return this._asInterface.shutdown();
+    this.removeAllListeners();
+
+    clearInterval(this._statusFreqInt);
+    this._statusFreqInt = null;
+
+    if (this._asInterface) {
+      return this._asInterface.shutdown();
+    }
   }
 
   _getGoalHandle(id) {
@@ -109,9 +125,9 @@ class ActionServer extends EventEmitter {
     let handle = this._getGoalHandle(newGoalId);
 
     if (handle) {
-      if (handle._status.status === GoalStatuses.RECALLING) {
-        handle._status.status = GoalStatuses.RECALLED;
-        this.publishResult(handle._status, this._createMessage('result'));
+      // check if we already received a request to cancel this goal
+      if (handle.getStatusId() === GoalStatuses.RECALLING) {
+        handle.setCancelled(this._createMessage('result'));
       }
 
       handle._destructionTime = msg.goal_id.stamp;
@@ -124,8 +140,8 @@ class ActionServer extends EventEmitter {
 
     const goalStamp = msg.goal_id.stamp;
     // check if this goal has already been cancelled based on its timestamp
-    if (!timeUtils.isZeroTime(goalStamp) &&
-        timeUtils.timeComp(goalStamp, this._lastCancelStamp) < 0) {
+    if (!Time.isZeroTime(goalStamp) &&
+        Time.timeComp(goalStamp, this._lastCancelStamp) < 0) {
       handle.setCancelled(this._createMessage('result'));
       return false;
     }
@@ -144,7 +160,7 @@ class ActionServer extends EventEmitter {
 
     const cancelId = msg.id;
     const cancelStamp = msg.stamp;
-    const cancelStampIsZero = timeUtils.isZeroTime(cancelStamp);
+    const cancelStampIsZero = Time.isZeroTime(cancelStamp);
 
     const shouldCancelEverything = (cancelId === '' && cancelStampIsZero);
 
@@ -153,12 +169,12 @@ class ActionServer extends EventEmitter {
     for (let i = 0, len = this._goalHandleList.length; i < len; ++i) {
       const handle = this._goalHandleList[i];
       const handleId = handle.id;
-      const handleStamp = handle._status.goal_id.stamp;
+      const handleStamp = handle.getStatus().goal_id.stamp;
 
       if (shouldCancelEverything ||
           cancelId === handleId ||
-          (!timeUtils.isZeroTime(handleStamp) &&
-           timeUtils.timeComp(handleStamp, cancelStamp) < 0))
+          (!Time.isZeroTime(handleStamp) &&
+           Time.timeComp(handleStamp, cancelStamp) < 0))
       {
         if (cancelId === handleId) {
           goalIdFound = true;
@@ -179,7 +195,7 @@ class ActionServer extends EventEmitter {
     }
 
     // update the last cancel stamp if new one occurred later
-    if (timeUtils.timeComp(cancelStamp, this._lastCancelStamp) > 0) {
+    if (Time.timeComp(cancelStamp, this._lastCancelStamp) > 0) {
       this._lastCancelStamp = cancelStamp;
     }
   }
@@ -207,16 +223,15 @@ class ActionServer extends EventEmitter {
 
     let goalsToRemove = new Set();
 
-    const now = timeUtils.toNumber(Time.now());
+    const now = Time.now();
 
     for (let i = 0, len = this._goalHandleList.length; i < len; ++i) {
       const goalHandle = this._goalHandleList[i];
       msg.status_list.push(goalHandle.getGoalStatus());
 
       const t = goalHandle._destructionTime;
-      const tNum = timeUtils.toNumber(t);
-      if (!timeUtils.isZeroTime(t) &&
-          timeUtils.toNumber(t) + this._statusListTimeout < now)
+      if (!Time.isZeroTime(t) &&
+          Time.lt(Time.add(t, this._statusListTimeout), now))
       {
         goalsToRemove.add(goalHandle);
       }
