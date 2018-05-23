@@ -66,7 +66,7 @@ let NetworkUtils = {
   getAddressAndPortFromUri(uriString) {
     let regexStr = /(?:http:\/\/|rosrpc:\/\/)?([a-zA-Z\d\-.:]+):(\d+)/;
     let match = uriString.match(regexStr);
-    if (match.length !== 3) {
+    if (match === null) {
       throw new Error ('Unable to find host and port from uri ' + uriString + ' with regex ' +  regexStr);
     }
     // else
