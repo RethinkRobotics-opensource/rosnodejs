@@ -29,6 +29,8 @@ let GoalStatuses = null;
 
 class SimpleActionClient extends EventEmitter {
   constructor(options) {
+    super();
+
     this._ac = new ActionClient(options);
     this._simpleState = SimpleGoalState.PENDING;
 

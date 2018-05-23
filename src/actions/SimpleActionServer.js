@@ -24,11 +24,13 @@ const EventEmitter = require('events');
 const Time = require('../lib/Time.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
+const msgUtils = require('../utils/message_utils.js');
 
 let GoalStatuses = null;
 
 class SimpleActionServer extends EventEmitter {
   constructor(options) {
+    super();
 
     this._as = new ActionServer(options);
 
@@ -132,18 +134,30 @@ class SimpleActionServer extends EventEmitter {
 
   setAborted(result, text) {
     if (this._currentGoal) {
+      if (!result) {
+        result = this._createMessage('result');
+      }
+
       this._currentGoal.setAborted(result, text);
     }
   }
 
   setPreempted(result, text) {
     if (this._currentGoal) {
+      if (!result) {
+        result = this._createMessage('result');
+      }
+
       this._currentGoal.setCanceled(result, text);
     }
   }
 
   setSucceeded(result, text) {
     if (this._currentGoal) {
+      if (!result) {
+        result = this._createMessage('result');
+      }
+
       this._currentGoal.setSucceeded(result, text);
     }
   }
@@ -171,7 +185,7 @@ class SimpleActionServer extends EventEmitter {
         );
       }
 
-      this._nextGoal = goal;
+      this._nextGoal = newGoal;
       this._newGoalPreemptRequest = false;
 
       if (hasGoal) {

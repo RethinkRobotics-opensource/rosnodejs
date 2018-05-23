@@ -26,6 +26,8 @@ let GoalStatuses = null;
 
 class ClientGoalHandle extends EventEmitter {
   constructor(actionGoal, actionClientInterface) {
+    super();
+
     this._goal = actionGoal;
     this._clientInterface = actionClientInterface;
 

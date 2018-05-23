@@ -38,6 +38,8 @@ let GOAL_COUNT = 0;
  */
 class ActionClient extends EventEmitter {
   constructor(options) {
+    super();
+
     this._acInterface = new ActionClientInterface(options);
 
     this._acInterface.on('status', this._handleStatus.bind(this));

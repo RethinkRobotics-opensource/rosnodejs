@@ -65,6 +65,7 @@ class ActionServer extends EventEmitter {
   }
 
   start() {
+    this._started = true;
     this._asInterface = new ActionServerInterface(this._options);
 
     this._asInterface.on('goal', this._handleGoal.bind(this));
@@ -81,18 +82,19 @@ class ActionServer extends EventEmitter {
 
     this.publishStatus();
 
+    let statusFreq = 5;
     if (this._options.statusFrequency !== undefined) {
       if (typeof this._options.statusFrequency !== 'number') {
         throw new Error(`Invalid value (${this._options.statusFrequency}) for statusFrequency - expected number`);
       }
 
-      const statusFreq = this._options.statusFrequency || 5;
+      statusFreq = this._options.statusFrequency;
+    }
 
-      if (statusFreq > 0) {
-        this._statusFreqInt = setInterval(() => {
-          this.publishStatus();
-        }, 1000 / statusFreq);
-      }
+    if (statusFreq > 0) {
+      this._statusFreqInt = setInterval(() => {
+        this.publishStatus();
+      }, 1000 / statusFreq);
     }
   }
 
