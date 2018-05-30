@@ -67,7 +67,7 @@ module.exports = {
     return {
       secs,
       nsecs
-    };
+    }
   },
 
   lt(a, b) {

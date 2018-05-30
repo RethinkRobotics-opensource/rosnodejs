@@ -20,6 +20,7 @@
 const { CommState } = require('./ClientStates.js');
 
 const EventEmitter = require('events');
+const msgUtils = require('../utils/message_utils.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
 let GoalStatuses = null;
@@ -194,7 +195,7 @@ class ClientGoalHandle extends EventEmitter {
             this._transition(CommState.PENDING);
             break;
           case GoalStatuses.ACTIVE:
-            this._transtion(CommState.ACTIVE);
+            this._transition(CommState.ACTIVE);
             break;
           case GoalStatuses.PREEMPTED:
             this._transition(CommState.ACTIVE);
@@ -235,7 +236,7 @@ class ClientGoalHandle extends EventEmitter {
           case GoalStatuses.PENDING:
             break;
           case GoalStatuses.ACTIVE:
-            this._transtion(CommState.ACTIVE);
+            this._transition(CommState.ACTIVE);
             break;
           case GoalStatuses.PREEMPTED:
             this._transition(CommState.ACTIVE);

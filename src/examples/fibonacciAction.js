@@ -15,6 +15,7 @@ rosnodejs.initNode('fibonacci')
         if (as.isPreemptRequested() || !rosnodejs.ok()) {
           rosnodejs.log.warn('PREEMPTED!');
           as.setPreempted();
+          done();
         }
         else {
           feedback.sequence.push(feedback.sequence[iter] + feedback.sequence[iter-1]);
@@ -46,6 +47,29 @@ rosnodejs.initNode('fibonacci')
   });
 
   as.start();
+
+  const ac = new rosnodejs.SimpleActionClient({
+    nh: rosnodejs.nh,
+    type: 'actionlib_tutorials/Fibonacci',
+    actionServer: '/fibonacci'
+  });
+
+  ac.waitForServer()
+  .then(() => {
+    rosnodejs.log.info('Connected to action server!');
+
+    ac.sendGoal({ order: 6 },
+      function() { console.log('DONE'); },
+      function() { console.log('ACTIVE');
+        ac.sendGoal({ order: 7 },
+          function() { console.log('DONE'); },
+          function() { console.log('ACTIVE'); },
+          function() { console.log('FEEDBACK'); }
+        );
+      },
+      function() { console.log('FEEDBACK'); }
+    );
+  })
 })
 .catch(function(err) {
   console.error(err.stack);

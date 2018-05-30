@@ -27,7 +27,7 @@ const ClientGoalHandle = require('./ClientGoalHandle.js');
 const Time = require('../lib/Time.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
-const { getNodeName } = require('../lib/ThisNode.js');
+const ThisNode = require('../lib/ThisNode.js');
 
 let GOAL_COUNT = 0;
 
@@ -50,8 +50,10 @@ class ActionClient extends EventEmitter {
     this._messageTypes = this._messageTypes = {
       result: msgUtils.getHandlerForMsgType(actionType + 'Result'),
       feedback: msgUtils.getHandlerForMsgType(actionType + 'Feedback'),
+      goal: msgUtils.getHandlerForMsgType(actionType + 'Goal'),
       actionResult: msgUtils.getHandlerForMsgType(actionType + 'ActionResult'),
-      actionFeedback: msgUtils.getHandlerForMsgType(actionType + 'ActionFeedback')
+      actionFeedback: msgUtils.getHandlerForMsgType(actionType + 'ActionFeedback'),
+      actionGoal: msgUtils.getHandlerForMsgType(actionType + 'ActionGoal')
     };
 
     this._goalLookup = {};
@@ -66,9 +68,9 @@ class ActionClient extends EventEmitter {
 
     const now = Time.now();
     actionGoal.header.stamp = now;
-    actionGoal.goalId.stamp = now;
-    const goalIdStr = `${getNodeName()}-${GOAL_COUNT++}-${now.secs}.${now.nsecs}`;
-    actionGoal.goalId.id = goalIdStr;
+    actionGoal.goal_id.stamp = now;
+    const goalIdStr = `${ThisNode.getNodeName()}-${GOAL_COUNT++}-${now.secs}.${now.nsecs}`;
+    actionGoal.goal_id.id = goalIdStr;
     actionGoal.goal = goal;
 
     this._acInterface.sendGoal(actionGoal);

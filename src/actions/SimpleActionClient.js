@@ -22,6 +22,7 @@ const EventEmitter = require('events');
 const ActionClient = require('./ActionClient.js');
 const { CommState, SimpleGoalState, SimpleClientGoalState } = require('./ClientStates.js');
 const Time = require('../lib/Time.js');
+const msgUtils = require('../utils/message_utils.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
 
@@ -301,7 +302,7 @@ class SimpleActionClient extends EventEmitter {
       case CommState.DONE:
         switch(this._simpleState) {
           case SimpleGoalState.PENDING:
-          case SimpleGoalState.Active:
+          case SimpleGoalState.ACTIVE:
             this._setSimpleState(SimpleGoalState.DONE);
             if (this._doneCb) {
               this._doneCb(this._simpleState, this._goalHandle.getResult());

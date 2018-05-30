@@ -104,10 +104,12 @@ class GoalHandle {
   setCanceled(result, text = '') {
     const status = this.getStatusId();
     switch (status) {
+      case GoalStatuses.PENDING:
       case GoalStatuses.RECALLING:
         this._setStatus(GoalStatuses.RECALLED, text);
         this._publishResult(result);
         break;
+      case GoalStatuses.ACTIVE:
       case GoalStatuses.PREEMPTING:
         this._setStatus(GoalStatuses.PREEMPTED, text);
         this._publishResult(result);

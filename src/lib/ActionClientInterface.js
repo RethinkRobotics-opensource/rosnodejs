@@ -72,6 +72,10 @@ class ActionClientInterface extends EventEmitter {
     this._hasStatus = false;
   }
 
+  getType() {
+    return this._actionType;
+  }
+
   /**
    * Cancel the given goal. If none is given, send an empty goal message,
    * i.e. cancel all goals. See
@@ -103,6 +107,10 @@ class ActionClientInterface extends EventEmitter {
       return true;
     }
     else {
+      if (typeof timeoutMs  !== 'number') {
+        timeoutMs = 0;
+      }
+
       return this._waitForActionServerToStart(timeoutMs, Date.now());
     }
   }
@@ -113,7 +121,7 @@ class ActionClientInterface extends EventEmitter {
       if (this.isServerConnected()) {
         return true;
       }
-      else if (start + timeoutMs > Date.now()) {
+      else if (timeoutMs > 0 && start + timeoutMs > Date.now()) {
         return false;
       }
       else {
@@ -123,7 +131,7 @@ class ActionClientInterface extends EventEmitter {
   }
 
   isServerConnected() {
-    return this._hasStatus() &&
+    return this._hasStatus &&
       this._goalPub.getNumSubscribers() > 0 &&
       this._cancelPub.getNumSubscribers() > 0 &&
       this._statusSub.getNumPublishers() > 0 &&

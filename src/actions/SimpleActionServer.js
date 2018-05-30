@@ -54,24 +54,7 @@ class SimpleActionServer extends EventEmitter {
     this._as.on('cancel', this._handleCancel.bind(this));
 
     if (this._executeCallback) {
-      this.on('goal', () => {
-        const goal = this.acceptNewGoal();
-        this._executeCallback(goal)
-        .then(() => {
-          if (this.isActive()) {
-            log.warn('%s\n%s\n%s',
-              'Your executeCallback did not set the goal to a terminate status',
-              'This is a bug in your ActionServer implementation. Fix your code!',
-              'For now, the ActionServer will set this goal to aborted'
-            );
-
-            this.setAborted(
-              this._as._createMessage('result'),
-              'This goal was aborted by the simple action server. The user should have set a terminal status on this goal and did not'
-            );
-          }
-        });
-      });
+      this._runExecuteLoop();
     }
   }
 
@@ -96,6 +79,7 @@ class SimpleActionServer extends EventEmitter {
 
     this._currentGoal = null;
     this._nextGoal = null;
+    clearTimeout(this._executeLoopTimer);
 
     return this._as.shutdown();
   }
@@ -135,7 +119,7 @@ class SimpleActionServer extends EventEmitter {
   setAborted(result, text) {
     if (this._currentGoal) {
       if (!result) {
-        result = this._createMessage('result');
+        result = this._as._createMessage('result');
       }
 
       this._currentGoal.setAborted(result, text);
@@ -145,7 +129,7 @@ class SimpleActionServer extends EventEmitter {
   setPreempted(result, text) {
     if (this._currentGoal) {
       if (!result) {
-        result = this._createMessage('result');
+        result = this._as._createMessage('result');
       }
 
       this._currentGoal.setCanceled(result, text);
@@ -155,7 +139,7 @@ class SimpleActionServer extends EventEmitter {
   setSucceeded(result, text) {
     if (this._currentGoal) {
       if (!result) {
-        result = this._createMessage('result');
+        result = this._as._createMessage('result');
       }
 
       this._currentGoal.setSucceeded(result, text);
@@ -173,7 +157,7 @@ class SimpleActionServer extends EventEmitter {
                                  : this._currentGoal.getGoalId().stamp;
       let newStamp = newGoal.getGoalId().stamp;
 
-      acceptGoal = timeUtils.timeComp(stamp, newStamp) >= 0;
+      acceptGoal = Time.timeComp(stamp, newStamp) <= 0;
     }
 
     if (acceptGoal) {
@@ -195,6 +179,10 @@ class SimpleActionServer extends EventEmitter {
 
       this.emit('goal');
     }
+    else {
+      // FIXME: make debug
+      log.warn('Not accepting new goal');
+    }
   }
 
   _handleCancel(goal) {
@@ -205,6 +193,37 @@ class SimpleActionServer extends EventEmitter {
     else if (this._nextGoal && this._nextGoal.id === goal.id) {
       this._newGoalPreemptRequest = true;
     }
+  }
+
+  _runExecuteLoop(timeoutMs = 100) {
+    this._executeLoopTimer = setTimeout(() => {
+      if (this.isActive()) {
+        log.error('Should never reach this code with an active goal!');
+      }
+      else if (this.isNewGoalAvailable()) {
+        const goal = this.acceptNewGoal();
+        this._executeCallback(goal)
+        .then(() => {
+          if (this.isActive()) {
+            log.warn('%s\n%s\n%s',
+              'Your executeCallback did not set the goal to a terminate status',
+              'This is a bug in your ActionServer implementation. Fix your code!',
+              'For now, the ActionServer will set this goal to aborted'
+            );
+
+            this.setAborted(
+              this._as._createMessage('result'),
+              'This goal was aborted by the simple action server. The user should have set a terminal status on this goal and did not'
+            );
+          }
+
+          this._runExecuteLoop(0);
+        });
+      }
+      else {
+        this._runExecuteLoop(100);
+      }
+    }, timeoutMs);
   }
 }
 
