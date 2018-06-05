@@ -18,6 +18,7 @@
 'use strict';
 
 const EventEmitter = require('events');
+const Ultron = require('ultron');
 
 const ActionClient = require('./ActionClient.js');
 const { CommState, SimpleGoalState, SimpleClientGoalState } = require('./ClientStates.js');
@@ -25,6 +26,7 @@ const Time = require('../lib/Time.js');
 const msgUtils = require('../utils/message_utils.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
+const ThisNode = require('../lib/ThisNode.js');
 
 let GoalStatuses = null;
 
@@ -44,10 +46,27 @@ class SimpleActionClient extends EventEmitter {
     this._activeCb = null;
     this._doneCb = null;
     this._feedbackCb = null;
+
+    this._shutdown = false;
+
+    // FIXME: how to handle shutdown? Should user be responsible?
+    // should we check for shutdown in interval instead of listening
+    // to events here?
+    this._ultron = new Ultron(ThisNode);
+    this._ultron.once('shutdown', () => { this.shutdown(); });
   }
 
   shutdown() {
-    return this._ac.shutdown();
+    if (!this._shutdown) {
+      this._shutdown = true;
+
+      this._ultron.destroy();
+      this._ultron = null;
+
+      return this._ac.shutdown();
+    }
+    // else
+    return Promise.resolve();
   }
 
   waitForServer(timeout) {
@@ -130,11 +149,11 @@ class SimpleActionClient extends EventEmitter {
     const WAIT_TIME_MS = 10;
 
     const now = Time.now();
-    if (Time.timeComp(timeoutTime, now) <= 0) {
-      return this._simpleState === SimpleGoalState.DONE;
+    if (timeoutTime && Time.timeComp(timeoutTime, now) <= 0) {
+      return Promise.resolve(this._simpleState === SimpleGoalState.DONE);
     }
     else if (this._simpleState === SimpleGoalState.DONE) {
-      return true;
+      return Promise.resolve(true);
     }
     // else
     return new Promise((resolve) => {
@@ -154,7 +173,7 @@ class SimpleActionClient extends EventEmitter {
   }
 
   getState() {
-    if (this._goalHandle || this._goalHandle.isExpired()) {
+    if (!this._goalHandle || this._goalHandle.isExpired()) {
       log.error('Trying to getState() when no goal is running. You are incorrectly using SimpleActionClient');
       return SimpleGoalState.LOST;
     }
@@ -323,7 +342,7 @@ class SimpleActionClient extends EventEmitter {
 
   _handleFeedback(feedback) {
     if (this._feedbackCb) {
-      this._feedbackCb(feedback);
+      this._feedbackCb(feedback.feedback);
     }
   }
 

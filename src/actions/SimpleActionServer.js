@@ -18,13 +18,14 @@
 'use strict';
 
 const ActionServer = require('./ActionServer.js');
-
+const Ultron = require('ultron');
 const EventEmitter = require('events');
 
 const Time = require('../lib/Time.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
 const msgUtils = require('../utils/message_utils.js');
+const ThisNode = require('../lib/ThisNode.js');
 
 let GoalStatuses = null;
 
@@ -45,6 +46,9 @@ class SimpleActionServer extends EventEmitter {
 
     this._preemptRequested = false;
     this._newGoalPreemptRequest = false;
+
+    this._shutdown = false;
+    this._ultron = new Ultron(ThisNode);
   }
 
   start() {
@@ -56,6 +60,11 @@ class SimpleActionServer extends EventEmitter {
     if (this._executeCallback) {
       this._runExecuteLoop();
     }
+
+    // FIXME: how to handle shutdown? Should user be responsible?
+    // should we check for shutdown in interval instead of listening
+    // to events here?
+    this._ultron.once('shutdown', () => { this.shutdown(); });
   }
 
   isActive() {
@@ -75,13 +84,21 @@ class SimpleActionServer extends EventEmitter {
   }
 
   shutdown() {
-    this.removeAllListeners();
+    if (!this._shutdown) {
+      this._shutdown = true;
+      this.removeAllListeners();
 
-    this._currentGoal = null;
-    this._nextGoal = null;
-    clearTimeout(this._executeLoopTimer);
+      this._currentGoal = null;
+      this._nextGoal = null;
+      clearTimeout(this._executeLoopTimer);
 
-    return this._as.shutdown();
+      this._ultron.destroy();
+      this._ultron = null;
+
+      return this._as.shutdown();
+    }
+    // else
+    return Promise.resolve();
   }
 
   acceptNewGoal() {
@@ -197,6 +214,10 @@ class SimpleActionServer extends EventEmitter {
 
   _runExecuteLoop(timeoutMs = 100) {
     this._executeLoopTimer = setTimeout(() => {
+      if (this._shutdown) {
+        return;
+      }
+      log.infoThrottle(1000, 'execute loop');
       if (this.isActive()) {
         log.error('Should never reach this code with an active goal!');
       }

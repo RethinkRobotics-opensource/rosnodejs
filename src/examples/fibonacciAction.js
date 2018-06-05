@@ -21,7 +21,7 @@ rosnodejs.initNode('fibonacci')
           feedback.sequence.push(feedback.sequence[iter] + feedback.sequence[iter-1]);
           rosnodejs.log.info('Update: %j', feedback.sequence);
           as.publishFeedback(feedback);
-          setTimeout(_exec, 1000, iter+1, done);
+          setTimeout(_exec, 100, iter+1, done);
         }
       }
       else {
@@ -58,18 +58,29 @@ rosnodejs.initNode('fibonacci')
   .then(() => {
     rosnodejs.log.info('Connected to action server!');
 
-    ac.sendGoal({ order: 6 },
-      function() { console.log('DONE'); },
-      function() { console.log('ACTIVE');
-        ac.sendGoal({ order: 7 },
-          function() { console.log('DONE'); },
-          function() { console.log('ACTIVE'); },
-          function() { console.log('FEEDBACK'); }
-        );
-      },
-      function() { console.log('FEEDBACK'); }
+    const goal = { order: 20 };
+    ac.sendGoal(goal,
+      function(result) { rosnodejs.log.info('Result: %j', result) },
+      function() { console.log('ACTIVE'); },
+      function(feedback) { rosnodejs.log.info('%j', feedback); }
     );
-  })
+
+    ac.waitForResult({secs: 30, nsecs: 0})
+    .then((finished) => {
+      if (finished) {
+        rosnodejs.log.info('Action finished: %s', ac.getState());
+      }
+      else {
+        rosnodejs.log.info('Action did not finish before the time out');
+      }
+
+      rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.log.info('Shutdown complete!');
+        rosnodejs.reset();
+      });
+    });
+  });
 })
 .catch(function(err) {
   console.error(err.stack);

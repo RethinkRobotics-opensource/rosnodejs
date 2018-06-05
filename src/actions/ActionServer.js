@@ -19,10 +19,14 @@
 
 const msgUtils = require('../utils/message_utils.js');
 const EventEmitter = require('events');
+const Ultron = require('ultron');
 
 const ActionServerInterface = require('../lib/ActionServerInterface.js');
 const GoalHandle = require('./GoalHandle.js');
 const Time = require('../lib/Time.js');
+
+const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
+const ThisNode = require('../lib/ThisNode.js');
 
 let GoalIdMsg = null;
 let GoalStatusMsg = null;
@@ -62,6 +66,8 @@ class ActionServer extends EventEmitter {
     this._lastCancelStamp = Time.epoch();
 
     this._statusListTimeout = { secs: 5, nsecs: 0 };
+    this._shutdown = false;
+    this._ultron = new Ultron(ThisNode);
   }
 
   start() {
@@ -96,6 +102,11 @@ class ActionServer extends EventEmitter {
         this.publishStatus();
       }, 1000 / statusFreq);
     }
+
+    // FIXME: how to handle shutdown? Should user be responsible?
+    // should we check for shutdown in interval instead of listening
+    // to events here?
+    this._ultron.once('shutdown', () => { this.shutdown(); });
   }
 
   generateGoalId() {
@@ -103,14 +114,22 @@ class ActionServer extends EventEmitter {
   }
 
   shutdown() {
-    this.removeAllListeners();
+    if (!this._shutdown) {
+      this._shutdown = true;
+      this.removeAllListeners();
 
-    clearInterval(this._statusFreqInt);
-    this._statusFreqInt = null;
+      clearInterval(this._statusFreqInt);
+      this._statusFreqInt = null;
 
-    if (this._asInterface) {
-      return this._asInterface.shutdown();
+      this._ultron.destroy();
+      this._ultron = null;
+
+      if (this._asInterface) {
+        return this._asInterface.shutdown();
+      }
     }
+    // else
+    return Promise.resolve();
   }
 
   _getGoalHandle(id) {

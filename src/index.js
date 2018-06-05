@@ -127,15 +127,11 @@ let Rosnodejs = {
 
   shutdown() {
     clearTimeout(pingMasterTimeout);
-    if (this.ok()) {
-      return ThisNode.node.shutdown();
-    }
-    // else
-    return Promise.resolve();
+    return ThisNode.shutdown();
   },
 
   ok() {
-    return ThisNode.node && !ThisNode.node.isShutdown();
+    return ThisNode.ok();
   },
 
   on(evt, handler) {
