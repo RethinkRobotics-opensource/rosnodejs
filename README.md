@@ -92,7 +92,7 @@ const client = nh.serviceClient('/add_two_ints', AddTwoInts);
 const nh = rosnodejs.nh;
 const as = new rosnodejs.ActionServer({
   nh,
-  type: 'turtle_actionlib/ShapeAction',
+  type: 'turtle_actionlib/Shape',
   actionServer: '/turtle_shape'
 });
 
@@ -102,7 +102,7 @@ as.on('goal', function (goal) {
 
 as.start();
 
-const ac = nh.actionClientInterface('/turtle_shape', 'turtle_actionlib/ShapeAction');
+const ac = nh.actionClientInterface('/turtle_shape', 'turtle_actionlib/Shape');
 ac.sendGoal({ goal: {edges: 3, radius: 1}});
 ```
 ## Run the turtlesim example

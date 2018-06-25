@@ -43,7 +43,7 @@ class ActionClientInterface extends EventEmitter {
 
     const goalOptions = Object.assign({ queueSize: 10, latching: false }, options.goal);
     this._goalPub = nh.advertise(this._actionServer + '/goal',
-                                 this._actionType + 'Goal',
+                                 this._actionType + 'ActionGoal',
                                  goalOptions);
 
     const cancelOptions = Object.assign({ queueSize: 10, latching: false }, options.cancel);
@@ -59,13 +59,13 @@ class ActionClientInterface extends EventEmitter {
 
     const feedbackOptions = Object.assign({ queueSize: 1 }, options.feedback);
     this._feedbackSub = nh.subscribe(this._actionServer + '/feedback',
-                                     this._actionType + 'Feedback',
+                                     this._actionType + 'ActionFeedback',
                                      (msg) => { this._handleFeedback(msg); },
                                      feedbackOptions);
 
     const resultOptions = Object.assign({ queueSize: 1 }, options.result);
     this._resultSub = nh.subscribe(this._actionServer + '/result',
-                                   this._actionType + 'Result',
+                                   this._actionType + 'ActionResult',
                                    (msg) => { this._handleResult(msg); },
                                    resultOptions);
 

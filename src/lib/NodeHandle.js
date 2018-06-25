@@ -207,7 +207,7 @@ class NodeHandle {
    * @param  {String} actionServer name of the action server
    * (e.g., "/turtle_shape")
    * @param  {String} type action type 
-   * (e.g., "turtle_actionlib/ShapeAction")
+   * (e.g., "turtle_actionlib/Shape")
    * @return {[type]} an instance of ActionClientInterface
    */
   actionClientInterface(actionServer, type, options = {}) {
@@ -216,10 +216,6 @@ class NodeHandle {
     }
     else if (!type) {
       throw new Error(`Unable to create action client ${actionServer} without type - got ${type}`);
-    }
-
-    if (!type.endsWith('Action')) {
-      type += 'Action';
     }
 
     // don't namespace action client - topics will be resolved by
