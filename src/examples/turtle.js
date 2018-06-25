@@ -77,7 +77,7 @@ rosnodejs.initNode('/my_node', {onTheFly: true}).then((rosNode) => {
       const shapeActionGoal = rosnodejs.require('turtle_actionlib').msg.ShapeActionGoal;
       const ac = rosnodejs.nh.actionClient(
         "/turtle_shape",
-        "turtle_actionlib/ShapeAction"
+        "turtle_actionlib/Shape"
       );
       ac.sendGoal(new shapeActionGoal({
             goal: {
