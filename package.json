@@ -12,7 +12,7 @@
     "stressTest": "mocha test/stress.js",
     "flatten": "node tools/flatten.js",
     "generate": "node dist/tools/generateMessages.js",
-    "compile": "babel --presets env src/ -d dist/",
+    "compile": "babel src/ -d dist/",
     "prepublish": "npm run compile"
   },
   "author": "chris smith",
