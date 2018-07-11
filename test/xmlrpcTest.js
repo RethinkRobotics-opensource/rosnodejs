@@ -994,7 +994,7 @@ describe('Protocol Test', () => {
 
   describe('Shutdown', () => {
     let masterStub;
-    before((done) => {
+    before(() => {
       stopMasterStub(() => {
         masterStub = new MasterStub('localhost', MASTER_PORT);
         masterStub.provideAll();
@@ -1003,7 +1003,6 @@ describe('Protocol Test', () => {
       return rosnodejs.shutdown()
       .then(() => {
         rosnodejs.reset();
-        done();
       });
     });
 
@@ -1077,16 +1076,17 @@ describe('Protocol Test', () => {
 
       rosnodejs.initNode(nodeName, initArgs)
       .then((nh) => {
+        
         const pub = nh.advertise('/chatter', 'std_msgs/String');
         const sub = nh.subscribe('/chatter', 'std_msgs/String');
         pub.publish({data: 'hi'});
+      
 
         rosnodejs.shutdown()
         .then(() => {
           rosnodejs.reset();
           expect(gotEvent).to.be.true;
-          expect(nh._node._spinner._spinTimer.clientCallQueue).to.be.empty;
-          expect
+          expect(nh._node._spinner._spinTimer.clientCallQueue).to.be.undefined;
           done();
         });
       });
@@ -1100,7 +1100,7 @@ describe('Protocol Test', () => {
   describe('Parameters', function() {
     let masterStub;
 
-    before((done) => {
+    before(() => {
       masterStub = new MasterStub('localhost', MASTER_PORT);
       masterStub.provideAll();
 
@@ -1109,15 +1109,13 @@ describe('Protocol Test', () => {
         rosnodejs.reset();
         return rosnodejs.initNode(nodeName, initArgs);
       })
-      .then(() => done());
     });
 
-    after((done) => {
+    after(() => {
       masterStub.shutdown();
       return rosnodejs.shutdown()
       .then(() => {
         rosnodejs.reset();
-        done();
       });
     });
 

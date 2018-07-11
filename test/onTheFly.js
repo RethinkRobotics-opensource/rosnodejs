@@ -11,7 +11,7 @@ const MASTER_PORT = 11234;
 describe('OnTheFly', function () {
   let master;
 
-  before(function (done) {
+  before(() => {
     this.timeout(0);
 
     master = new Master('localhost', MASTER_PORT);
@@ -22,9 +22,6 @@ describe('OnTheFly', function () {
       onTheFly: true,
       notime: true,
       logging: {skipRosLogging: true}})
-      .then(() => {
-        done();
-      });
   });
 
   after(() => {
