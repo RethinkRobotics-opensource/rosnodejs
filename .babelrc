@@ -1,12 +1,17 @@
 {
-    "presets": [
-      [
-        "env",
-        {
-          "targets": {
-            "browsers": ["last 2 versions", "ie >= 7"]
-          }
-        }
-      ]
+  "presets": [
+    [
+      "env",
+      {
+        "targets": {
+          "node": 4
+        },
+        "exclude": [
+          "transform-es2015-classes",
+          "transform-es2015-block-scoping",
+          "transform-es2015-arrow-functions"
+        ]
+      }
     ]
-  }
+  ]
+}
