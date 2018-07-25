@@ -28,10 +28,11 @@ const md5Prefix = 'md5sum=';
 const topicPrefix = 'topic=';
 const servicePrefix = 'service=';
 const typePrefix = 'type=';
-const latchingPrefix = 'latching=';
-const persistentPrefix = 'persistent=';
 const errorPrefix = 'error=';
 const messageDefinitionPrefix = 'message_definition=';
+const latchingField = 'latching=1';
+const persistentField = 'persistent=1';
+const tcpNoDelayField = 'tcp_nodelay=1';
 
 //-----------------------------------------------------------------------
 
@@ -66,7 +67,7 @@ function deserializeStringFields(buffer) {
  */
 let TcprosUtils = {
 
-  createSubHeader(callerId, md5sum, topic, type, messageDefinition) {
+  createSubHeader(callerId, md5sum, topic, type, messageDefinition, tcpNoDelay) {
     const fields = [
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
@@ -74,6 +75,11 @@ let TcprosUtils = {
       typePrefix + type,
       messageDefinitionPrefix + messageDefinition
     ];
+
+    if (tcpNoDelay) {
+      fields.push(tcpNoDelayField);
+    }
+
     return serializeStringFields(fields);
   },
 
@@ -92,9 +98,13 @@ let TcprosUtils = {
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
       typePrefix + type,
-      latchingPrefix + latching,
       messageDefinitionPrefix + messageDefinition
     ];
+
+    if (latching) {
+      fields.push(latchingField);
+    }
+
     return serializeStringFields(fields);
   },
 
@@ -106,8 +116,9 @@ let TcprosUtils = {
     ];
 
     if (persistent) {
-      fields.push(persistentPrefix + '1');
+      fields.push(persistentField);
     }
+
     return serializeStringFields(fields);
   },
 
@@ -136,87 +147,6 @@ let TcprosUtils = {
       info[matchResult[1]] = matchResult[2];
     });
 
-    return info;
-  },
-
-  parseSubHeader(header) {
-    let info = {};
-    const fields = deserializeStringFields(header);
-    fields.forEach((field) => {
-
-      if (field.startsWith(md5Prefix)) {
-        info.md5sum = field.substr(md5Prefix.length);
-      }
-      else if (field.startsWith(topicPrefix)) {
-        info.topic = field.substr(topicPrefix.length);
-      }
-      else if (field.startsWith(callerIdPrefix)) {
-        info.callerId = field.substr(callerIdPrefix.length);
-      }
-      else if (field.startsWith(typePrefix)) {
-        info.type = field.substr(typePrefix.length);
-      }
-    });
-    return info;
-  },
-
-  parsePubHeader(header) {
-    let info = {};
-    const fields = deserializeStringFields(header);
-    fields.forEach((field) => {
-
-      if (field.startsWith(md5Prefix)) {
-        info.md5sum = field.substr(md5Prefix.length);
-      }
-      else if (field.startsWith(latchingPrefix)) {
-        info.latching = field.substr(latchingPrefix.length);
-      }
-      else if (field.startsWith(callerIdPrefix)) {
-        info.callerId = field.substr(callerIdPrefix.length);
-      }
-      else if (field.startsWith(typePrefix)) {
-        info.type = field.substr(typePrefix.length);
-      }
-    });
-    return info;
-  },
-
-  parseServiceClientHeader(header) {
-    let info = {};
-    const fields = deserializeStringFields(header);
-    fields.forEach((field) => {
-
-      if (field.startsWith(md5Prefix)) {
-        info.md5sum = field.substr(md5Prefix.length);
-      }
-      else if (field.startsWith(servicePrefix)) {
-        info.service = field.substr(servicePrefix.length);
-      }
-      else if (field.startsWith(callerIdPrefix)) {
-        info.callerId = field.substr(callerIdPrefix.length);
-      }
-      else if (field.startsWith(typePrefix)) {
-        info.type = field.substr(typePrefix.length);
-      }
-    });
-    return info;
-  },
-
-  parseServiceServerHeader(header) {
-    let info = {};
-    const fields = deserializeStringFields(header);
-    fields.forEach((field) => {
-
-      if (field.startsWith(md5Prefix)) {
-        info.md5sum = field.substr(md5Prefix.length);
-      }
-      else if (field.startsWith(callerIdPrefix)) {
-        info.callerId = field.substr(callerIdPrefix.length);
-      }
-      else if (field.startsWith(typePrefix)) {
-        info.type = field.substr(typePrefix.length);
-      }
-    });
     return info;
   },
 
