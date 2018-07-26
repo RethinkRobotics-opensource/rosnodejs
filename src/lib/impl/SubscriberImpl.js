@@ -48,7 +48,7 @@ class SubscriberImpl extends EventEmitter {
 
     this._type = options.type;
 
-    if (options.queueSize) {
+    if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
     }
     else {
@@ -66,6 +66,10 @@ class SubscriberImpl extends EventEmitter {
     else {
       this._throttleMs = 0;
     }
+
+    // tcpNoDelay will be set as a field in the connection header sent to the
+    // relevant publisher - the publisher should then set tcpNoDelay on the socket
+    this._tcpNoDelay =  !!options.tcpNoDelay;
 
     this._msgHandleTime = null;
 
@@ -294,51 +298,51 @@ class SubscriberImpl extends EventEmitter {
     let port = info[2];
     let address = info[1];
 
-    let client = new Socket();
-    client.name = address + ':' + port;
-    client.nodeUri = nodeUri;
+    let socket = new Socket();
+    socket.name = address + ':' + port;
+    socket.nodeUri = nodeUri;
 
-    client.on('end', () => {
+    socket.on('end', () => {
       this._log.info('Subscriber client socket %s on topic %s ended the connection',
-                     client.name, this.getTopic());
+                     socket.name, this.getTopic());
     });
 
-    client.on('error', (err) => {
+    socket.on('error', (err) => {
       this._log.warn('Subscriber client socket %s on topic %s had error: %s',
-                     client.name, this.getTopic(), err);
+                     socket.name, this.getTopic(), err);
     });
 
     // hook into close event to clean things up
-    client.on('close', () => {
+    socket.on('close', () => {
       this._log.info('Subscriber client socket %s on topic %s disconnected',
-                     client.name, this.getTopic());
-      this._disconnectClient(client.nodeUri);
+                     socket.name, this.getTopic());
+      this._disconnectClient(socket.nodeUri);
     });
 
     // open the socket at the provided address, port
-    client.connect(port, address, () => {
+    socket.connect(port, address, () => {
       if (this.isShutdown()) {
-        client.end();
+        socket.end();
         return;
       }
 
       this._log.debug('Subscriber on ' + this.getTopic() + ' connected to publisher at ' + address + ':' + port);
-      client.write(this._createTcprosHandshake());
+      socket.write(this._createTcprosHandshake());
     });
 
     // create a DeserializeStream to chunk out messages
     let deserializer = new DeserializeStream();
-    client.$deserializer = deserializer;
-    client.pipe(deserializer);
+    socket.$deserializer = deserializer;
+    socket.pipe(deserializer);
 
     // cache client in "pending" map.
     // It's not validated yet so we don't want it to show up as a client.
     // Need to keep track of it in case we're shutdown before it can be validated.
-    this._pendingPubClients[client.nodeUri] = client;
+    this._pendingPubClients[socket.nodeUri] = socket;
 
     // create a one-time handler for the connection header
     // if the connection is validated, we'll listen for more events
-    deserializer.once('message', this._handleConnectionHeader.bind(this, client));
+    deserializer.once('message', this._handleConnectionHeader.bind(this, socket));
   }
 
   /**
@@ -347,18 +351,18 @@ class SubscriberImpl extends EventEmitter {
    */
   _createTcprosHandshake() {
     return TcprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(),
-                                       this.getTopic(), this.getType(), this._messageHandler.messageDefinition());
+                                       this.getTopic(), this.getType(), this._messageHandler.messageDefinition(), this._tcpNoDelay);
   }
 
   /**
    * Handles the connection header from a publisher. If connection is validated,
    * we'll start handling messages from the client.
-   * @param client {Socket} publisher client who sent the connection header
+   * @param socket {Socket} publisher client who sent the connection header
    * @param msg {string} message received from the publisher
    */
-  _handleConnectionHeader(client, msg) {
+  _handleConnectionHeader(socket, msg) {
     if (this.isShutdown()) {
-      this._disconnectClient(client.nodeUri);
+      this._disconnectClient(socket.nodeUri);
       return;
     }
 
@@ -373,22 +377,21 @@ class SubscriberImpl extends EventEmitter {
     const error = TcprosUtils.validatePubHeader(header, this.getType(), this._messageHandler.md5sum());
     if (error) {
       this._log.error(`Unable to validate subscriber ${this.getTopic()} connection header ${JSON.stringify(header)}`);
-      TcprosUtils.parsePubHeader(msg);
-      client.end(Serialize(error));
+      socket.end(Serialize(error));
       return;
     }
     // connection header was valid - we're good to go!
     this._log.debug('Subscriber ' + this.getTopic() + ' got connection header ' + JSON.stringify(header));
 
     // cache client now that we've verified the connection header
-    this._pubClients[client.nodeUri] = client;
+    this._pubClients[socket.nodeUri] = socket;
     // remove client from pending map now that it's validated
-    delete this._pendingPubClients[client.nodeUri];
+    delete this._pendingPubClients[socket.nodeUri];
 
     // pipe all future messages to _handleMessage
-    client.$deserializer.on('message', this._handleMessage.bind(this));
+    socket.$deserializer.on('message', this._handleMessage.bind(this));
 
-    this.emit('connection', header, client.name);
+    this.emit('connection', header, socket.name);
   }
 
   /**

@@ -43,8 +43,7 @@ class PublisherImpl extends EventEmitter {
 
     this._tcpNoDelay =  !!options.tcpNoDelay;
 
-
-    if (options.queueSize) {
+    if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
     }
     else {
@@ -165,7 +164,7 @@ class PublisherImpl extends EventEmitter {
   }
 
   /**
-   * Check if this subscriber has been shutdown
+   * Check if this publisher has been shutdown
    * @returns {boolean}
    */
   isShutdown() {
@@ -242,10 +241,10 @@ class PublisherImpl extends EventEmitter {
   /**
    * Handles a new connection from a subscriber to this publisher's node.
    * Validates the connection header and sends a response header
-   * @param subscriber {Socket} client that sent the header
+   * @param socket {Socket} client that sent the header
    * @param header {Object} deserialized connection header.
    */
-  handleSubscriberConnection(subscriber, header) {
+  handleSubscriberConnection(socket, header) {
     let error = TcprosUtils.validateSubHeader(
       header, this.getTopic(), this.getType(),
       this._messageHandler.md5sum());
@@ -253,7 +252,7 @@ class PublisherImpl extends EventEmitter {
     if (error !== null) {
       this._log.error('Unable to validate subscriber connection header '
                       + JSON.stringify(header));
-      subscriber.end(Serialize(error));
+      socket.end(Serialize(error));
       return;
     }
     // else
@@ -267,42 +266,42 @@ class PublisherImpl extends EventEmitter {
         this.getType(),
         this.getLatching(),
         this._messageHandler.messageDefinition());
-    subscriber.write(respHeader);
+    socket.write(respHeader);
 
     // if this publisher had the tcpNoDelay option set
     // disable the nagle algorithm
-    if  (this._tcpNoDelay || header.tcp_nodelay === 1) {
-      subscriber.setNoDelay(true);
+    if  (this._tcpNoDelay || header.tcp_nodelay === '1') {
+      socket.setNoDelay(true);
     }
 
-    subscriber.on('close', () => {
+    socket.on('close', () => {
       this._log.info('Publisher client socket %s on topic %s disconnected',
-                     subscriber.name, this.getTopic());
-      subscriber.removeAllListeners();
-      delete this._subClients[subscriber.name];
+                     socket.name, this.getTopic());
+      socket.removeAllListeners();
+      delete this._subClients[socket.name];
       this.emit('disconnect');
     });
 
-    subscriber.on('end', () => {
+    socket.on('end', () => {
       this._log.info('Publisher client socket %s on topic %s ended the connection',
-                     subscriber.name, this.getTopic());
+                     socket.name, this.getTopic());
     });
 
-    subscriber.on('error', (err) => {
+    socket.on('error', (err) => {
       this._log.warn('Publisher client socket %s on topic %s had error: %s',
-                     subscriber.name, this.getTopic(), err);
+                     socket.name, this.getTopic(), err);
     });
 
     // if we've cached a message from latching, send it now
     if (this._lastSentMsg !== null) {
       this._log.debug('Sending latched msg to new subscriber');
-      subscriber.write(this._lastSentMsg);
+      socket.write(this._lastSentMsg);
     }
 
     // handshake was good - we'll start publishing to it
-    this._subClients[subscriber.name] = subscriber;
+    this._subClients[socket.name] = socket;
 
-    this.emit('connection', header, subscriber.name);
+    this.emit('connection', header, socket.name);
   }
 
   /**

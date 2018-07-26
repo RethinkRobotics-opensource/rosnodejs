@@ -11,7 +11,7 @@ const MASTER_PORT = 11234;
 describe('OnTheFly', function () {
   let master;
 
-  before(() => {
+  before(function() {
     this.timeout(0);
 
     master = new Master('localhost', MASTER_PORT);
