@@ -7,7 +7,16 @@ node_js:
   - "6"
   - "7"
   - "8"
+services:
+  - docker
+
 env:
+  - distribution: ubuntu
+    version: xenial
+  - distribution: ubuntu
+    version: trusty
+  - distribution: ubuntu
+    version: bionic
   global:
     - ROS_DISTRO=indigo
     - ROS_CI_DESKTOP="`lsb_release -cs`"  # e.g. [precise|trusty|...]
@@ -32,7 +41,7 @@ before_install:
   # Prepare rosdep to install dependencies.
   - sudo rosdep init
   - rosdep update
-  
+
 # Create a catkin workspace with the package under integration.
 install:
   - mkdir -p ~/catkin_ws/src
@@ -40,10 +49,10 @@ install:
   - catkin_init_workspace
   # Create the devel/setup.bash (run catkin_make with an empty workspace) and
   # source it to set the path variables.
-  - cd ~/catkin_ws  
+  - cd ~/catkin_ws
   - catkin_make
   - source devel/setup.bash
-  
+
   # Install required message packages
   - git clone https://github.com/ros/std_msgs.git src/std_msgs
   - git clone https://github.com/ros/common_msgs src/common_msgs
@@ -66,4 +75,3 @@ script:
   - npm run compile
   - npm run generate
   - npm test
-  
