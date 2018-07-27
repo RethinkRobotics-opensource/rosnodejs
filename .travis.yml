@@ -1,24 +1,30 @@
 compiler:
   - gcc
 language: node_js
-node_js:
-  - "6"
-  - "7"
-  - "8"
-services:
-  - docker
 
 matrix:
   include:
     - os: linux
       dist: trusty
       sudo: required
+      node_js:
+        - "6"
+        - "7"
+        - "8"
     - os: linux
       dist: xenial
       sudo: required
+      node_js:
+        - "6"
+        - "7"
+        - "8"
     - os: linux
       dist: bionic
       sudo: required
+      node_js:
+        - "6"
+        - "7"
+        - "8"
 
 env:
   global:
