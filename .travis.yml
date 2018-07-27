@@ -24,6 +24,7 @@ branches:
 
 # Install system dependencies, namely a very barebones ROS setup.
 before_install:
+  - sudo apt-get install -y dpkg  # to upgrade to dpkg >= 1.17.5ubuntu5.8, which fixes https://bugs.launchpad.net/ubuntu/+source/dpkg/+bug/1730627
   - sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list"
   - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
   - sudo apt-get update -qq
@@ -32,7 +33,7 @@ before_install:
   # Prepare rosdep to install dependencies.
   - sudo rosdep init
   - rosdep update
-  
+
 # Create a catkin workspace with the package under integration.
 install:
   - mkdir -p ~/catkin_ws/src
@@ -40,10 +41,10 @@ install:
   - catkin_init_workspace
   # Create the devel/setup.bash (run catkin_make with an empty workspace) and
   # source it to set the path variables.
-  - cd ~/catkin_ws  
+  - cd ~/catkin_ws
   - catkin_make
   - source devel/setup.bash
-  
+
   # Install required message packages
   - git clone https://github.com/ros/std_msgs.git src/std_msgs
   - git clone https://github.com/ros/common_msgs src/common_msgs
@@ -66,4 +67,3 @@ script:
   - npm run compile
   - npm run generate
   - npm test
-  
