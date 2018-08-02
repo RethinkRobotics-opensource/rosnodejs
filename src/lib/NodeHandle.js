@@ -19,7 +19,7 @@
 
 let RosNode = require('./RosNode.js');
 const messageUtils = require('../utils/message_utils.js');
-const namespaceUtils = require('../utils/namespace_utils.js');
+const names = require('./Names.js');
 const ActionClientInterface = require('./ActionClientInterface.js');
 const ActionServerInterface = require('./ActionServerInterface.js');
 
@@ -31,12 +31,21 @@ const ActionServerInterface = require('./ActionServerInterface.js');
 class NodeHandle {
   constructor(node, namespace=null) {
     this._node = node;
+    this._namespace = '';
 
-    this._namespace = namespace;
+    this.setNamespace(namespace);
   }
 
   setNamespace(namespace) {
-    this._namespace = namespace;
+    if (typeof namespace !== 'string') {
+      namespace = '';
+    }
+
+    if (namespace.startsWith('~')) {
+      namespace = names.resolve(namespace);
+    }
+
+    this._namespace = this.resolveName(namespace, true);
   }
 
   getNodeName() {
@@ -70,7 +79,7 @@ class NodeHandle {
     }
 
     try {
-      options.topic = this._resolve(topic);
+      options.topic = this.resolveName(topic);
       if (typeof type === 'string' || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForMsgType(type, true);
@@ -106,7 +115,7 @@ class NodeHandle {
     }
 
     try {
-      options.topic = this._resolve(topic);
+      options.topic = this.resolveName(topic);
       if (typeof type === 'string' || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForMsgType(type, true);
@@ -144,7 +153,7 @@ class NodeHandle {
     }
 
     try {
-      let options = {service: this._resolve(service)};
+      let options = { service: this.resolveName(service) };
       if (typeof type === 'string' || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForSrvType(type, true);
@@ -176,7 +185,7 @@ class NodeHandle {
     if (!type) {
       throw new Error(`Unable to create service client ${service} without type - got ${type}`);
     }
-    options.service = this._resolve(service);
+    options.service = this.resolveName(service);
 
     try {
       if (typeof type === 'string' || type instanceof String) {
@@ -206,7 +215,7 @@ class NodeHandle {
    * Create an action client
    * @param  {String} actionServer name of the action server
    * (e.g., "/turtle_shape")
-   * @param  {String} type action type 
+   * @param  {String} type action type
    * (e.g., "turtle_actionlib/Shape")
    * @return {[type]} an instance of ActionClientInterface
    */
@@ -250,7 +259,7 @@ class NodeHandle {
    * @param topic {string} topic to unsubscribe from
    */
   unsubscribe(topic) {
-    return this._node.unsubscribe(this._resolve(topic));
+    return this._node.unsubscribe(this.resolveName(topic));
   }
 
   /**
@@ -259,7 +268,7 @@ class NodeHandle {
    * @param topic {string} topic to unadvertise
    */
   unadvertise(topic) {
-    return this._node.unadvertise(this._resolve(topic));
+    return this._node.unadvertise(this.resolveName(topic));
   }
 
   /**
@@ -267,7 +276,7 @@ class NodeHandle {
    * @param service {string} service to unadvertise
    */
   unadvertiseService(service) {
-    return this._node.unadvertiseService(this._resolve(service));
+    return this._node.unadvertiseService(this.resolveName(service));
   }
 
   /**
@@ -277,7 +286,7 @@ class NodeHandle {
    * @return {Promise} resolved when service exists or timeout occurs. Returns true/false for service existence
    */
   waitForService(service, timeout) {
-    service = this._resolve(service);
+    service = this.resolveName(service);
 
     let _waitForService = (callback, timeout) => {
       setTimeout( () => {
@@ -364,25 +373,60 @@ class NodeHandle {
 // Param Interface
 //------------------------------------------------------------------
   deleteParam(key) {
-    return this._node.deleteParam(this._resolve(key));
+    return this._node.deleteParam(this.resolveName(key));
   }
 
   setParam(key, value) {
-    return this._node.setParam(this._resolve(key), value);
+    return this._node.setParam(this.resolveName(key), value);
   }
 
   getParam(key) {
-    return this._node.getParam(this._resolve(key));
+    return this._node.getParam(this.resolveName(key));
   }
 
   hasParam(key) {
-    return this._node.hasParam(this._resolve(key));
+    return this._node.hasParam(this.resolveName(key));
   }
-//------------------------------------------------------------------
-// Namespacing
-//------------------------------------------------------------------
-  _resolve(name) {
-    return namespaceUtils.resolve(name, this._namespace, this.getNodeName());
+
+  //------------------------------------------------------------------
+  // Namespacing
+  //------------------------------------------------------------------
+
+  resolveName(name, remap = true, noValidate = false) {
+    if (!noValidate) {
+      names.validate(name, true);
+    }
+
+    if (name.length === 0) {
+      return this._namespace;
+    }
+
+    if (name.startsWith('~')) {
+      throw new Error('Using ~ names with NodeHandle methods is not allowed');
+    }
+    else if (!name.startsWith('/') && this._namespace.length > 0) {
+      name = names.append(this._namespace, name);
+    }
+    else {
+      name = names.clean(name);
+    }
+
+    if (remap) {
+      return this._remapName(name);
+    }
+    else {
+      return names.resolve(name, false);
+    }
+  }
+
+  remapName(name) {
+    name = this.resolveName(name, false);
+
+    return this._remapName(name);
+  }
+
+  _remapName(name) {
+    return names.remap(name);
   }
 }
 

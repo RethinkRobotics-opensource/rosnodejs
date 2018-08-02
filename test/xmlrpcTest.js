@@ -1006,9 +1006,12 @@ describe('Protocol Test', () => {
       });
     });
 
-    after(() => {
-      masterStub.shutdown();
-    });
+    after((done) => {
+      masterStub.shutdown()
+      .then(() => {
+        done();
+      });
+    })
 
     it('Shutdown after successful start with master running', function(done) {
       rosnodejs.initNode(nodeName, initArgs)
@@ -1202,6 +1205,83 @@ describe('Protocol Test', () => {
         expect(result).to.be.false;
         done();
       });
+    });
+  });
+
+  describe('initialization', () => {
+    const MASTER_PORT = 55599;
+    const rosMasterUri = `http://localhost:${MASTER_PORT}`;
+    // don't provide any of the expected APIs so the node won't initialize
+    const masterStub = new MasterStub('localhost', MASTER_PORT);
+    // turn off warnings about methods not existing since we're purposefully
+    // not providing any methods
+    masterStub.verbose = false;
+
+    afterEach((done) => {
+      rosnodejs.shutdown()
+      .then(() => {
+        rosnodejs.reset();
+        done();
+      });
+    })
+
+    after((done) => {
+      masterStub.shutdown()
+      .then(() => { done() });
+    })
+
+    it('wait forever', function(done) {
+      this.slow(3000);
+      this.timeout(5000);
+
+      rosnodejs.initNode('test_node', { rosMasterUri })
+      .then(() => {
+        process.nextTick(() => {
+          throw new Error('Node shouldnt initialize');
+        });
+      });
+
+      setTimeout(done, 2000);
+    });
+
+    it('wait a little', function(done) {
+      this.slow(3000);
+      this.timeout(5000);
+      let timeout;
+      rosnodejs.initNode('test_node', { rosMasterUri, timeout: 1000 })
+      .then(() => {
+        process.nextTick(() => {
+          throw new Error('Node shouldnt initialize');
+        });
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        done();
+      })
+
+      timeout = setTimeout(() => {
+        throw new Error('Should have timed out!');
+      }, 2000);
+    });
+
+    it('wait once', function(done) {
+      this.slow(500);
+
+      let timeout;
+      rosnodejs.initNode('test_node', { rosMasterUri, timeout: 0 })
+      .then(() => {
+        process.nextTick(() => {
+          throw new Error('Node shouldnt initialize');
+        });
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        done();
+      })
+
+      timeout = setTimeout(() => {
+        throw new Error('Should have timed out!');
+      }, 500);
     });
   });
 });
