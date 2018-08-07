@@ -60,14 +60,8 @@ class GoalHandle {
     this._destructionTime = timeUtils.epoch();
   }
 
-  _isTerminalState() {
-    return [
-      GoalStatuses.REJECTED,
-      GoalStatuses.RECALLED,
-      GoalStatuses.PREEMPTED,
-      GoalStatuses.ABORTED,
-      GoalStatuses.SUCCEEDED
-    ].includes(this._status.status);
+  getGoal() {
+    return this._goal;
   }
 
   getStatusId() {
@@ -80,10 +74,6 @@ class GoalHandle {
 
   getGoalStatus() {
     return this._status;
-  }
-
-  getGoal() {
-    return this._goal;
   }
 
   publishFeedback(feedback) {
@@ -111,13 +101,15 @@ class GoalHandle {
   // For Goal State transitions, See
   // http://wiki.ros.org/actionlib/DetailedDescription#Server_Description
 
-  setCancelled(result, text = '') {
+  setCanceled(result, text = '') {
     const status = this.getStatusId();
     switch (status) {
+      case GoalStatuses.PENDING:
       case GoalStatuses.RECALLING:
         this._setStatus(GoalStatuses.RECALLED, text);
         this._publishResult(result);
         break;
+      case GoalStatuses.ACTIVE:
       case GoalStatuses.PREEMPTING:
         this._setStatus(GoalStatuses.PREEMPTED, text);
         this._publishResult(result);
@@ -126,6 +118,10 @@ class GoalHandle {
         this._logInvalidTransition('setCancelled', status);
         break;
     }
+  }
+
+  setCancelled(result, text = '') {
+    return this.setCanceled(result, text);
   }
 
   setRejected(result, text = '') {
@@ -202,6 +198,16 @@ class GoalHandle {
 
   _logInvalidTransition(transition, currentStatus) {
     log.warn('Unable to %s from status %s for goal %s', transition, currentStatus, this.id);
+  }
+
+  _isTerminalState() {
+    return [
+      GoalStatuses.REJECTED,
+      GoalStatuses.RECALLED,
+      GoalStatuses.PREEMPTED,
+      GoalStatuses.ABORTED,
+      GoalStatuses.SUCCEEDED
+    ].includes(this._status.status);
   }
 }
 

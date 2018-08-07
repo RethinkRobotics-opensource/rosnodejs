@@ -54,11 +54,37 @@ module.exports = {
     return this.toSeconds(t);
   },
 
+  add(a, b) {
+    let nsecs = a.nsecs + b.nsecs;
+    let secs = a.secs + b.secs;
+
+    // FIXME: we're ignoring negative time here
+    if (nsecs > 1e9) {
+      secs += Math.floor(nsecs / 1e9);
+      nsecs = nsecs % 1e9;
+    }
+
+    return {
+      secs,
+      nsecs
+    }
+  },
+
+  lt(a, b) {
+    return this.timeComp(a, b) < 0;
+  },
+
   toSeconds(t) {
     return t.secs + t.nsecs * NSEC_TO_SEC;
   },
 
   timeComp(a, b) {
-    return Math.sign(this.toNumber(a) - this.toNumber(b));
+    const secDif = a.secs - b.secs;
+    if (secDif !== 0) {
+      return Math.sign(secDif);
+    }
+    else {
+      return Math.sign(a.nsecs - b.nsecs);
+    }
   }
 };

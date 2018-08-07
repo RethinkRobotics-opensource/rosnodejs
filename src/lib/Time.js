@@ -45,7 +45,9 @@ const Time = {
   isZeroTime:    timeUtils.isZeroTime,
   toNumber:      timeUtils.toNumber,
   toSeconds:     timeUtils.toSeconds,
-  timeComp:      timeUtils.timeComp
+  timeComp:      timeUtils.timeComp,
+  add:           timeUtils.add,
+  lt:            timeUtils.lt,
 };
 
 module.exports = Time;

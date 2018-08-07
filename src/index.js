@@ -34,14 +34,18 @@ const Time = require('./lib/Time.js');
 const packages = require('./utils/messageGeneration/packages.js');
 
 const ActionServer = require('./actions/ActionServer.js');
+const ActionClient = require('./actions/ActionClient.js');
+const ClientStates = require('./actions/ClientStates.js');
+const SimpleActionClient = require('./actions/SimpleActionClient.js');
+const SimpleActionServer = require('./actions/SimpleActionServer.js');
 
 const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
 const RemapUtils = require('./utils/remapping_utils.js');
 const names = require('./lib/Names.js');
+const ThisNode = require('./lib/ThisNode.js');
 
 // will be initialized through call to initNode
 let log = Logging.getLogger();
-let rosNode = null;
 let pingMasterTimeout = null;
 
 //------------------------------------------------------------------
@@ -85,13 +89,13 @@ let Rosnodejs = {
 
     names.init(remappings, namespace);
 
-    if (rosNode !== null) {
-      if (nodeName === rosNode.getNodeName()) {
+    if (ThisNode.node !== null) {
+      if (nodeName === ThisNode.getNodeName()) {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
       return Promise.reject( Error('Unable to initialize node [' + nodeName + '] - node ['
-                      + rosNode.getNodeName() + '] already exists'));
+                      + ThisNode.getNodeName() + '] already exists'));
     }
 
     Logging.initializeNodeLogger(resolvedName, options.logging);
@@ -101,7 +105,7 @@ let Rosnodejs = {
     const nodeOpts = options.node || {};
     const rosMasterUri = options.rosMasterUri || remappings['__master'] || process.env.ROS_MASTER_URI;;
 
-    rosNode = new RosNode(resolvedName, rosMasterUri, nodeOpts);
+    ThisNode.node = new RosNode(resolvedName, rosMasterUri, nodeOpts);
 
     return new Promise((resolve,reject)=>{
       this._loadOnTheFlyMessages(options)
@@ -118,37 +122,33 @@ let Rosnodejs = {
   },
 
   reset() {
-    rosNode = null;
+    ThisNode.node = null;
   },
 
   shutdown() {
     clearTimeout(pingMasterTimeout);
-    if (this.ok()) {
-      return rosNode.shutdown();
-    }
-    // else
-    return Promise.resolve();
+    return ThisNode.shutdown();
   },
 
   ok() {
-    return rosNode && !rosNode.isShutdown();
+    return ThisNode.ok();
   },
 
   on(evt, handler) {
-    if (rosNode) {
-      rosNode.on(evt, handler);
+    if (ThisNode.node) {
+      ThisNode.node.on(evt, handler);
     }
   },
 
   once(evt, handler) {
-    if (rosNode) {
-      rosNode.once(evt, handler);
+    if (ThisNode.node) {
+      ThisNode.node.once(evt, handler);
     }
   },
 
   removeListener(evt, handler) {
-    if (rosNode) {
-      rosNode.removeListener(evt, handler);
+    if (ThisNode.node) {
+      ThisNode.node.removeListener(evt, handler);
     }
   },
 
@@ -231,15 +231,15 @@ let Rosnodejs = {
    * @return {NodeHandle} for initialized node
    */
   getNodeHandle(namespace) {
-    return new NodeHandle(rosNode, namespace);
+    return new NodeHandle(ThisNode.node, namespace);
   },
 
   get nodeHandle() {
-    return new NodeHandle(rosNode);
+    return new NodeHandle(ThisNode.node);
   },
 
   get nh() {
-    return new NodeHandle(rosNode);
+    return new NodeHandle(ThisNode.node);
   },
 
   get log() {
@@ -280,6 +280,10 @@ let Rosnodejs = {
 };
 
 Rosnodejs.ActionServer = ActionServer;
+Rosnodejs.ActionClient = ActionClient;
+Rosnodejs.SimpleActionServer = SimpleActionServer;
+Rosnodejs.SimpleActionClient = SimpleActionClient;
+Rosnodejs.SimpleClientGoalState = ClientStates.SimpleClientGoalState;
 
 module.exports = Rosnodejs;
 
@@ -302,28 +306,28 @@ function _checkMasterHelper(timeout=100, maxTimeout=-1) {
   const localHelper = (resolve,reject) => {
     pingMasterTimeout = setTimeout(() => {
       // also check that the slave api server is set up
-      if (!rosNode.slaveApiSetupComplete()) {
+      if (!ThisNode.node.slaveApiSetupComplete()) {
         if (Date.now() - startTime >= maxTimeout && maxTimeout >= 0) {
-          log.error(`Unable to register with master node [${rosNode.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
+          log.error(`Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
           reject(new Error('Unable to setup slave API server.'));
           return;
         }
         localHelper(resolve, reject);
         return;
       }
-      rosNode.getMasterUri({ maxAttempts: 1 })
+      ThisNode.node.getMasterUri({ maxAttempts: 1 })
       .then(() => {
-        log.infoOnce(`Connected to master at ${rosNode.getRosMasterUri()}!`);
+        log.infoOnce(`Connected to master at ${ThisNode.node.getRosMasterUri()}!`);
         pingMasterTimeout = null;
         resolve();
       })
       .catch((err, resp) => {
         if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ){
-          log.error(`Timed out before registering with master node [${rosNode.getRosMasterUri()}]: master may not be running yet.`);
+          log.error(`Timed out before registering with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet.`);
           reject(new Error('Registration with master timed out.'));
           return;
         } else {
-          log.warnThrottle(60000, `Unable to register with master node [${rosNode.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
+          log.warnThrottle(60000, `Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
           localHelper(resolve, reject);
         }
       });
