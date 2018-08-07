@@ -104,7 +104,7 @@ class ActionClientInterface extends EventEmitter {
   waitForActionServerToStart(timeoutMs) {
     let isConnected = this.isServerConnected();
     if (isConnected) {
-      return true;
+      return Promise.resolve(true);
     }
     else {
       if (typeof timeoutMs  !== 'number') {
