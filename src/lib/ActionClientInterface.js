@@ -20,6 +20,7 @@
 const msgUtils = require('../utils/message_utils.js');
 const EventEmitter = require('events');
 const Time = require('./Time.js');
+const GoalIdGenerator = require('../actions/GoalIdGenerator.js');
 let GoalID = null;
 let Header = null;
 
@@ -128,6 +129,10 @@ class ActionClientInterface extends EventEmitter {
         return this._waitForActionServerToStart(timeoutMs, start);
       }
     });
+  }
+
+  generateGoalId(now) {
+    return GoalIdGenerator(now);
   }
 
   isServerConnected() {

@@ -22,14 +22,14 @@ const msgUtils = require('../utils/message_utils.js');
 const ActionClientInterface = require('../lib/ActionClientInterface.js');
 
 const EventEmitter = require('events');
+const Ultron = require('ultron');
 
 const ClientGoalHandle = require('./ClientGoalHandle.js');
 const Time = require('../lib/Time.js');
 
 const log = require('../lib/Logging.js').getLogger('actionlib_nodejs');
 const ThisNode = require('../lib/ThisNode.js');
-
-let GOAL_COUNT = 0;
+const GoalIdGenerator = require('./GoalIdGenerator.js');
 
 /**
  * @class ActionClient
@@ -57,10 +57,27 @@ class ActionClient extends EventEmitter {
     };
 
     this._goalLookup = {};
+
+    this._shutdown = false;
+    this._ultron = new Ultron(ThisNode);
+
+    // FIXME: how to handle shutdown? Should user be responsible?
+    // should we check for shutdown in interval instead of listening
+    // to events here?
+    this._ultron.once('shutdown', () => { this.shutdown(); });
   }
 
   shutdown() {
-    return this._acInterface.shutdown();
+    if (!this._shutdown) {
+      this._shutdown = true;
+
+      this._ultron.destroy();
+      this._ultron = null;
+
+      return this._acInterface.shutdown();
+    }
+    // else
+    return Promise.resolve();
   }
 
   sendGoal(goal, transitionCb = null, feedbackCb = null) {
@@ -69,7 +86,7 @@ class ActionClient extends EventEmitter {
     const now = Time.now();
     actionGoal.header.stamp = now;
     actionGoal.goal_id.stamp = now;
-    const goalIdStr = `${ThisNode.getNodeName()}-${GOAL_COUNT++}-${now.secs}.${now.nsecs}`;
+    const goalIdStr = GoalIdGenerator(now);
     actionGoal.goal_id.id = goalIdStr;
     actionGoal.goal = goal;
 
