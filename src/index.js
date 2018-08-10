@@ -90,11 +90,11 @@ let Rosnodejs = {
     names.init(remappings, namespace);
 
     if (ThisNode.node !== null) {
-      if (nodeName === ThisNode.getNodeName()) {
+      if (resolvedName === ThisNode.getNodeName()) {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
-      return Promise.reject( Error('Unable to initialize node [' + nodeName + '] - node ['
+      return Promise.reject( Error('Unable to initialize node [' + resolvedName + '] - node ['
                       + ThisNode.getNodeName() + '] already exists'));
     }
 

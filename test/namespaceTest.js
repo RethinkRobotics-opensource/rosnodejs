@@ -229,18 +229,37 @@ describe('Namespace', function () {
       });
     });
 
-    it('__ns', function(done) {
+    it('__ns', function() {
       this.slow(500);
 
       const remappedNs = 'customNs';
       setRemapArg(remapUtils.SPECIAL_KEYS.ns, remappedNs);
 
       const nodeName = 'node_name';
-      rosnodejs.initNode(nodeName, { rosMasterUri })
+      return rosnodejs.initNode(nodeName, { rosMasterUri })
       .then(() => {
         expect(rosnodejs.nh.getNodeName()).to.equal(`/${remappedNs}/${nodeName}`);
 
-        done();
+        // make sure re-initing the same node still works
+        return rosnodejs.initNode(nodeName, { rosMasterUri })
+        .then(() => {
+          expect(rosnodejs.nh.getNodeName()).to.equal(`/${remappedNs}/${nodeName}`);
+        });
+      });
+    });
+
+    it('Re-init Without Remapping', function() {
+      this.slow(500);
+      const nodeName = 'node_name';
+      return rosnodejs.initNode(nodeName, { rosMasterUri })
+      .then(() => {
+        expect(rosnodejs.nh.getNodeName()).to.equal(`/${nodeName}`);
+
+        // make sure re-initing the same node still works
+        return rosnodejs.initNode(nodeName, { rosMasterUri })
+        .then(() => {
+          expect(rosnodejs.nh.getNodeName()).to.equal(`/${nodeName}`);
+        });
       });
     });
 
