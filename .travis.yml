@@ -49,13 +49,13 @@ matrix:
     - os: linux
       dist: bionic
       sudo: required
-      node_js: "7
+      node_js: "7"
       env:
         - ROS_DISTRO=melodic
     - os: linux
       dist: bionic
       sudo: required
-      node_js: "8
+      node_js: "8"
       env:
         - ROS_DISTRO=melodic
         
