@@ -7,31 +7,58 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
-      node_js:
-        - "6"
-        - "7"
-        - "8"
+      node_js: "6"
+      env:
+        - ROS_DISTRO=indigo
+    - os: linux
+      dist: trusty
+      sudo: required
+      node_js: "7"
+      env:
+        - ROS_DISTRO=indigo
+    - os: linux
+      dist: trusty
+      sudo: required
+      node_js: "8"
       env:
         - ROS_DISTRO=indigo
     - os: linux
       dist: xenial
       sudo: required
-      node_js:
-        - "6"
-        - "7"
-        - "8"
+      node_js: "6"
+      env:
+        - ROS_DISTRO=kinetic
+    - os: linux
+      dist: xenial
+      sudo: required
+      node_js: "7"
+      env:
+        - ROS_DISTRO=kinetic
+    - os: linux
+      dist: xenial
+      sudo: required
+      node_js: "8"
       env:
         - ROS_DISTRO=kinetic
     - os: linux
       dist: bionic
       sudo: required
-      node_js:
-        - "6"
-        - "7"
-        - "8"
+      node_js: "6"
       env:
         - ROS_DISTRO=melodic 
-
+    - os: linux
+      dist: bionic
+      sudo: required
+      node_js: "7
+      env:
+        - ROS_DISTRO=melodic
+    - os: linux
+      dist: bionic
+      sudo: required
+      node_js: "8
+      env:
+        - ROS_DISTRO=melodic
+        
 env:
   global:
     - ROS_CI_DESKTOP="`lsb_release -cs`"  # e.g. [precise|trusty|...]
