@@ -21,7 +21,7 @@ matrix:
         - "7"
         - "8"
       env:
-        - ROS_DISTRO=indigo
+        - ROS_DISTRO=kinetic
     - os: linux
       dist: bionic
       sudo: required
