@@ -1,63 +1,54 @@
-compiler:
-  - gcc
-language: node_js
+sudo: required
+services:
+  - docker
 
 matrix:
   include:
-    - os: linux
-      dist: trusty
-      sudo: required
+    - distro: trusty
+      docker_tag: "0.0.2"
       node_js: "6"
       env:
         - ROS_DISTRO=indigo
-    - os: linux
-      dist: trusty
-      sudo: required
+    - distro: trusty
+      docker_tag: "0.0.2"
       node_js: "7"
       env:
         - ROS_DISTRO=indigo
-    - os: linux
-      dist: trusty
-      sudo: required
+    - distro: trusty
+      docker_tag: "0.0.2"
       node_js: "8"
       env:
         - ROS_DISTRO=indigo
-    - os: linux
-      dist: xenial
-      sudo: required
+    - distro: xenial
+      docker_tag: "0.0.3"
       node_js: "6"
       env:
         - ROS_DISTRO=kinetic
-    - os: linux
-      dist: xenial
-      sudo: required
+    - distro: xenial
+      docker_tag: "0.0.3"
       node_js: "7"
       env:
         - ROS_DISTRO=kinetic
-    - os: linux
-      dist: xenial
-      sudo: required
+    - distro: xenial
+      docker_tag: "0.0.3"
       node_js: "8"
       env:
         - ROS_DISTRO=kinetic
-    - os: linux
-      dist: bionic
-      sudo: required
+    - distro: bionic
+      docker_tag: "0.0.5"
       node_js: "6"
       env:
-        - ROS_DISTRO=kinetic 
-    - os: linux
-      dist: bionic
-      sudo: required
+        - ROS_DISTRO=melodic 
+    - distro: bionic
+      docker_tag: "0.0.5"
       node_js: "7"
       env:
-        - ROS_DISTRO=kinetic
-    - os: linux
-      dist: bionic
-      sudo: required
-      node_js: "8"
+        - ROS_DISTRO=melodic
+    - distro: bionic
+      docker_tag: "0.0.5"
+      node_version: "8"
       env:
-        - ROS_DISTRO=kinetic
+        - ROS_DISTRO=melodic
         
 env:
   global:
@@ -75,45 +66,55 @@ branches:
 
 # Install system dependencies, namely a very barebones ROS setup.
 before_install:
-  - sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list"
-  - sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116
-  - sudo apt-get update -qq
-  - sudo apt-get install -y python-catkin-pkg python-rosdep python-wstool ros-$ROS_DISTRO-catkin
-  - source /opt/ros/$ROS_DISTRO/setup.bash
+  - 'docker pull boldt/base-ubuntu-nvm-node-npm:{docker_tag}'
+  - container_id=$(mktemp)
+  - 'docker run --detach --volume="${PWD}" boldt/base-ubuntu-nvm-node-npm:{docker_tag} > "${container_id}"'
+  - >
+    docker exec "$(cat ${container_id})"
+    sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list";
+    sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116;
+    sudo apt-get update -qq;
+    sudo apt-get install -y python-catkin-pkg python-rosdep python-wstool ros-$ROS_DISTRO-catkin;
+    source /opt/ros/$ROS_DISTRO/setup.bash;
   # Prepare rosdep to install dependencies.
-  - sudo rosdep init
-  - rosdep update
+    sudo rosdep init;
+    rosdep update;
 
 # Create a catkin workspace with the package under integration.
 install:
-  - mkdir -p ~/catkin_ws/src
-  - cd ~/catkin_ws/src
-  - catkin_init_workspace
+  - >
+    docker exec "$(cat ${container_id})"
+    mkdir -p ~/catkin_ws/src;
+    cd ~/catkin_ws/src;
+    catkin_init_workspace;
   # Create the devel/setup.bash (run catkin_make with an empty workspace) and
   # source it to set the path variables.
-  - cd ~/catkin_ws
-  - catkin_make
-  - source devel/setup.bash
-
+    cd ~/catkin_ws;
+    catkin_make;
+    source devel/setup.bash;
+  
   # Install required message packages
-  - git clone https://github.com/ros/std_msgs.git src/std_msgs
-  - git clone https://github.com/ros/common_msgs src/common_msgs
-  - git clone https://github.com/RethinkRobotics-opensource/test_msgs.git src/test_msgs
-  - git clone https://github.com/ros/ros_comm_msgs.git src/ros_comm_msgs
+    git clone https://github.com/ros/std_msgs.git src/std_msgs;
+    git clone https://github.com/ros/common_msgs src/common_msgs;
+    git clone https://github.com/RethinkRobotics-opensource/test_msgs.git src/test_msgs;
+    git clone https://github.com/ros/ros_comm_msgs.git src/ros_comm_msgs;
   # Install all dependencies, using wstool first and rosdep second.
   # wstool looks for a ROSINSTALL_FILE defined in the environment variables.
-  - cd ~/catkin_ws/src
-  - wstool init
-  - if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi
-  - wstool up
+    cd ~/catkin_ws/src;
+    wstool init;
+    if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi;
+    wstool up;
   # package depdencies: install using rosdep.
-  - cd ~/catkin_ws
-  - rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO
-  - source devel/setup.bash
+    cd ~/catkin_ws;
+    rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO;
+    source devel/setup.bash;
+    nvm install {node_version}
 
 script:
-  - cd $CI_SOURCE_PATH
-  - npm install
-  - npm run compile
-  - npm run generate
-  - npm test
+  - >
+    docker exec "$(cat ${container_id})"
+    cd $CI_SOURCE_PATH;
+    npm install;
+    npm run compile;
+    npm run generate;
+    npm test;
