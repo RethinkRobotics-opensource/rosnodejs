@@ -45,19 +45,19 @@ matrix:
       sudo: required
       node_js: "6"
       env:
-        - ROS_DISTRO=melodic 
+        - ROS_DISTRO=kinetic 
     - os: linux
       dist: bionic
       sudo: required
       node_js: "7"
       env:
-        - ROS_DISTRO=melodic
+        - ROS_DISTRO=kinetic
     - os: linux
       dist: bionic
       sudo: required
       node_js: "8"
       env:
-        - ROS_DISTRO=melodic
+        - ROS_DISTRO=kinetic
         
 env:
   global:
