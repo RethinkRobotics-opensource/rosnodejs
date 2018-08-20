@@ -4,42 +4,6 @@ services:
   - docker
  
 env:
-  - distro: trusty
-    docker_tag: "0.0.2"
-    node_js: "6"
-    ROS_DISTRO=indigo
-  - distro: trusty
-    docker_tag: "0.0.2"
-    node_js: "7"
-    ROS_DISTRO=indigo
-  - distro: trusty
-    docker_tag: "0.0.2"
-    node_js: "8"
-    ROS_DISTRO=indigo
-  - distro: xenial
-    docker_tag: "0.0.3"
-    node_js: "6"
-    ROS_DISTRO=kinetic
-  - distro: xenial
-    docker_tag: "0.0.3"
-    node_js: "7"
-    ROS_DISTRO=kinetic
-  - distro: xenial
-    docker_tag: "0.0.3"
-    node_js: "8"
-    ROS_DISTRO=kinetic
-  - distro: bionic
-    docker_tag: "0.0.5"
-    node_js: "6"
-    ROS_DISTRO=melodic 
-  - distro: bionic
-    docker_tag: "0.0.5"
-    node_js: "7"
-    ROS_DISTRO=melodic
-  - distro: bionic
-    docker_tag: "0.0.5"
-    node_version: "8"
-    ROS_DISTRO=melodic
   global:
     - ROS_CI_DESKTOP="`lsb_release -cs`"  # e.g. [precise|trusty|...]
     - CI_SOURCE_PATH=$(pwd)
@@ -49,6 +13,44 @@ env:
     # Set the python path manually to include /usr/-/python2.7/dist-packages
     # as this is where apt-get installs python packages.
     - PYTHONPATH=$PYTHONPATH:/usr/lib/python2.7/dist-packages:/usr/local/lib/python2.7/dist-packages
+  matrix:
+    - distro: trusty
+      docker_tag: "0.0.2"
+      node_js: "6"
+      ROS_DISTRO=indigo
+    - distro: trusty
+      docker_tag: "0.0.2"
+      node_js: "7"
+      ROS_DISTRO=indigo
+    - distro: trusty
+      docker_tag: "0.0.2"
+      node_js: "8"
+      ROS_DISTRO=indigo
+    - distro: xenial
+      docker_tag: "0.0.3"
+      node_js: "6"
+      ROS_DISTRO=kinetic
+    - distro: xenial
+      docker_tag: "0.0.3"
+      node_js: "7"
+      ROS_DISTRO=kinetic
+    - distro: xenial
+      docker_tag: "0.0.3"
+      node_js: "8"
+      ROS_DISTRO=kinetic
+    - distro: bionic
+      docker_tag: "0.0.5"
+      node_js: "6"
+      ROS_DISTRO=melodic 
+    - distro: bionic
+      docker_tag: "0.0.5"
+      node_js: "7"
+      ROS_DISTRO=melodic
+    - distro: bionic
+      docker_tag: "0.0.5"
+      node_version: "8"
+      ROS_DISTRO=melodic
+
 branches:
   only:
     - kinetic-devel
