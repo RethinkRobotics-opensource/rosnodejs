@@ -57,9 +57,9 @@ branches:
 
 # Install system dependencies, namely a very barebones ROS setup.
 before_install:
-  - 'docker pull boldt/base-ubuntu-nvm-node-npm:{docker_tag}'
+  - 'docker pull boldt/base-ubuntu-nvm-node-npm:${docker_tag}'
   - container_id=$(mktemp)
-  - 'docker run --detach --volume="${PWD}" boldt/base-ubuntu-nvm-node-npm:{docker_tag} > "${container_id}"'
+  - 'docker run --detach --volume="${PWD}" boldt/base-ubuntu-nvm-node-npm:${docker_tag} > "${container_id}"'
   - >
     docker exec "$(cat ${container_id})"
     sudo apt-get install -y dpkg  # to upgrade to dpkg >= 1.17.5ubuntu5.8, which fixes https://bugs.launchpad.net/ubuntu/+source/dpkg/+bug/1730627
@@ -68,7 +68,7 @@ before_install:
     sudo apt-get update -qq;
     sudo apt-get install -y python-catkin-pkg python-rosdep python-wstool ros-$ROS_DISTRO-catkin;
     source /opt/ros/$ROS_DISTRO/setup.bash;
-  # Prepare rosdep to install dependencies.
+    # Prepare rosdep to install dependencies.
     sudo rosdep init;
     rosdep update;
 
@@ -79,28 +79,28 @@ install:
     mkdir -p ~/catkin_ws/src;
     cd ~/catkin_ws/src;
     catkin_init_workspace;
-  # Create the devel/setup.bash (run catkin_make with an empty workspace) and
-  # source it to set the path variables.
+    # Create the devel/setup.bash (run catkin_make with an empty workspace) and
+    # source it to set the path variables.
     cd ~/catkin_ws;
     catkin_make;
     source devel/setup.bash;
   
-  # Install required message packages
+    # Install required message packages
     git clone https://github.com/ros/std_msgs.git src/std_msgs;
     git clone https://github.com/ros/common_msgs src/common_msgs;
     git clone https://github.com/RethinkRobotics-opensource/test_msgs.git src/test_msgs;
     git clone https://github.com/ros/ros_comm_msgs.git src/ros_comm_msgs;
-  # Install all dependencies, using wstool first and rosdep second.
-  # wstool looks for a ROSINSTALL_FILE defined in the environment variables.
+    # Install all dependencies, using wstool first and rosdep second.
+    # wstool looks for a ROSINSTALL_FILE defined in the environment variables.
     cd ~/catkin_ws/src;
     wstool init;
     if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi;
     wstool up;
-  # package depdencies: install using rosdep.
+    # package depdencies: install using rosdep.
     cd ~/catkin_ws;
     rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO;
     source devel/setup.bash;
-    nvm install {node_version}
+    nvm install ${node_version}
 
 script:
   - >
