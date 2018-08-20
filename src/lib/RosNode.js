@@ -49,6 +49,10 @@ class RosNode extends EventEmitter {
   constructor(nodeName, rosMaster, options={}) {
     super();
 
+	// ActionServers are listening to the shutdown event right now, each of which will add
+	// listeners to RosNode for shutdown
+    this.setMaxListeners(0);
+
     this._log = Logging.getLogger('ros.rosnodejs');
     this._debugLog = Logging.getLogger('ros.superdebug');
 

@@ -34,6 +34,8 @@ class RosMasterStub extends EventEmitter {
 
     this._params = {};
 
+    this.verbose = true;
+
     this.listen();
   }
 
@@ -43,7 +45,9 @@ class RosMasterStub extends EventEmitter {
     });
 
     this._server.on('NotFound', (method, params) => {
-      console.error('Method %s does not exist', method);
+      if (this.verbose) {
+        console.error('Method %s does not exist', method);
+      }
     });
   }
 
@@ -60,7 +64,10 @@ class RosMasterStub extends EventEmitter {
   provide(api) {
     const method = this._apiMap[api];
     if (method && !this._providedApis.has(api)) {
-      this._server.on(api, method);
+      this._server.on(api, (err, params, callback) => {
+        this.emit(api, err, params, callback);
+        method(err, params, callback);
+      });
       this._providedApis.add(api);
     }
   }

@@ -17,13 +17,23 @@
 
 'use strict';
 
-let os = require('os');
+const os = require('os');
+const RemapUtils = require('./remapping_utils');
 
-const ROS_IP = process.env.ROS_IP;
-const ROS_HOSTNAME = process.env.ROS_HOSTNAME;
-const HOST = ROS_IP || ROS_HOSTNAME || os.hostname();
+let HOST = null;
 
-let NetworkUtils = {
+const NetworkUtils = {
+
+  init(remappings) {
+    const ip = remappings[RemapUtils.SPECIAL_KEYS.ip];
+    const host = remappings[RemapUtils.SPECIAL_KEYS.hostname];
+
+    const ROS_IP = process.env.ROS_IP;
+    const ROS_HOSTNAME = process.env.ROS_HOSTNAME;
+
+    HOST = ip || host || ROS_IP || ROS_HOSTNAME || os.hostname();
+  },
+
   /**
    * FIXME: should this just return ROS_IP?
    * get this computer's (non-internal) ip address

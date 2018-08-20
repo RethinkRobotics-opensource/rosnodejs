@@ -51,7 +51,7 @@ $ catkin_make
 OR
 $ catkin build
 ```
-- `loadAllMessages()` - One-time "build" call available through `rosnodejs` for versions of ROS before Kinetic and Node.js v6+. Should be called separately and in advance of processes attempting to use messages.
+- `loadAllPackages()` - One-time "build" call available through `rosnodejs` for versions of ROS before Kinetic and Node.js v6+. Should be called separately and in advance of processes attempting to use messages.
 ```
 const rosnodejs = require('rosnodejs');
 rosnodejs.loadAllPackages();
@@ -65,7 +65,7 @@ const stdMsgs = rosnodejs.require('std_msgs');
 
 | |Pre-Kinetic|Kinetic & Later|
 |:---:|:---:|:---:|
-|Node.js  >= v6|`loadAllMessages()`, on the fly|catkin, `loadAllMessages()`, on the fly|
+|Node.js  >= v6|`loadAllPackages()`, on the fly|catkin, `loadAllPackages()`, on the fly|
 |Node.js < v6|on the fly|on the fly|
 
 ## Using Messages
@@ -102,8 +102,13 @@ as.on('goal', function (goal) {
 
 as.start();
 
-const ac = nh.actionClientInterface('/turtle_shape', 'turtle_actionlib/Shape');
-ac.sendGoal({ goal: {edges: 3, radius: 1}});
+const ac = new rosnodejs.ActionClient({
+  nh,
+  type: 'turtle_actionlib/Shape',
+  actionServer:'/turtle_shape'
+});
+
+ac.sendGoal({edges: 3, radius: 1});
 ```
 ## Run the turtlesim example
 

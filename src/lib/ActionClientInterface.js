@@ -20,6 +20,7 @@
 const msgUtils = require('../utils/message_utils.js');
 const EventEmitter = require('events');
 const Time = require('./Time.js');
+const GoalIdGenerator = require('../actions/GoalIdGenerator.js');
 let GoalID = null;
 let Header = null;
 
@@ -69,28 +70,11 @@ class ActionClientInterface extends EventEmitter {
                                    (msg) => { this._handleResult(msg); },
                                    resultOptions);
 
-    this._goals = {};
-    this._goalCallbacks = {};
-    this._goalSeqNum = 0;
+    this._hasStatus = false;
   }
 
-  _handleStatus(msg) {
-    this.emit('status', msg);
-  }
-
-  _handleFeedback(msg) {
-    const goalId = msg.status.goal_id.id;
-    if  (this._goals.hasOwnProperty(goalId)) {
-      this.emit('feedback', msg);
-    }
-  }
-
-  _handleResult(msg) {
-    const goalId = msg.status.goal_id.id;
-    if (this._goals.hasOwnProperty(goalId)) {
-      delete this._goals[goalId];
-      this.emit('result', msg);
-    }
+  getType() {
+    return this._actionType;
   }
 
   /**
@@ -99,44 +83,65 @@ class ActionClientInterface extends EventEmitter {
    * http://wiki.ros.org/actionlib/DetailedDescription#The_Messages
    * @param [goalId] {string} id of the goal to cancel
    */
-  cancel(goalId) {
-    const cancelGoal = new GoalID({stamp: Time.now()});
+  cancel(goalId, stamp = null) {
+    if (!stamp) {
+      stamp = Time.now();
+    }
+
+    const cancelGoal = new GoalID({ stamp });
     if (!goalId) {
       this._cancelPub.publish(cancelGoal);
     }
-    else if (this._goals.hasOwnProperty(goalId)) {
+    else {
       cancelGoal.id = goalId;
       this._cancelPub.publish(cancelGoal);
     }
   }
 
   sendGoal(goal) {
-    if (!goal.goal_id) {
-      goal.goal_id = new GoalID({
-          stamp: Time.now(),
-          id: this.generateGoalId()
-        });
-    }
-    if (!goal.header) {
-      goal.header = new Header({
-          seq: this._goalSeqNum++,
-          stamp: goal.goal_id.stamp,
-          frame_id: 'auto-generated'
-        });
-    }
-    const goalId = goal.goal_id.id;
-    this._goals[goalId] = goal;
-
     this._goalPub.publish(goal);
-    return goal;
   }
 
-  generateGoalId() {
-    let id = this._actionType + '.';
-    id += 'xxxxxxxx'.replace(/[x]/g, function(c) {
-      return (Math.random()*16).toString(16);
+  waitForActionServerToStart(timeoutMs) {
+    let isConnected = this.isServerConnected();
+    if (isConnected) {
+      return Promise.resolve(true);
+    }
+    else {
+      if (typeof timeoutMs  !== 'number') {
+        timeoutMs = 0;
+      }
+
+      return this._waitForActionServerToStart(timeoutMs, Date.now());
+    }
+  }
+
+  _waitForActionServerToStart(timeoutMs, start) {
+    return setTimeoutP(100)
+    .then(() => {
+      if (this.isServerConnected()) {
+        return true;
+      }
+      else if (timeoutMs > 0 && start + timeoutMs > Date.now()) {
+        return false;
+      }
+      else {
+        return this._waitForActionServerToStart(timeoutMs, start);
+      }
     });
-    return id;
+  }
+
+  generateGoalId(now) {
+    return GoalIdGenerator(now);
+  }
+
+  isServerConnected() {
+    return this._hasStatus &&
+      this._goalPub.getNumSubscribers() > 0 &&
+      this._cancelPub.getNumSubscribers() > 0 &&
+      this._statusSub.getNumPublishers() > 0 &&
+      this._feedbackSub.getNumPublishers() > 0 &&
+      this._resultSub.getNumPublishers() > 0;
   }
 
   /**
@@ -156,6 +161,25 @@ class ActionClientInterface extends EventEmitter {
       this._resultSub.shutdown()
     ]);
   }
+
+  _handleStatus(msg) {
+    this._hasStatus = true;
+    this.emit('status', msg);
+  }
+
+  _handleFeedback(msg) {
+    this.emit('feedback', msg);
+  }
+
+  _handleResult(msg) {
+    this.emit('result', msg);
+  }
+}
+
+function setTimeoutP(timeoutMs) {
+  return new Promise(function(resolve) {
+    setTimeout(resolve, timeoutMs);
+  });
 }
 
 module.exports = ActionClientInterface;
