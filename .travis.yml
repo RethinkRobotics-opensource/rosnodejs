@@ -57,9 +57,11 @@ branches:
 
 # Install system dependencies, namely a very barebones ROS setup.
 before_install:
-  - 'docker pull boldt/base-ubuntu-nvm-node-npm:${docker_tag}'
+  - docker pull boldt/base-ubuntu-nvm-node-npm:${docker_tag}
   - container_id=$(mktemp)
-  - 'docker run --detach boldt/base-ubuntu-nvm-node-npm:${docker_tag} > "${container_id}"'
+  - docker run -d boldt/base-ubuntu-nvm-node-npm:${docker_tag} > "${container_id}"
+  - docker ps -a
+  - cat ${container_id}
 
 # Create a catkin workspace with the package under integration.
 install:
