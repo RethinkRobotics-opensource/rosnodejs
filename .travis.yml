@@ -16,35 +16,35 @@ env:
   matrix:
     - distro: trusty
       docker_tag: "0.0.2"
-      node_js: 6
+      node_version: 6
       ROS_DISTRO: indigo
     - distro: trusty
       docker_tag: "0.0.2"
-      node_js: 7
+      node_version: 7
       ROS_DISTRO: indigo
     - distro: trusty
       docker_tag: "0.0.2"
-      node_js: 8
+      node_version: 8
       ROS_DISTRO: indigo
     - distro: xenial
       docker_tag: "0.0.3"
-      node_js: 6
+      node_version: 6
       ROS_DISTRO: kinetic
     - distro: xenial
       docker_tag: "0.0.3"
-      node_js: 7
+      node_version: 7
       ROS_DISTRO: kinetic
     - distro: xenial
       docker_tag: "0.0.3"
-      node_js: 8
+      node_version: 8
       ROS_DISTRO: kinetic
     - distro: bionic
       docker_tag: "0.0.5"
-      node_js: 6
+      node_version: 6
       ROS_DISTRO: melodic 
     - distro: bionic
       docker_tag: "0.0.5"
-      node_js: 7
+      node_version: 7
       ROS_DISTRO: melodic
     - distro: bionic
       docker_tag: "0.0.5"
