@@ -76,8 +76,8 @@ before_install:
     -e PYTHONPATH 
     -e DOCKER_SOURCE_PATH 
     -e node_version 
-    --name build 
     -v $(pwd):${DOCKER_SOURCE_PATH} 
+    --name build
     boldt/base-ubuntu-nvm-node-npm:${docker_tag}
   - docker ps -a
 
