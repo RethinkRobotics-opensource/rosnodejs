@@ -58,96 +58,106 @@ branches:
 # Install system dependencies, namely a very barebones ROS setup.
 before_install:
   - docker pull boldt/base-ubuntu-nvm-node-npm:${docker_tag}
-  - docker run -it -d --name build boldt/base-ubuntu-nvm-node-npm:${docker_tag} bash
+  - > 
+    docker run -it -d --name build boldt/base-ubuntu-nvm-node-npm:${docker_tag} bash  
+    -e ROS_REPO
+    -e ROS_DISTRO 
+    -e ROSINSTALL_FILE
+    -e ROS_CI_DESKTOP
+    -e CATKIN_OPTIONS
+    -e CI_SOURCE_PATH
+    -e PYTHONPATH
+    -e node_version
+
   - docker ps -a
 
 # Create a catkin workspace with the package under integration.
 install:
-  - docker exec -it build bash
   - >
-    docker exec -it build
-    sudo apt-get install -y dpkg  # to upgrade to dpkg >= 1.17.5ubuntu5.8, which fixes https://bugs.launchpad.net/ubuntu/+source/dpkg/+bug/1730627
+    docker exec build bash -c
+    'sudo apt-get install -y dpkg'
+    # to upgrade to dpkg >= 1.17.5ubuntu5.8, which fixes https://bugs.launchpad.net/ubuntu/+source/dpkg/+bug/1730627
   - >
-    docker exec -it build 
-    sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list";
+    docker exec build bash -c
+    'sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list"'
   - >
-    docker exec -it build 
-    sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116;
+    docker exec build bash -c
+    'sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116;'
   - >
-    docker exec -it build 
-    sudo apt-get update -qq;
+    docker exec build bash -c
+    'sudo apt-get update -qq;'
   - >
-    docker exec -it build 
-    sudo apt-get install -y python-catkin-pkg python-rosdep python-wstool ros-$ROS_DISTRO-catkin;
+    docker exec build bash -c
+    'sudo apt-get install -y python-catkin-pkg python-rosdep python-wstool ros-$ROS_DISTRO-catkin;'
   - >
-    docker exec -it build
-    source /opt/ros/$ROS_DISTRO/setup.bash
+    docker exec build bash -c
+    'source /opt/ros/$ROS_DISTRO/setup.bash'
     # Prepare rosdep to install dependencies.
   - >
-    docker exec -it build
-    sudo rosdep init;
+    docker exec build bash -c
+    'sudo rosdep init;'
   - >
-    docker exec -it build
-    rosdep update;
+    docker exec build bash -c
+    'rosdep update;'
   - >
-    docker exec -it build
-    mkdir -p ~/catkin_ws/src;
+    docker exec build bash -c
+    'mkdir -p ~/catkin_ws/src;'
   - > 
-    docker exec -it -w ~/catkin_ws/src build
-    catkin_init_workspace;
+    docker exec -w ~/catkin_ws/src build bash -c
+    'catkin_init_workspace;'
     # Create the devel/setup.bash (run catkin_make with an empty workspace) and
     # source it to set the path variables.
   - >
-    docker exec -it -w ~/catkin_ws build
-    catkin_make;
+    docker exec -w ~/catkin_ws build bash -c
+    'catkin_make;'
   - >
-    docker exec -it -w ~/catkin_ws build
-    source devel/setup.bash;
+    docker exec -w ~/catkin_ws build bash -c
+    'source devel/setup.bash;'
     # Install required message packages
   - >
-    docker exec -it -w ~/catkin_ws/src build
-    git clone https://github.com/ros/std_msgs.git
+    docker exec -w ~/catkin_ws/src build bash -c
+    'git clone https://github.com/ros/std_msgs.git'
   - >
-    docker exec -it -w ~/catkin_ws/src build
-    git clone https://github.com/ros/common_msgs
+    docker exec -w ~/catkin_ws/src build bash -c
+    'git clone https://github.com/ros/common_msgs'
   - >
-    docker exec -it -w ~/catkin_ws/src build
-    git clone https://github.com/RethinkRobotics-opensource/test_msgs.git
+    docker exec -w ~/catkin_ws/src build bash -c
+    'git clone https://github.com/RethinkRobotics-opensource/test_msgs.git'
   - >
-    docker exec -it -w ~/catkin_ws/src build
-    git clone https://github.com/ros/ros_comm_msgs.git
+    docker exec -w ~/catkin_ws/src build bash -c
+    'git clone https://github.com/ros/ros_comm_msgs.git'
     # Install all dependencies, using wstool first and rosdep second.
     # wstool looks for a ROSINSTALL_FILE defined in the environment variables.
   - >
-    docker exec -it -w ~/catkin_ws/src build 
-    wstool init;
+    docker exec -w ~/catkin_ws/src build bash -c 
+    'wstool init;'
   - >
-    docker exec -it -w ~/catkin_ws/src build
-    if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi;
+    docker exec -w ~/catkin_ws/src build bash -c
+    'if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi;'
   - >
-    docker exec -it -w ~/catkin_ws/src build
-    wstool up;
+    docker exec -w ~/catkin_ws/src build bash -c
+    'wstool up;'
     # package depdencies: install using rosdep.
   - >
-    docker exec -it -w ~/catkin_ws build
-    rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO;
+    docker exec -w ~/catkin_ws build bash -c
+    'rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO;'
   - >
-    docker exec -it -w ~/catkin_ws build
-    source devel/setup.bash;
+    docker exec -w ~/catkin_ws build bash -c
+    'source devel/setup.bash;'
   - >
-    docker exec -it -w ~/catkin_ws build
-    nvm install ${node_version}
+    docker exec -w ~/catkin_ws build bash -c
+    'nvm install $node_version'
     
 script:
   - >
-    docker exec -it -w $CI_SOURCE_PATH build
-    npm install;
+    docker exec -w $CI_SOURCE_PATH build bash -c
+    'npm install;'
   - >
-    docker exec -it -w $CI_SOURCE_PATH build
-    npm run compile;
+    docker exec -w $CI_SOURCE_PATH build bash -c
+    'npm run compile;'
   - >
-    docker exec -it -w $CI_SOURCE_PATH build
-    npm run generate;
+    docker exec -w $CI_SOURCE_PATH build bash -c
+    'npm run generate;'
   - >
-    docker exec -it -w $CI_SOURCE_PATH build
-    npm test;
+    docker exec -w $CI_SOURCE_PATH build bash -c
+    'npm test;'
