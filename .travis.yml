@@ -59,7 +59,7 @@ branches:
 before_install:
   - docker pull boldt/base-ubuntu-nvm-node-npm:${docker_tag}
   - > 
-    docker run -it -d --name build boldt/base-ubuntu-nvm-node-npm:${docker_tag} bash  
+    docker run -it -d --name build boldt/base-ubuntu-nvm-node-npm:${docker_tag}
     -e ROS_REPO
     -e ROS_DISTRO 
     -e ROSINSTALL_FILE
@@ -68,7 +68,7 @@ before_install:
     -e CI_SOURCE_PATH
     -e PYTHONPATH
     -e node_version
-
+    bash
   - docker ps -a
 
 # Create a catkin workspace with the package under integration.
