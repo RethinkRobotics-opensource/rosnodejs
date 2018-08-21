@@ -2,7 +2,11 @@ sudo: required
 dist: trusty
 services:
   - docker
- 
+
+addons:
+  apt:
+    packages:
+      - docker-ce
 env:
   global:
     - ROS_CI_DESKTOP="`lsb_release -cs`"  # e.g. [precise|trusty|...]
