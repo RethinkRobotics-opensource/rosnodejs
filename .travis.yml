@@ -65,7 +65,7 @@ branches:
 before_install:
   - docker pull boldt/base-ubuntu-nvm-node-npm:${docker_tag}
   - > 
-    docker run -d 
+    docker run -d -it
     -e ROS_REPO 
     -e ROS_DISTRO 
     -e ROSINSTALL_FILE 
