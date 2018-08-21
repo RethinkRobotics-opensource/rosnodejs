@@ -64,105 +64,105 @@ before_install:
 # Create a catkin workspace with the package under integration.
 install:
   - >
-    docker exec build
+    docker exec build bash -c
     sudo apt-get install -y dpkg  # to upgrade to dpkg >= 1.17.5ubuntu5.8, which fixes https://bugs.launchpad.net/ubuntu/+source/dpkg/+bug/1730627
   - >
-    docker exec build 
+    docker exec build bash -c
     sudo sh -c "echo \"deb http://packages.ros.org/ros/ubuntu $ROS_CI_DESKTOP main\" > /etc/apt/sources.list.d/ros-latest.list";
   - >
-    docker exec build 
+    docker exec build bash -c
     sudo apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 421C365BD9FF1F717815A3895523BAEEB01FA116;
   - >
-    docker exec build
+    docker exec build bash -c
     sudo apt-get update -qq;
   - >
-    docker exec build
+    docker exec build bash -c
     sudo apt-get install -y python-catkin-pkg python-rosdep python-wstool ros-$ROS_DISTRO-catkin;
   - >
-    docker exec build
+    docker exec build bash -c
     source /opt/ros/$ROS_DISTRO/setup.bash;
     
     # Prepare rosdep to install dependencies.
   - >
-    docker exec build
+    docker exec build bash -c
     sudo rosdep init;
   - >
-    docker exec build
+    docker exec build bash -c
     rosdep update;
   - >
-    docker exec build
+    docker exec build bash -c
     mkdir -p ~/catkin_ws/src;
   - >
-    docker exec build
+    docker exec build bash -c
     cd ~/catkin_ws/src;
   - >
-    docker exec build
+    docker exec build bash -c
     catkin_init_workspace;
     # Create the devel/setup.bash (run catkin_make with an empty workspace) and
     # source it to set the path variables.
   - >
-    docker exec build
+    docker exec build bash -c
     cd ~/catkin_ws;
   - >
-    docker exec build
+    docker exec build bash -c
     catkin_make;
   - >
-    docker exec build
+    docker exec build bash -c
     source devel/setup.bash;
     # Install required message packages
   - >
-    docker exec build
+    docker exec build bash -c
     git clone https://github.com/ros/std_msgs.git src/std_msgs;
   - >
-    docker exec build
+    docker exec build bash -c
     git clone https://github.com/ros/common_msgs src/common_msgs;
   - >
-    docker exec build
+    docker exec build bash -c
     git clone https://github.com/RethinkRobotics-opensource/test_msgs.git src/test_msgs;
   - >
-    docker exec build
+    docker exec build bash -c
     git clone https://github.com/ros/ros_comm_msgs.git src/ros_comm_msgs;
     # Install all dependencies, using wstool first and rosdep second.
     # wstool looks for a ROSINSTALL_FILE defined in the environment variables.
   - >
-    docker exec build
+    docker exec build bash -c
     cd ~/catkin_ws/src;
   - >
-    docker exec build
+    docker exec build bash -c
     wstool init;
   - >
-    docker exec build
+    docker exec build bash -c
     if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi;
   - >
-    docker exec build
+    docker exec build bash -c
     wstool up;
     # package depdencies: install using rosdep.
   - >
-    docker exec build
+    docker exec build bash -c
     cd ~/catkin_ws;
   - >
-    docker exec build
+    docker exec build bash -c
     rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO;
   - >
-    docker exec build
+    docker exec build bash -c
     source devel/setup.bash;
   - >
-    docker exec build
+    docker exec build bash -c
     nvm install ${node_version}
     
 script:
   - >
-    docker exec --tty build env TERM=xterm
+    docker exec --tty build env TERM=xterm bash -c
     cd $CI_SOURCE_PATH;
   - >
-    docker exec --tty build env TERM=xterm
+    docker exec --tty build env TERM=xterm bash -c
     npm install;
   - >
-    docker exec --tty build env TERM=xterm
+    docker exec --tty build env TERM=xterm bash -c
     npm run compile;
   - >
-    docker exec --tty build env TERM=xterm
+    docker exec --tty build env TERM=xterm bash -c
     npm run generate;
   - >
-    docker exec --tty build env TERM=xterm
+    docker exec --tty build env TERM=xterm bash -c
     npm test;
