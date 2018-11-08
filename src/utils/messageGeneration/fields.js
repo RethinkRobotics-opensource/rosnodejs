@@ -283,7 +283,7 @@ fields.getPrimitiveSize = function(fieldType, fieldValue) {
   }
   else if (fieldType === 'string') {
     if (fieldValue !== undefined) {
-      fieldSize = fieldValue.length + 4;
+      fieldSize = Buffer.byteLength(fieldValue, 'utf-8') + 4;
     }
   }
   else if (fieldType === 'time') {
