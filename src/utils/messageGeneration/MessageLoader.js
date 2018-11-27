@@ -23,7 +23,7 @@ function createDirectory(directory) {
   function createLocal(dirPath) {
     return new Promise((resolve, reject) => {
       fs.mkdir(dirPath, (err) => {
-        if (err && err.code !== 'EEXIST') {
+        if (err && err.code !== 'EEXIST' && err.code !== 'EISDIR') {
           reject(err);
         }
         resolve();
