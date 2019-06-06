@@ -16,20 +16,6 @@ jobs:
           name: Install Dependencies
           command: npm ci
       - run:
-          name: npm build 
-          command: npm run build
-      - run:
-          name: Test
-          command: npm test
-      - run:
-          name: Report Coverage
-          command: bash <(curl -s https://codecov.io/bash)
-      - store_artifacts:
-          path: reports/junit/
-          prefix: reports/junit/
-      - store_test_results:
-          path: reports/junit/
-      - run:
           name: Calculate Version
           command: ci_scripts/ci_tool.sh --run_release
       - persist_to_workspace:
