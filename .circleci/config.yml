@@ -1,0 +1,49 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:8.12.0
+    steps:
+      - checkout
+      - run:
+          name: Set Up Environment
+          command: |
+            sudo apt-get update && sudo apt-get install -y build-essential libbluetooth-dev
+            echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+            git clone --depth 1 git@github.com:6RiverSystems/ci_scripts.git
+            ci_scripts/ci_tool.sh --setup_npm
+      - run:
+          name: Install Dependencies
+          command: npm ci
+      - run:
+          name: Calculate Version
+          command: ci_scripts/ci_tool.sh --run_release
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - .
+
+  publish:
+    docker:
+      - image: node:8.12.0
+    steps:
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Run release
+          command: |
+            ci_scripts/ci_tool.sh --setup_npm
+      - run:
+          name: npm publish
+          command: npm publish
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - build:
+          context: 6rs-circle
+      - publish:
+          context: 6rs-circle
+          requires:
+            - build
