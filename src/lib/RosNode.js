@@ -372,7 +372,7 @@ class RosNode extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
-      const server = xmlrpc.createServer({host: '0.0.0.0', port: xmlrpcPort}, () => {
+      const server = xmlrpc.createServer({port: xmlrpcPort}, () => {
         const {port} = server.httpServer.address();
         this._debugLog.debug('Slave API Listening on port ' + port);
         this._xmlrpcPort = port;
@@ -456,7 +456,7 @@ class RosNode extends EventEmitter {
       if (tcprosPort === null) {
         tcprosPort = 0;
       }
-      server.listen(tcprosPort, '0.0.0.0');
+      server.listen(tcprosPort);
 
       this._tcprosServer = server;
 
