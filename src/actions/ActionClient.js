@@ -123,6 +123,7 @@ class ActionClient extends EventEmitter {
   }
 
   _handleStatus(msg) {
+    this.emit('status', msg);
     const list = msg.status_list;
     const len = list.length;
 
@@ -142,6 +143,7 @@ class ActionClient extends EventEmitter {
   }
 
   _handleFeedback(msg) {
+    this.emit('feedback', msg);
     const goalId = msg.status.goal_id.id;
     const goalHandle = this._goalLookup[goalId];
     if (goalHandle) {
@@ -150,6 +152,7 @@ class ActionClient extends EventEmitter {
   }
 
   _handleResult(msg) {
+    this.emit('result', msg);
     const goalId = msg.status.goal_id.id;
     const goalHandle = this._goalLookup[goalId];
     if (goalHandle) {
