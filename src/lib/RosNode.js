@@ -111,9 +111,12 @@ class RosNode extends EventEmitter {
   }
 
   subscribe(options, callback) {
+    console.log("RosNode subscribe options", options)
     let topic = options.topic;
-    let subImpl = this._subscribers[topic];
+    let subImpl = undefined //this._subscribers[topic];
+    let transport = options.transport || 'TCPROS'
     if (!subImpl) {
+
       subImpl = new SubscriberImpl(options, this);
       this._subscribers[topic] = subImpl;
     }

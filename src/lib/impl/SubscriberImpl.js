@@ -23,7 +23,10 @@ const DeserializeStream = SerializationUtils.DeserializeStream;
 const Deserialize =  SerializationUtils.Deserialize;
 const Serialize = SerializationUtils.Serialize;
 const TcprosUtils = require('../../utils/tcpros_utils.js');
-const Socket = require('net').Socket;
+const UdprosUtils = require('../../utils/udpros_utils.js');
+
+const TCPSocket = require('net').Socket;
+const UDPSocket = require('dgram');
 const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
@@ -41,12 +44,14 @@ class SubscriberImpl extends EventEmitter {
 
   constructor(options, nodeHandle) {
     super();
-
+    console.log(options);
     this.count = 0;
 
     this._topic = options.topic;
 
     this._type = options.type;
+
+    this._transport = options.transport
 
     if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
@@ -82,7 +87,7 @@ class SubscriberImpl extends EventEmitter {
       throw new Error(`Unable to load message for subscriber ${this.getTopic()} with type ${this.getType()}`);
     }
     this._messageHandler = options.typeClass;
-
+    console.log(new this._messageHandler());
     this._pubClients = {};
 
     this._pendingPubClients = {};
@@ -168,9 +173,12 @@ class SubscriberImpl extends EventEmitter {
    * @param pubs {Array} array of uris of nodes that are publishing this topic
    */
   requestTopicFromPubs(pubs) {
+    console.log("requestTopicFromPubs",pubs)
     pubs.forEach((pubUri) => {
       pubUri = pubUri.trim();
-      this._requestTopicFromPublisher(pubUri);
+      this._transport === 'TCPROS' ?
+        this._requestTcpTopicFromPublisher(pubUri) :
+        this._requestUdpTopicFromPublisher(pubUri)
     });
   }
 
@@ -202,12 +210,130 @@ class SubscriberImpl extends EventEmitter {
    *  the topic connection if possible.
    * @param pubUri {string} URI of publisher to request a topic from
    */
-  _requestTopicFromPublisher(pubUri) {
+  _requestUdpTopicFromPublisher(pubUri) {
+    let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
+    // send a topic request to the publisher's node
+    //this._log.debug('Sending topic request to ' + JSON.stringify(info));
+    console.log('Sending topic request to ' + JSON.stringify(info));
+
+    let callerId = this._nodeHandle.getNodeName()
+    let md5sum = this._messageHandler.md5sum()
+    let topic = this.getTopic()
+    let msgType = this.getType()
+
+    const socket = UDPSocket.createSocket('udp4');
+
+
+    // cache client in "pending" map.
+    // It's not validated yet so we don't want it to show up as a client.
+    // Need to keep track of it in case we're shutdown before it can be validated.
+    //this._pendingPubClients[socket.nodeUri] = socket;
+
+    // create a one-time handler for the connection header
+    // if the connection is validated, we'll listen for more events
+
+    socket.on('error', (err) => {
+      console.log(`server error:\n${err.stack}`);
+      server.close();
+    });
+
+    socket.on('message', (msg, rinfo) => {
+
+      //console.log(`server got msg from ${rinfo.address}:${rinfo.port}, length: ${msg.length - 20}`);
+      let connectionId = msg.readUInt32LE(0)
+      let opCode = msg.readUInt8(4)
+      let msgId = msg.readUInt8(5)
+      let blkN = msg.readUInt16LE(6)
+
+      let msgLen = msg.readUInt32LE(8)
+
+      let _msg = Buffer.from(msg.slice(12))
+
+
+      let rosHseq = msg.readUInt32LE(12)
+      let secs = msg.readUInt32LE(16)
+      let nsecs = msg.readUInt32LE(20)
+      let frameId = msg[24] // 0 no frame, 1 global frame
+
+      /*console.log(`ConnectionId: ${connectionId},
+        Opcode: ${opCode},
+        Message Id:${msgId},
+        Block number: ${blkN},
+        Msg Len: ${msgLen},
+        Hseq: ${rosHseq},
+        secs: ${secs},
+        nsecs: ${nsecs}
+        frameId: ${frameId}`);
+      */
+      console.log('-------------------------UDP---------------------------');
+      console.log(_msg)
+      console.log('-------------------------/UDP---------------------------')
+
+
+      console.log(this._messageHandler.deserialize(_msg))
+
+      // cache client in "pending" map.
+      // It's not validated yet so we don't want it to show up as a client.
+      // Need to keep track of it in case we're shutdown before it can be validated.
+
+    });
+
+    socket.on('listening', () => {
+      const address = socket.address();
+      console.log(`server listening ${address.address}:${address.port}`);
+    });
+
+
+    socket.bind(41234);
+
+
+    let header = UdprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType())
+    //let buff = Buffer.alloc(16 + callerId.length + md5sum.length + topic.length + msgType.length +1).fill(0)
+    //console.log(Buffer.from(callerId.length.toString(16), 'hex'))
+    //console.log(Buffer.from(md5sum.length.toString(16), 'hex'))
+    console.log(header)
+    //console.log(Buffer.from(msgType.length.toString(16), 'hex'))
+    /*
+    let buff = Buffer.concat([
+      Buffer.from(callerId.length.toString(16), 'hex'),
+      padding,
+      callerId,
+
+      Buffer.from(md5sum.length.toString(16), 'hex'),
+      padding,
+      md5sum,
+
+      Buffer.from('0'+topic.length.toString(16), 'hex'),
+      padding,
+      topic,
+
+      Buffer.from(msgType.length.toString(16), 'hex'),
+      padding,
+      msgType,
+    ])
+    */
+    //let buff1 = Buffer.from('HQAAAGNhbGxlcmlkPS9saXN0ZW5lcl91bnJlbGlhYmxlJwAAAG1kNXN1bT05OTJjZThhMTY4N2NlYzhjOGJkODgzZWM3M2NhNDFkMQ4AAAB0b3BpYz0vY2hhdHRlchQAAAB0eXBlPXN0ZF9tc2dzL1N0cmluZw==', 'base64')
+    //let base64data = buff.toString('base64');
+    //console.log(buff1)
+    //this._nodeHandle.requestTopic(info.host, info.port, this._topic, protocols)
+    this._nodeHandle.requestTopic(info.host, info.port, this._topic, [[this._transport, header, '127.0.0.1', 41234, 1500]])
+      .then((resp) => {
+
+        //this._handleTopicRequestResponse(resp, pubUri);
+      })
+      .catch((err, resp) => {
+        // there was an error in the topic request
+        //console.log("Error", err, resp)
+        this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
+      });
+  }
+  _requestTcpTopicFromPublisher(pubUri) {
     let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
     // send a topic request to the publisher's node
     this._log.debug('Sending topic request to ' + JSON.stringify(info));
     this._nodeHandle.requestTopic(info.host, info.port, this._topic, protocols)
       .then((resp) => {
+
         this._handleTopicRequestResponse(resp, pubUri);
       })
       .catch((err, resp) => {
@@ -215,7 +341,6 @@ class SubscriberImpl extends EventEmitter {
         this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
       });
   }
-
   /**
    * disconnects and clears out the specified client
    * @param clientId {string}
@@ -278,6 +403,7 @@ class SubscriberImpl extends EventEmitter {
       }
     })
     .catch((err, resp) => {
+      console.log('Error', err, resp)
       this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
     })
   }
@@ -291,14 +417,17 @@ class SubscriberImpl extends EventEmitter {
       return;
     }
 
-    this._log.debug('Topic request response: ' + JSON.stringify(resp));
+    //this._log.debug('Topic request response: ' + JSON.stringify(resp));
+    //console.log('Topic request response: ' + JSON.stringify(resp));
 
     // resp[2] has port and address for where to connect
     let info = resp[2];
     let port = info[2];
     let address = info[1];
 
-    let socket = new Socket();
+    //console.log("_handleTopicRequestResponse, [info, port, address]: ", info, port, address)
+
+    let socket = new TCPSocket();
     socket.name = address + ':' + port;
     socket.nodeUri = nodeUri;
 
@@ -329,8 +458,6 @@ class SubscriberImpl extends EventEmitter {
       this._log.debug('Subscriber on ' + this.getTopic() + ' connected to publisher at ' + address + ':' + port);
       socket.write(this._createTcprosHandshake());
     });
-
-    // create a DeserializeStream to chunk out messages
     let deserializer = new DeserializeStream();
     socket.$deserializer = deserializer;
     socket.pipe(deserializer);
@@ -400,6 +527,7 @@ class SubscriberImpl extends EventEmitter {
    * @param msg {string}
    */
   _handleMessage(msg) {
+    console.log(msg)
     if (this._throttleMs < 0) {
       this._handleMsgQueue([msg]);
     }

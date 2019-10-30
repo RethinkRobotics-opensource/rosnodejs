@@ -124,6 +124,9 @@ class NodeHandle {
         options.typeClass = type;
         options.type = type.datatype();
       }
+      if(!options.transport || typeof options.transport !== 'string' || !!~['UDPROS', 'TCPROS'].indexOf(options.protocol)){
+        options.transport = 'TCPROS'
+      }
       return this._node.subscribe(options, callback);
     }
     catch (err) {

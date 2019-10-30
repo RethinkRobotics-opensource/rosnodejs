@@ -26,13 +26,13 @@ const base_deserializers = ros_msg_utils.Deserialize;
 const callerIdPrefix = 'callerid=';
 const md5Prefix = 'md5sum=';
 const topicPrefix = 'topic=';
-const servicePrefix = 'service=';
+//const servicePrefix = 'service=';
 const typePrefix = 'type=';
-const errorPrefix = 'error=';
-const messageDefinitionPrefix = 'message_definition=';
-const latchingField = 'latching=1';
-const persistentField = 'persistent=1';
-const tcpNoDelayField = 'tcp_nodelay=1';
+//const errorPrefix = 'error=';
+//const messageDefinitionPrefix = 'message_definition=';
+//const latchingField = 'latching=1';
+//const persistentField = 'persistent=1';
+//const tcpNoDelayField = 'tcp_nodelay=1';
 
 //-----------------------------------------------------------------------
 
@@ -41,8 +41,8 @@ function serializeStringFields(fields) {
   fields.forEach((field) => {
     length += (field.length + 4);
   });
-  let buffer = new Buffer(4 + length);
-  let offset = base_serializers.uint32(length, buffer, 0);
+  let buffer = new Buffer(length);
+  let offset = 0
 
   fields.forEach((field) => {
     offset = base_serializers.string(field, buffer, offset);
@@ -65,21 +65,15 @@ function deserializeStringFields(buffer) {
  * NOTE for general questions see
  * http://wiki.ros.org/ROS/TCPROS
  */
-let TcprosUtils = {
+let UdprosUtils = {
 
-  createSubHeader(callerId, md5sum, topic, type, messageDefinition, tcpNoDelay) {
+  createSubHeader(callerId, md5sum, topic, type) {
     const fields = [
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
       topicPrefix + topic,
-      typePrefix + type,
-      messageDefinitionPrefix + messageDefinition
+      typePrefix + type
     ];
-
-    if (tcpNoDelay) {
-      fields.push(tcpNoDelayField);
-    }
-
     return serializeStringFields(fields);
   },
 
@@ -151,7 +145,6 @@ let TcprosUtils = {
   },
 
   validateSubHeader(header, topic, type, md5sum) {
-    console.log("validateSubHeader", header, topic, type, md5sum);
     if (!header.hasOwnProperty('topic')) {
       return this.serializeString('Connection header missing expected field [topic]');
     }
@@ -274,4 +267,4 @@ let TcprosUtils = {
 
 //-----------------------------------------------------------------------
 
-module.exports = TcprosUtils;
+module.exports = UdprosUtils;

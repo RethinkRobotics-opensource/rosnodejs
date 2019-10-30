@@ -72,6 +72,7 @@ class MasterApiClient {
       topicType,
       uri
     ];
+    console.log("Master API client - registerSubscriber", data)
     return new Promise((resolve, reject) => {
       this._call('registerSubscriber', data, resolve, reject, options);
     });
@@ -122,15 +123,15 @@ class MasterApiClient {
     let data = [callerId, subgraph];
     return new Promise((resolve,reject)=>{
       this._call(
-        'getPublishedTopics', 
-        data, 
+        'getPublishedTopics',
+        data,
         function(data) {
           return resolve({
             topics: data[2].map((topic) => { return {
               name: topic[0], type: topic[1]
             }})
           })
-        }, 
+        },
         reject,
         options);
     })
@@ -140,15 +141,15 @@ class MasterApiClient {
     let data = [callerId];
     return new Promise((resolve,reject)=>{
       this._call(
-        'getTopicTypes', 
-        data, 
+        'getTopicTypes',
+        data,
         function(data) {
           return resolve({
             topics: data[2].map((topic) => { return {
               name: topic[0], type: topic[1]
             }})
           })
-        }, 
+        },
         reject,
         options);
     })

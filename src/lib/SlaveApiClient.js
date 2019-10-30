@@ -29,12 +29,16 @@ class SlaveApiClient {
 
   requestTopic(callerId, topic, protocols) {
     let data = [callerId, topic, protocols];
+    console.log("SlaveApiClient - requestTopic", data)
     return new Promise((resolve, reject) => {
       this._xmlrpcClient.methodCall('requestTopic', data, (err, resp) => {
+        //console.log("SlaveApiClient response: ", resp);
         if (err || resp[0] !== 1) {
           reject(err, resp);
         }
         else {
+
+          //console.log(resp[2][5].toString())
           resolve(resp);
         }
       });
