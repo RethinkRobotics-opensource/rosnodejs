@@ -75,6 +75,9 @@ class RosNode extends EventEmitter {
 
     this._subscribers = {};
 
+    //used only in udpros
+    this.boundPorts = [];
+
     this._services = {};
 
     this._setupTcprosServer(options.tcprosPort)
@@ -108,6 +111,34 @@ class RosNode extends EventEmitter {
     }
 
     return new Publisher(pubImpl);
+  }
+  
+  /**
+   *  get udp bound ports
+   */
+  getBoundPorts(){
+    return this.boundPorts
+  }
+
+  /**
+   * add port to list
+   * @param {numer} port 
+   */
+  addToBoundPorts(port){
+    this.boundPorts.push(port)
+  }
+
+  /**
+   * remove port from list
+   * @param {numebr} port 
+   */
+  removeFromBoundPorts(port){
+    let index
+    if (!!~(index = this.boundPorts.indexOf(port))) {
+      this.boundPorts.splice(index, 1)
+      return true
+    }
+    return false
   }
 
   subscribe(options, callback) {

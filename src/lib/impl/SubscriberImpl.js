@@ -52,7 +52,32 @@ class SubscriberImpl extends EventEmitter {
     this._type = options.type;
 
     this._transport = options.transport
+    
+    // checking udp paramas
+    if(this._transport === 'UDPROS') {
+      // port
+      if(options.port === undefined || options.port === null){
+        
+        // random port from 1024 to 65535 
+        // round(random * (max - min)) + min
+        // no check if port is already bound
+        do{
+          this._port = Math.round((Math.random() * 64512) + 1024)
+        }
+        while(!!~nodeHandle.getBoundPorts().indexOf(this._port))
+      }
+      // port range
+      else if(options.port < 1024 || options.port > 65535){
+        throw new Error(`Port ${options.port} is invalid for UDPROS transport: port must be g.t. 1024 and l.t. 65536`);
+      } 
+      else {
+        this._port = options.port
+      }
 
+      //datagram message size
+      this._dgramSize = options.dgramSize || 1500
+    }
+  
     if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
     }
@@ -221,6 +246,7 @@ class SubscriberImpl extends EventEmitter {
     let topic = this.getTopic()
     let msgType = this.getType()
 
+    // Creating udp socket
     const socket = UDPSocket.createSocket('udp4');
 
 
@@ -234,43 +260,64 @@ class SubscriberImpl extends EventEmitter {
 
     socket.on('error', (err) => {
       console.log(`server error:\n${err.stack}`);
+      this._log.warn('Subscriber client socket %s on topic %s had error: %s',
+                     socket.name, this.getTopic(), err);
       server.close();
     });
 
-    socket.on('message', (msg, rinfo) => {
+    // init empty msg
+    let msg = {
+      blkN: 0,
+      msgId: -1,
+      buffer: Buffer.alloc(0)
+    }
+    socket.on('message', (dgramMsg, rinfo) => {
 
-      //console.log(`server got msg from ${rinfo.address}:${rinfo.port}, length: ${msg.length - 20}`);
-      let connectionId = msg.readUInt32LE(0)
-      let opCode = msg.readUInt8(4)
-      let msgId = msg.readUInt8(5)
-      let blkN = msg.readUInt16LE(6)
+      
+      let header = UdprosUtils.deserializeHeader(dgramMsg)
+      if(!header){
+        this._log.warn('Unable to parse packet\'s header for topic %s', this.getTopic())
+        return
+      }
+      // first dgram message
+      const { opCode, blkN, msgId } = header
+      switch(opCode){
+        // DATA0
+        case 0:
+          // no chunk
+          if(blkN === 1){
+            this._handleMessage(dgramMsg.slice(12))
+          } else {
+            msg = {
+              blkN,
+              msgId,
+              buffer: dgramMsg.slice(12)
+            }
+          }
+          break
 
-      let msgLen = msg.readUInt32LE(8)
+        // DATAN
+        case 1:
+          if(msgId === msg.msgId){
+            let buffer = Buffer.from(dgramMsg.slice(8))
+            msg.buffer = Buffer.concat([msg.buffer, buffer])
+            // last chunk
+            if(msg.blkN -1 === header.blkN ){
+              this._handleMessage(Buffer.from(msg.buffer))
+            }
+          }
+          break
 
-      let _msg = Buffer.from(msg.slice(12))
-
-
-      let rosHseq = msg.readUInt32LE(12)
-      let secs = msg.readUInt32LE(16)
-      let nsecs = msg.readUInt32LE(20)
-      let frameId = msg[24] // 0 no frame, 1 global frame
-
-      /*console.log(`ConnectionId: ${connectionId},
-        Opcode: ${opCode},
-        Message Id:${msgId},
-        Block number: ${blkN},
-        Msg Len: ${msgLen},
-        Hseq: ${rosHseq},
-        secs: ${secs},
-        nsecs: ${nsecs}
-        frameId: ${frameId}`);
-      */
-      console.log('-------------------------UDP---------------------------');
-      console.log(_msg)
-      console.log('-------------------------/UDP---------------------------')
-
-
-      console.log(this._messageHandler.deserialize(_msg))
+        // PING
+        case 2:
+          break
+        
+        // ERR
+        case 3:
+          break
+      }
+      
+      //console.log(this._messageHandler.deserialize(buffer), udpHeader)
 
       // cache client in "pending" map.
       // It's not validated yet so we don't want it to show up as a client.
@@ -280,45 +327,19 @@ class SubscriberImpl extends EventEmitter {
 
     socket.on('listening', () => {
       const address = socket.address();
-      console.log(`server listening ${address.address}:${address.port}`);
+      this._log.debug(`UDP socket bound: ${address.address}:${address.port}, Topic:${this.getTopic()}`);
+      
     });
 
 
-    socket.bind(41234);
-
+    socket.bind(this._port);
+    this._nodeHandle.addToBoundPorts(this._port)
 
     let header = UdprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType())
-    //let buff = Buffer.alloc(16 + callerId.length + md5sum.length + topic.length + msgType.length +1).fill(0)
-    //console.log(Buffer.from(callerId.length.toString(16), 'hex'))
-    //console.log(Buffer.from(md5sum.length.toString(16), 'hex'))
-    console.log(header)
-    //console.log(Buffer.from(msgType.length.toString(16), 'hex'))
-    /*
-    let buff = Buffer.concat([
-      Buffer.from(callerId.length.toString(16), 'hex'),
-      padding,
-      callerId,
-
-      Buffer.from(md5sum.length.toString(16), 'hex'),
-      padding,
-      md5sum,
-
-      Buffer.from('0'+topic.length.toString(16), 'hex'),
-      padding,
-      topic,
-
-      Buffer.from(msgType.length.toString(16), 'hex'),
-      padding,
-      msgType,
-    ])
-    */
-    //let buff1 = Buffer.from('HQAAAGNhbGxlcmlkPS9saXN0ZW5lcl91bnJlbGlhYmxlJwAAAG1kNXN1bT05OTJjZThhMTY4N2NlYzhjOGJkODgzZWM3M2NhNDFkMQ4AAAB0b3BpYz0vY2hhdHRlchQAAAB0eXBlPXN0ZF9tc2dzL1N0cmluZw==', 'base64')
-    //let base64data = buff.toString('base64');
-    //console.log(buff1)
-    //this._nodeHandle.requestTopic(info.host, info.port, this._topic, protocols)
-    this._nodeHandle.requestTopic(info.host, info.port, this._topic, [[this._transport, header, '127.0.0.1', 41234, 1500]])
+   
+    this._nodeHandle.requestTopic(info.host, info.port, this._topic, [[this._transport, header, info.host, this._port, this._dgramSize]])
       .then((resp) => {
-
+        this.emit('registered');
         //this._handleTopicRequestResponse(resp, pubUri);
       })
       .catch((err, resp) => {
@@ -416,17 +437,10 @@ class SubscriberImpl extends EventEmitter {
     if (this.isShutdown()) {
       return;
     }
-
-    //this._log.debug('Topic request response: ' + JSON.stringify(resp));
-    //console.log('Topic request response: ' + JSON.stringify(resp));
-
     // resp[2] has port and address for where to connect
     let info = resp[2];
     let port = info[2];
     let address = info[1];
-
-    //console.log("_handleTopicRequestResponse, [info, port, address]: ", info, port, address)
-
     let socket = new TCPSocket();
     socket.name = address + ':' + port;
     socket.nodeUri = nodeUri;
@@ -527,7 +541,6 @@ class SubscriberImpl extends EventEmitter {
    * @param msg {string}
    */
   _handleMessage(msg) {
-    console.log(msg)
     if (this._throttleMs < 0) {
       this._handleMsgQueue([msg]);
     }

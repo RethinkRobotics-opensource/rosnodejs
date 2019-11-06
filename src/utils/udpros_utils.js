@@ -63,7 +63,7 @@ function deserializeStringFields(buffer) {
 
 /**
  * NOTE for general questions see
- * http://wiki.ros.org/ROS/TCPROS
+ * http://wiki.ros.org/ROS/UDPROS
  */
 let UdprosUtils = {
 
@@ -78,16 +78,14 @@ let UdprosUtils = {
   },
 
   /**
-   * Creates a TCPROS connection header for a publisher to send.
+   * Creates a UDPROS connection header for a publisher to send.
    * @param callerId {string} node publishing this topic
    * @param md5sum {string} md5 of the message
    * @param type {string} type of the message
-   * @param latching {number} 0 or 1 indicating if the topic is latching
    * @param messageDefinition {string} trimmed message definition.
    *          rosbag relies on this being sent although it is not mentioned in the spec.
-   *
    */
-  createPubHeader(callerId, md5sum, type, latching, messageDefinition) {
+  createPubHeader(callerId, md5sum, type, messageDefinition) {
     const fields = [
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
@@ -95,9 +93,6 @@ let UdprosUtils = {
       messageDefinitionPrefix + messageDefinition
     ];
 
-    if (latching) {
-      fields.push(latchingField);
-    }
 
     return serializeStringFields(fields);
   },
@@ -260,8 +255,25 @@ let UdprosUtils = {
     return base_deserializers.string(buffer, [0]);
   },
 
-  createTcpRosError(str) {
+  createUdpRosError(str) {
     return this.serializeString(`{errorPrefix}${str}`);
+  },
+
+  deserializeHeader(buff) {
+    if(buff.length < 8){
+      return undefined
+    }
+    let connectionId = buff.readUInt32LE(0)
+    let opCode = buff.readUInt8(4)
+    let msgId = buff.readUInt8(5)
+    let blkN = buff.readUInt16LE(6)
+    
+    return {
+      connectionId,
+      opCode,
+      msgId,
+      blkN
+    }
   }
 };
 
