@@ -29,7 +29,7 @@ const topicPrefix = 'topic=';
 //const servicePrefix = 'service=';
 const typePrefix = 'type=';
 //const errorPrefix = 'error=';
-//const messageDefinitionPrefix = 'message_definition=';
+const messageDefinitionPrefix = 'message_definition=';
 //const latchingField = 'latching=1';
 //const persistentField = 'persistent=1';
 //const tcpNoDelayField = 'tcp_nodelay=1';
@@ -120,7 +120,7 @@ let UdprosUtils = {
     return serializeStringFields(fields);
   },
 
-  parseTcpRosHeader(header) {
+  parseUdpRosHeader(header) {
     let info = {};
 
     const fields = deserializeStringFields(header);
@@ -274,9 +274,20 @@ let UdprosUtils = {
       msgId,
       blkN
     }
+  },
+
+  serializeUdpHeader(connectionId, opCode, msgId, blkN){
+    const buf = new Buffer(8)
+    base_serializers.uint32(connectionId, buf, 0)
+    base_serializers.uint8(opCode, buf, 4)
+    base_serializers.uint8(msgId, buf, 5)
+    base_serializers.uint16(blkN, buf, 6)
+    return buf
   }
 };
 
 //-----------------------------------------------------------------------
 
 module.exports = UdprosUtils;
+
+

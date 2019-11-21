@@ -23,7 +23,9 @@ const TcprosUtils = require('../../utils/tcpros_utils.js');
 const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
-
+const UdprosUtils = require('../../utils/udpros_utils.js');
+const Udp = require('dgram')
+let msgCount = 0;
 /**
  * Implementation class for a Publisher. Handles registration, connecting to
  * subscribers, etc. Public-facing publisher classes will be given an instance
@@ -78,6 +80,8 @@ class PublisherImpl extends EventEmitter {
     this._log = Logging.getLogger('ros.rosnodejs');
 
     this._subClients = {};
+    this._udpSubClients = {};
+
 
     if (!options.typeClass) {
       throw new Error(`Unable to load message for publisher ${this.getTopic()} with type ${this.getType()}`);
@@ -86,6 +90,7 @@ class PublisherImpl extends EventEmitter {
 
     this._state = REGISTERING;
     this._register();
+    this.udpSocket = Udp.createSocket('udp4')
   }
 
   /**
@@ -224,12 +229,60 @@ class PublisherImpl extends EventEmitter {
           this._subClients[client].write(serializedMsg);
         });
 
+        Object.keys(this._udpSubClients).forEach((client) => {
+          
+          let serializedH;
+          let payloadSize = this._udpSubClients[client].dgramSize - 8;
+          if(serializedMsg.length > payloadSize){
+            let totalChunks = Math.ceil(serializedMsg.length / payloadSize)
+            let index = 0, offset = payloadSize;
+            let chunk = serializedMsg.slice(0, payloadSize);
+
+            serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 0, msgCount, totalChunks)
+            let msg = Buffer.concat([serializedH, chunk]);
+            
+            // sending first message opcode 0
+            this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => { 
+              if(err){
+                throw err;
+              }
+            })
+            
+            // sending other chuncks
+            do{
+              chunk = serializedMsg.slice(offset, offset + payloadSize);
+              index++;
+              serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 1, msgCount, index)
+              
+              offset += payloadSize;
+              
+              msg = Buffer.concat([serializedH, chunk]);
+              this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => { 
+                if(err){
+                  throw err;
+                }
+              })
+              
+            } while(index < totalChunks)
+          }
+          else{            
+            serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 0, msgCount, 1)
+            let msg = Buffer.concat([serializedH, serializedMsg]);
+            this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => { 
+              if(err){
+                throw err;
+              }
+            })
+          }
+        })
+        
         // if this publisher is supposed to latch,
         // save the last message. Any subscribers that connects
         // before another call to publish() will receive this message
         if (this.getLatching()) {
           this._lastSentMsg = serializedMsg;
         }
+        msgCount++;
       });
     }
     catch (err) {
@@ -304,6 +357,17 @@ class PublisherImpl extends EventEmitter {
     this.emit('connection', header, socket.name);
   }
 
+  addUdpSubscriber(resp){
+    this._udpSubClients[resp[3]] = {
+      port: resp[2],
+      host: resp[1],
+      dgramSize: resp[4],
+      connId: resp[3]
+    }
+  }
+  removeUdpSubscriber(connId){
+    delete this.addUdpSubscriber[connId]
+  }
   /**
    * Makes an XMLRPC call to registers this publisher with the ROS master
    */
@@ -314,7 +378,6 @@ class PublisherImpl extends EventEmitter {
       if (this.isShutdown()) {
         return;
       }
-
       this._log.info('Registered %s as a publisher: %j', this._topic, resp);
       let code = resp[0];
       let msg = resp[1];

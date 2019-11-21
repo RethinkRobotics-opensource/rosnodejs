@@ -38,6 +38,7 @@ let Deserialize = SerializationUtils.Deserialize;
 let Serialize = SerializationUtils.Serialize;
 let EventEmitter = require('events');
 let Logging = require('./Logging.js');
+const UdprosUtils = require('../utils/udpros_utils.js');
 
 /**
  * Create a ros node interface to the master
@@ -52,7 +53,7 @@ class RosNode extends EventEmitter {
 	// ActionServers are listening to the shutdown event right now, each of which will add
 	// listeners to RosNode for shutdown
     this.setMaxListeners(0);
-
+    this._connections = 0
     this._log = Logging.getLogger('ros.rosnodejs');
     this._debugLog = Logging.getLogger('ros.superdebug');
 
@@ -142,10 +143,8 @@ class RosNode extends EventEmitter {
   }
 
   subscribe(options, callback) {
-    console.log("RosNode subscribe options", options)
     let topic = options.topic;
-    let subImpl = undefined //this._subscribers[topic];
-    let transport = options.transport || 'TCPROS'
+    let subImpl = this._subscribers[topic];
     if (!subImpl) {
 
       subImpl = new SubscriberImpl(options, this);
@@ -515,21 +514,46 @@ class RosNode extends EventEmitter {
 
   _handleTopicRequest(err, params, callback) {
     this._debugLog.info('Got topic request ' + JSON.stringify(params));
+
     if (!err) {
       let topic = params[1];
-      let pub = this._publishers[topic];
+      let pub = this._publishers[topic];      
       if (pub) {
-        let port = this._tcprosPort;
-        let resp = [
-          1,
-          'Allocated topic connection on port ' + port,
-          [
-            'TCPROS',
-            NetworkUtils.getHost(),
-            port
+        if(params[2][0][0] === 'TCPROS'){
+          let port = this._tcprosPort;
+          let resp = [
+            1,
+            'Allocated topic connection on port ' + port,
+            [
+              'TCPROS',
+              NetworkUtils.getHost(),
+              port
+            ]
+          ];
+          callback(null, resp);
+        }
+        else {
+          let header = UdprosUtils.parseUdpRosHeader(params[2][0][1])
+          let host = params[2][0][2];
+          let port = params[2][0][3];
+          let typeClass = messageUtils.getHandlerForMsgType(header.type, true)
+
+          let dgramSize = params[2][0][4];
+          let resp = [
+            1,
+            '',
+            [
+              'UDPROS',
+              NetworkUtils.getHost(), //maybe wrong
+              port,
+              ++this._connections, //connection Id
+              dgramSize,
+              UdprosUtils.createPubHeader(this.getNodeName(), typeClass.md5sum(), typeClass.messageDefinition(), topic, header.type)
+            ]
           ]
-        ];
-        callback(null, resp);
+          pub.addUdpSubscriber(resp[2])
+          callback(null, resp)
+        }
       }
     }
     else {

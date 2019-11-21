@@ -31,8 +31,6 @@ const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
 
-const protocols = [['TCPROS']];
-
 //-----------------------------------------------------------------------
 
 /**
@@ -44,7 +42,6 @@ class SubscriberImpl extends EventEmitter {
 
   constructor(options, nodeHandle) {
     super();
-    console.log(options);
     this.count = 0;
 
     this._topic = options.topic;
@@ -53,31 +50,20 @@ class SubscriberImpl extends EventEmitter {
 
     this._transport = options.transport
     
-    // checking udp paramas
-    if(this._transport === 'UDPROS') {
-      // port
-      if(options.port === undefined || options.port === null){
-        
-        // random port from 1024 to 65535 
-        // round(random * (max - min)) + min
-        // no check if port is already bound
-        do{
-          this._port = Math.round((Math.random() * 64512) + 1024)
-        }
-        while(!!~nodeHandle.getBoundPorts().indexOf(this._port))
-      }
-      // port range
-      else if(options.port < 1024 || options.port > 65535){
-        throw new Error(`Port ${options.port} is invalid for UDPROS transport: port must be g.t. 1024 and l.t. 65536`);
-      } 
-      else {
-        this._port = options.port
-      }
-
-      //datagram message size
-      this._dgramSize = options.dgramSize || 1500
+    this._udp = !!options.udp
+    if(this._udp){ 
+      this._dgramSize = typeof options.dgramSize === 'number' && options.dgramSize ? options.dgramSize : 1500
     }
-  
+
+    this._tcp = options.tcp 
+    if(this._tcp !== undefined && !this._tcp && !this._udp){
+      throw new Error("You must enable at least one transport protocol: TCP or UDP")
+    }
+    else if(this._tcp === undefined && this._udp === undefined){
+      this._tcp = true
+    }
+    
+    this._udpFirst = !!options._udpFirst
     if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
     }
@@ -112,13 +98,14 @@ class SubscriberImpl extends EventEmitter {
       throw new Error(`Unable to load message for subscriber ${this.getTopic()} with type ${this.getType()}`);
     }
     this._messageHandler = options.typeClass;
-    console.log(new this._messageHandler());
     this._pubClients = {};
 
     this._pendingPubClients = {};
 
     this._state = REGISTERING;
     this._register();
+
+    this._port = 9999
   }
 
   /**
@@ -198,12 +185,10 @@ class SubscriberImpl extends EventEmitter {
    * @param pubs {Array} array of uris of nodes that are publishing this topic
    */
   requestTopicFromPubs(pubs) {
-    console.log("requestTopicFromPubs",pubs)
+
     pubs.forEach((pubUri) => {
       pubUri = pubUri.trim();
-      this._transport === 'TCPROS' ?
-        this._requestTcpTopicFromPublisher(pubUri) :
-        this._requestUdpTopicFromPublisher(pubUri)
+      this._requestTopicFromPublisher(pubUri)
     });
   }
 
@@ -219,7 +204,7 @@ class SubscriberImpl extends EventEmitter {
     publisherList.forEach((pubUri) => {
       pubUri = pubUri.trim();
       if (!this._pubClients.hasOwnProperty(pubUri)) {
-        this._requestTopicFromPublisher(pubUri);
+        this._requestTopicFromPublisher(pubUri)
       }
 
       missingPublishers.delete(pubUri);
@@ -230,131 +215,31 @@ class SubscriberImpl extends EventEmitter {
     });
   }
 
+
+
   /**
    * Sends a topicRequest XMLRPC message to the provided URI and initiates
    *  the topic connection if possible.
    * @param pubUri {string} URI of publisher to request a topic from
    */
-  _requestUdpTopicFromPublisher(pubUri) {
+  _requestTopicFromPublisher(pubUri) {
     let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
-    // send a topic request to the publisher's node
-    //this._log.debug('Sending topic request to ' + JSON.stringify(info));
-    console.log('Sending topic request to ' + JSON.stringify(info));
-
-    let callerId = this._nodeHandle.getNodeName()
-    let md5sum = this._messageHandler.md5sum()
-    let topic = this.getTopic()
-    let msgType = this.getType()
-
-    // Creating udp socket
-    const socket = UDPSocket.createSocket('udp4');
-
-
-    // cache client in "pending" map.
-    // It's not validated yet so we don't want it to show up as a client.
-    // Need to keep track of it in case we're shutdown before it can be validated.
-    //this._pendingPubClients[socket.nodeUri] = socket;
-
-    // create a one-time handler for the connection header
-    // if the connection is validated, we'll listen for more events
-
-    socket.on('error', (err) => {
-      console.log(`server error:\n${err.stack}`);
-      this._log.warn('Subscriber client socket %s on topic %s had error: %s',
-                     socket.name, this.getTopic(), err);
-      server.close();
-    });
-
-    // init empty msg
-    let msg = {
-      blkN: 0,
-      msgId: -1,
-      buffer: Buffer.alloc(0)
-    }
-    socket.on('message', (dgramMsg, rinfo) => {
-
-      
-      let header = UdprosUtils.deserializeHeader(dgramMsg)
-      if(!header){
-        this._log.warn('Unable to parse packet\'s header for topic %s', this.getTopic())
-        return
-      }
-      // first dgram message
-      const { opCode, blkN, msgId } = header
-      switch(opCode){
-        // DATA0
-        case 0:
-          // no chunk
-          if(blkN === 1){
-            this._handleMessage(dgramMsg.slice(12))
-          } else {
-            msg = {
-              blkN,
-              msgId,
-              buffer: dgramMsg.slice(12)
-            }
-          }
-          break
-
-        // DATAN
-        case 1:
-          if(msgId === msg.msgId){
-            let buffer = Buffer.from(dgramMsg.slice(8))
-            msg.buffer = Buffer.concat([msg.buffer, buffer])
-            // last chunk
-            if(msg.blkN -1 === header.blkN ){
-              this._handleMessage(Buffer.from(msg.buffer))
-            }
-          }
-          break
-
-        // PING
-        case 2:
-          break
-        
-        // ERR
-        case 3:
-          break
-      }
-      
-      //console.log(this._messageHandler.deserialize(buffer), udpHeader)
-
-      // cache client in "pending" map.
-      // It's not validated yet so we don't want it to show up as a client.
-      // Need to keep track of it in case we're shutdown before it can be validated.
-
-    });
-
-    socket.on('listening', () => {
-      const address = socket.address();
-      this._log.debug(`UDP socket bound: ${address.address}:${address.port}, Topic:${this.getTopic()}`);
-      
-    });
-
-
-    socket.bind(this._port);
-    this._nodeHandle.addToBoundPorts(this._port)
-
-    let header = UdprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType())
-   
-    this._nodeHandle.requestTopic(info.host, info.port, this._topic, [[this._transport, header, info.host, this._port, this._dgramSize]])
-      .then((resp) => {
-        this.emit('registered');
-        //this._handleTopicRequestResponse(resp, pubUri);
-      })
-      .catch((err, resp) => {
-        // there was an error in the topic request
-        //console.log("Error", err, resp)
-        this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
-      });
-  }
-  _requestTcpTopicFromPublisher(pubUri) {
-    let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
-    // send a topic request to the publisher's node
     this._log.debug('Sending topic request to ' + JSON.stringify(info));
+
+    let protocols = []
+    if(this._tcp){
+      protocols.push(['TCPROS'])
+    }
+    if(this._udp){
+      let header = UdprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType())
+      protocols.push(['UDPROS', header, info.host, this._port, this._dgramSize || 1500])
+    }
+    if(this._udpFirst){
+      protocols.reverse();
+    }
     this._nodeHandle.requestTopic(info.host, info.port, this._topic, protocols)
       .then((resp) => {
-
+        this.emit('registered');
         this._handleTopicRequestResponse(resp, pubUri);
       })
       .catch((err, resp) => {
@@ -424,7 +309,6 @@ class SubscriberImpl extends EventEmitter {
       }
     })
     .catch((err, resp) => {
-      console.log('Error', err, resp)
       this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
     })
   }
@@ -438,6 +322,103 @@ class SubscriberImpl extends EventEmitter {
       return;
     }
     // resp[2] has port and address for where to connect
+    let proto = resp[2][0];
+    if(proto === 'UDPROS' && this._udp){
+      this._handleUdpTopicRequestResponse(resp, nodeUri)
+    } else if (proto === 'TCPROS' && this._tcp){
+      this._handleTcpTopicRequestResponse(resp, nodeUri)
+    } else {
+      this._log.warn(`Publisher supports only ${proto} but is not enabled`)
+    }
+  }
+
+  _handleUdpTopicRequestResponse(resp, nodeUri){
+
+    if(this._subServer){
+      return
+    }
+    // Creating udp socket
+    const socket = UDPSocket.createSocket('udp4');
+
+
+    // cache client in "pending" map.
+    // It's not validated yet so we don't want it to show up as a client.
+    // Need to keep track of it in case we're shutdown before it can be validated.
+    //this._pendingPubClients[socket.nodeUri] = socket;
+
+    // create a one-time handler for the connection header
+    // if the connection is validated, we'll listen for more events
+    let hh = UdprosUtils.parseUdpRosHeader(resp[2][5])
+    socket.on('error', (err) => {
+      this._log.warn('Subscriber client socket %s on topic %s had error: %s',
+                     socket.name, this.getTopic(), err);
+      socket.close();
+      this._disconnectClient(socket.nodeUri);
+    });
+
+    // init empty msg
+    let msg = {
+      blkN: 0,
+      msgId: -1,
+      buffer: Buffer.alloc(0)
+    }
+    socket.on('message', (dgramMsg, rinfo) => {
+      let header = UdprosUtils.deserializeHeader(dgramMsg)
+      if(!header){
+        this._log.warn('Unable to parse packet\'s header for topic %s', this.getTopic())
+        return
+      }
+      // first dgram message
+      const { opCode, blkN, msgId } = header
+      switch(opCode){
+        // DATA0
+        case 0:
+          // no chunk
+          if(blkN === 1){
+            this._handleMessage(dgramMsg.slice(12))
+          } else {
+            msg = {
+              blkN,
+              msgId,
+              buffer: dgramMsg.slice(12)
+            }
+          }
+          break
+
+        // DATAN
+        case 1:
+          if(msgId === msg.msgId){
+            let buffer = Buffer.from(dgramMsg.slice(8))
+            msg.buffer = Buffer.concat([msg.buffer, buffer])
+            // last chunk
+            if(msg.blkN -1 === header.blkN ){
+              this._handleMessage(Buffer.from(msg.buffer))
+            }
+          }
+          break
+
+        // PING
+        case 2:
+          break
+        
+        // ERR
+        case 3:
+          break
+      }
+    });
+
+    socket.on('listening', () => {
+      const address = socket.address();
+      this._log.debug(`UDP socket bound: ${address.address}:${address.port}, Topic:${this.getTopic()}`);
+      
+    });
+
+    this._subServer = socket
+  
+    socket.bind(this._port);
+  }
+
+  _handleTcpTopicRequestResponse(resp, nodeUri){
     let info = resp[2];
     let port = info[2];
     let address = info[1];

@@ -72,7 +72,7 @@ class MasterApiClient {
       topicType,
       uri
     ];
-    console.log("Master API client - registerSubscriber", data)
+    console.log("Master API client - registerSubscriber")
     return new Promise((resolve, reject) => {
       this._call('registerSubscriber', data, resolve, reject, options);
     });
