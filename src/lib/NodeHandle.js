@@ -133,7 +133,6 @@ class NodeHandle {
       if(options.udp && (!options.dgramSize || options.dgramSize < 0)){
         options.dgramSize = 1500
       }
-      console.log(options)
       return this._node.subscribe(options, callback);
     }
     catch (err) {
