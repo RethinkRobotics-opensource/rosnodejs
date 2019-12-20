@@ -115,7 +115,8 @@ class RosNode extends EventEmitter {
   }
   
   /**
-   *  get udp bound ports
+   * get udp bound ports
+   * @returns [Number]
    */
   getBoundPorts(){
     return this.boundPorts

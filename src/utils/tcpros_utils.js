@@ -151,7 +151,6 @@ let TcprosUtils = {
   },
 
   validateSubHeader(header, topic, type, md5sum) {
-    console.log("validateSubHeader", header, topic, type, md5sum);
     if (!header.hasOwnProperty('topic')) {
       return this.serializeString('Connection header missing expected field [topic]');
     }

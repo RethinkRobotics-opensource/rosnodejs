@@ -103,9 +103,15 @@ class SubscriberImpl extends EventEmitter {
     this._pendingPubClients = {};
 
     this._state = REGISTERING;
+    
+    let ports = this._nodeHandle.getBoundPorts()
+    do{
+      this._port = Math.round((Math.random() * 54512) + 1024)
+      
+    } while (!!~ports.lastIndexOf(this._port))
+    this._nodeHandle.addToBoundPorts(this._port)
     this._register();
 
-    this._port = 9999
   }
 
   /**
@@ -355,12 +361,12 @@ class SubscriberImpl extends EventEmitter {
       socket.close();
       this._disconnectClient(socket.nodeUri);
     });
-
     // init empty msg
     let msg = {
       blkN: 0,
       msgId: -1,
-      buffer: Buffer.alloc(0)
+      buffer: Buffer.alloc(0),
+      connectionId: -1
     }
     socket.on('message', (dgramMsg, rinfo) => {
       let header = UdprosUtils.deserializeHeader(dgramMsg)
@@ -369,7 +375,7 @@ class SubscriberImpl extends EventEmitter {
         return
       }
       // first dgram message
-      const { opCode, blkN, msgId } = header
+      const { connectionId, opCode, blkN, msgId } = header
       switch(opCode){
         // DATA0
         case 0:
@@ -380,14 +386,15 @@ class SubscriberImpl extends EventEmitter {
             msg = {
               blkN,
               msgId,
-              buffer: dgramMsg.slice(12)
+              buffer: dgramMsg.slice(12),
+              connectionId
             }
           }
           break
 
         // DATAN
         case 1:
-          if(msgId === msg.msgId){
+          if(msgId === msg.msgId && connectionId === msg.connectionId){
             let buffer = Buffer.from(dgramMsg.slice(8))
             msg.buffer = Buffer.concat([msg.buffer, buffer])
             // last chunk

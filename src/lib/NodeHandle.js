@@ -124,9 +124,16 @@ class NodeHandle {
         options.typeClass = type;
         options.type = type.datatype();
       }
-      if(!options.transport || typeof options.transport !== 'string' || !!~['UDPROS', 'TCPROS'].indexOf(options.protocol)){
-        options.transport = 'TCPROS'
+      options.tcp = options.tcp === undefined ? false : options.tcp
+      options.udp = options.udp === undefined ? false : options.udp
+      
+      if(!options.udp && !options.tcp){
+        options.tcp = true
       }
+      if(options.udp && (!options.dgramSize || options.dgramSize < 0)){
+        options.dgramSize = 1500
+      }
+      console.log(options)
       return this._node.subscribe(options, callback);
     }
     catch (err) {
