@@ -122,7 +122,6 @@ class DeserializeStream extends Transform  {
         }
       }
     }
-    console.log(this._messageBuffer.toString())
     done();
   }
 
