@@ -83,7 +83,7 @@ class ClientGoalHandle extends EventEmitter {
         return;
     }
 
-    this._actionClient.cancel(this._goal.goal_id.id, { secs: 0, nsecs: 0 });
+    this._clientInterface.cancel(this._goal.goal_id.id, { secs: 0, nsecs: 0 });
     this._transition(CommState.WAITING_FOR_CANCEL_ACK);
   }
 
