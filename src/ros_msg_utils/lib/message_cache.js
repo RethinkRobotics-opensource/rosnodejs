@@ -22,7 +22,6 @@ const path = require('path');
 
 const CMAKE_PREFIX_PATH = process.env.CMAKE_PREFIX_PATH;
 const cmakePaths = CMAKE_PREFIX_PATH.split(path.delimiter);
-const jsMsgPath = path.join('share', 'gennodejs', 'ros');
 
 //-----------------------------------------------------------------------
 //  Search through the CMAKE_PREFIX_PATH for generated javascript messages.
@@ -32,7 +31,7 @@ const jsMsgPath = path.join('share', 'gennodejs', 'ros');
 //-----------------------------------------------------------------------
 const packagePaths = {};
 cmakePaths.forEach((cmakePath) => {
-  const dirPath = path.join(cmakePath, jsMsgPath);
+  const dirPath = cmakePath;
   try {
     let msgPackages = fs.readdirSync(dirPath);
     msgPackages.forEach((msgPackage) => {
