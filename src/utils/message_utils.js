@@ -91,7 +91,7 @@ function copyFile(from, to, replaceCallback) {
 
 let MessageUtils = {
   getTopLevelMessageDirectory() {
-    return path.join(ros_msg_utils.CMAKE_PATHS[0], ros_msg_utils.MESSAGE_PATH);
+    return ros_msg_utils.CMAKE_PATHS[0];
   },
 
   flatten(outputDir) {

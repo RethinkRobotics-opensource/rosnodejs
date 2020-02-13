@@ -58,6 +58,5 @@ module.exports = {
 
   CMAKE_PREFIX_PATH,
   CMAKE_PATHS: cmakePaths,
-  MESSAGE_PATH: jsMsgPath,
   packageMap: Object.assign({}, packagePaths)
 };
