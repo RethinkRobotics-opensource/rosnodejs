@@ -91,8 +91,8 @@ function copyFile(from, to, replaceCallback) {
 
 let MessageUtils = {
   getTopLevelMessageDirectory() {
-    if(process.env.JS_MESSAGE_ABS_PATH_OVERRIDE) {
-      return process.env.JS_MESSAGE_ABS_PATH_OVERRIDE;
+    if(ros_msg_utils.JS_MESSAGE_ABS_PATH_OVERRIDE) {
+      return ros_msg_utils.JS_MESSAGE_ABS_PATH_OVERRIDE;
     }
     return path.join(ros_msg_utils.CMAKE_PATHS[0], ros_msg_utils.MESSAGE_PATH);
   },
