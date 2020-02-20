@@ -20,7 +20,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const CMAKE_PREFIX_PATH = process.env.CMAKE_PREFIX_PATH;
+// before requiring this module, set the environment variable: process.env.JS_MESSAGE_ABS_PATH_OVERRIDE
+// in order to to provide an absolute path to the directory containing all projects where generated JS ros messages are located
+const JS_MESSAGE_ABS_PATH_OVERRIDE = process.env.JS_MESSAGE_ABS_PATH_OVERRIDE;
+const CMAKE_PREFIX_PATH = JS_MESSAGE_ABS_PATH_OVERRIDE ? JS_MESSAGE_ABS_PATH_OVERRIDE : process.env.CMAKE_PREFIX_PATH;
 const cmakePaths = CMAKE_PREFIX_PATH.split(path.delimiter);
 const jsMsgPath = path.join('share', 'gennodejs', 'ros');
 
@@ -32,7 +35,13 @@ const jsMsgPath = path.join('share', 'gennodejs', 'ros');
 //-----------------------------------------------------------------------
 const packagePaths = {};
 cmakePaths.forEach((cmakePath) => {
-  const dirPath = path.join(cmakePath, jsMsgPath);
+  let dirPath = null;
+  if(JS_MESSAGE_ABS_PATH_OVERRIDE) {
+    dirPath = cmakePath;
+  }
+  else {
+    dirPath = path.join(cmakePath, jsMsgPath);
+  }
   try {
     let msgPackages = fs.readdirSync(dirPath);
     msgPackages.forEach((msgPackage) => {
@@ -58,6 +67,7 @@ module.exports = {
   },
 
   CMAKE_PREFIX_PATH,
+  JS_MESSAGE_ABS_PATH_OVERRIDE,
   CMAKE_PATHS: cmakePaths,
   MESSAGE_PATH: jsMsgPath,
   packageMap: Object.assign({}, packagePaths)
