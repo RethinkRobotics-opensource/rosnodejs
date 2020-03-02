@@ -39,7 +39,7 @@ const tcpNoDelayField = 'tcp_nodelay=1';
 function serializeStringFields(fields) {
   let length = 0;
   fields.forEach((field) => {
-    length += (field.length + 4);
+    length += (Buffer.byteLength(field) + 4);
   });
   let buffer = new Buffer(4 + length);
   let offset = base_serializers.uint32(length, buffer, 0);
