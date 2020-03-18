@@ -126,12 +126,16 @@ class NodeHandle {
       }
       options.tcp = options.tcp === undefined ? false : options.tcp
       options.udp = options.udp === undefined ? false : options.udp
-      
+
       if(!options.udp && !options.tcp){
         options.tcp = true
       }
       if(options.udp && (!options.dgramSize || options.dgramSize < 0)){
         options.dgramSize = 1500
+      }
+
+      if(options.udp){
+        options.port = this._node._udprosPort
       }
       return this._node.subscribe(options, callback);
     }

@@ -131,7 +131,7 @@ class PublisherImpl extends EventEmitter {
    * @returns {number}
    */
   getNumSubscribers() {
-    return Object.keys(this._subClients).length;
+    return Object.keys(this._subClients).length + Object.keys(this._udpSubClients).length;
   }
 
   /**
@@ -140,9 +140,12 @@ class PublisherImpl extends EventEmitter {
    * @returns {Array}
    */
   getClientUris() {
-    return Object.keys(this._subClients);
+    return Object.keys(this._subClients).concat(Object.keys(this._udpSubClients));
   }
 
+  isUdpSubscriber(topic){
+    return this._udpSubClients[topic] !== undefined
+  }
   /**
    * Get the ros node this subscriber belongs to
    * @returns {RosNode}
@@ -229,53 +232,9 @@ class PublisherImpl extends EventEmitter {
           this._subClients[client].write(serializedMsg);
         });
 
-        Object.keys(this._udpSubClients).forEach((client) => {
-          
-          let serializedH;
-          let payloadSize = this._udpSubClients[client].dgramSize - 8;
-          if(serializedMsg.length > payloadSize){
-            let totalChunks = Math.ceil(serializedMsg.length / payloadSize)
-            let index = 0, offset = payloadSize;
-            let chunk = serializedMsg.slice(0, payloadSize);
+        // Sending msgs to udp subscribers
+        this._sendMsgToUdpClients(serializedMsg)
 
-            serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 0, msgCount, totalChunks)
-            let msg = Buffer.concat([serializedH, chunk]);
-            
-            // sending first message opcode 0
-            this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => { 
-              if(err){
-                throw err;
-              }
-            })
-            
-            // sending other chuncks
-            do{
-              chunk = serializedMsg.slice(offset, offset + payloadSize);
-              index++;
-              serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 1, msgCount, index)
-              
-              offset += payloadSize;
-              
-              msg = Buffer.concat([serializedH, chunk]);
-              this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => { 
-                if(err){
-                  throw err;
-                }
-              })
-              
-            } while(index < totalChunks)
-          }
-          else{            
-            serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 0, msgCount, 1)
-            let msg = Buffer.concat([serializedH, serializedMsg]);
-            this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => { 
-              if(err){
-                throw err;
-              }
-            })
-          }
-        })
-        
         // if this publisher is supposed to latch,
         // save the last message. Any subscribers that connects
         // before another call to publish() will receive this message
@@ -290,7 +249,53 @@ class PublisherImpl extends EventEmitter {
       this.emit('error', err);
     }
   }
+  _sendMsgToUdpClients(serializedMsg){
+    Object.keys(this._udpSubClients).forEach((client) => {
+      let serializedH;
+      let payloadSize = this._udpSubClients[client].dgramSize - 8;
+      if(serializedMsg.length > payloadSize){
+        let totalChunks = Math.ceil(serializedMsg.length / payloadSize)
+        let index = 0, offset = payloadSize;
+        let chunk = serializedMsg.slice(0, payloadSize);
 
+        serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 0, msgCount, totalChunks)
+        let msg = Buffer.concat([serializedH, chunk]);
+
+        // sending first message opcode 0
+        this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => {
+          if(err){
+            throw err;
+          }
+        })
+
+        // sending other chuncks
+        do{
+          chunk = serializedMsg.slice(offset, offset + payloadSize);
+          index++;
+          serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 1, msgCount, index)
+
+          offset += payloadSize;
+
+          msg = Buffer.concat([serializedH, chunk]);
+          this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => {
+            if(err){
+              throw err;
+            }
+          })
+
+        } while(index < totalChunks)
+      }
+      else{
+        serializedH = UdprosUtils.serializeUdpHeader(this._udpSubClients[client].connId, 0, msgCount, 1)
+        let msg = Buffer.concat([serializedH, serializedMsg]);
+        this.udpSocket.send(msg, this._udpSubClients[client].port, this._udpSubClients[client].host, (err) => {
+          if(err){
+            throw err;
+          }
+        })
+      }
+    })
+  }
   /**
    * Handles a new connection from a subscriber to this publisher's node.
    * Validates the connection header and sends a response header
