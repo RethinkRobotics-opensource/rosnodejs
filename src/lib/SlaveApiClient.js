@@ -21,7 +21,7 @@ let xmlrpc = require('xmlrpc');
 
 //-----------------------------------------------------------------------
 
-class SlaveApiClient {
+class AssitantApiClient {
 
   constructor(host, port) {
     this._xmlrpcClient = xmlrpc.createClient({host: host, port: port});
@@ -44,4 +44,4 @@ class SlaveApiClient {
 
 //-----------------------------------------------------------------------
 
-module.exports = SlaveApiClient;
+module.exports = AssitantApiClient;

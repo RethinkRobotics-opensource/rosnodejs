@@ -1,19 +1,17 @@
+const chai = require("chai");
+const xmlrpc = require("xmlrpc");
+const rosnodejs = require("rosnodejs");
 
-const chai = require('chai');
-const xmlrpc = require('xmlrpc');
-const rosnodejs = require('rosnodejs');
+const TOPIC = "/topic";
+const TYPE = "std_msgs/String";
+const SERVICE = "/service";
+const SRV = "std_srvs/Empty";
 
-const TOPIC = '/topic';
-const TYPE = 'std_msgs/String';
-const SERVICE = '/service';
-const SRV = 'std_srvs/Empty';
-
-const MASTER_PORT = 11234;
+const PRIMARY_PORT = 11234;
 
 // Each Test in this suite simulates rapid fire connection/disconnection
 // of TCPROS clients
-describe('ClientShutdown', function() {
-
+describe("ClientShutdown", function () {
   this.timeout(10000);
   this.slow(10000);
 
@@ -26,11 +24,11 @@ describe('ClientShutdown', function() {
   let interval2;
   let interval3;
 
-  let masterStub;
+  let primaryStub;
 
   function startSub(nh) {
     sub = nh.subscribe(TOPIC, TYPE, (msg) => {
-      console.log('%j', msg);
+      console.log("%j", msg);
     });
 
     return sub;
@@ -57,7 +55,7 @@ describe('ClientShutdown', function() {
 
   function startService(nh) {
     service = nh.advertiseService(SERVICE, SRV, () => {
-      console.log('handling service call');
+      console.log("handling service call");
       return true;
     });
     return service;
@@ -83,11 +81,18 @@ describe('ClientShutdown', function() {
   }
 
   before((done) => {
-    masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => { done(); });
+    primaryStub = xmlrpc.createServer(
+      { host: "localhost", port: PRIMARY_PORT },
+      () => {
+        done();
+      }
+    );
   });
 
   after((done) => {
-    masterStub.close(() => { done(); });
+    primaryStub.close(() => {
+      done();
+    });
   });
 
   beforeEach(() => {
@@ -95,86 +100,95 @@ describe('ClientShutdown', function() {
     let subInfo = null;
     let serviceInfo = null;
 
-    masterStub.on('getUri', (err, params, callback) => {
-      const resp = [ 1, '', 'localhost:11311/' ];
+    primaryStub.on("getUri", (err, params, callback) => {
+      const resp = [1, "", "localhost:11311/"];
       callback(null, resp);
     });
 
-    masterStub.on('registerSubscriber', (err, params, callback) => {
+    primaryStub.on("registerSubscriber", (err, params, callback) => {
       subInfo = params[3];
       // console.log('sub reg ' + params);
       //console.log(pubInfo);
 
-      const resp =  [1, 'You did it!', []];
+      const resp = [1, "You did it!", []];
       if (pubInfo) {
         resp[2].push(pubInfo);
       }
       callback(null, resp);
     });
 
-    masterStub.on('unregisterSubscriber', (err, params, callback) => {
+    primaryStub.on("unregisterSubscriber", (err, params, callback) => {
       // console.log('unregister subscriber!');
-      const resp =  [1, 'You did it!', subInfo ? 1 : 0];
+      const resp = [1, "You did it!", subInfo ? 1 : 0];
       callback(null, resp);
       subInfo = null;
     });
 
-    masterStub.on('registerPublisher', (err, params, callback) => {
+    primaryStub.on("registerPublisher", (err, params, callback) => {
       // console.log('pub reg ' + Date.now());
       pubInfo = params[3];
-      const resp =  [1, 'You did it!', []];
+      const resp = [1, "You did it!", []];
       if (subInfo) {
         resp[2].push(pubInfo);
-        let subAddrParts = subInfo.replace('http://', '').split(':');
-        let client = xmlrpc.createClient({host: subAddrParts[0], port: subAddrParts[1]});
+        let subAddrParts = subInfo.replace("http://", "").split(":");
+        let client = xmlrpc.createClient({
+          host: subAddrParts[0],
+          port: subAddrParts[1],
+        });
         let data = [1, TOPIC, [pubInfo]];
-        client.methodCall('publisherUpdate', data, (err, response) => { });
+        client.methodCall("publisherUpdate", data, (err, response) => {});
       }
       callback(null, resp);
     });
 
-    masterStub.on('unregisterPublisher', (err, params, callback) => {
+    primaryStub.on("unregisterPublisher", (err, params, callback) => {
       // console.log('pub unreg ' + Date.now());
-      const resp =  [1, 'You did it!', pubInfo ? 1 : 0];
+      const resp = [1, "You did it!", pubInfo ? 1 : 0];
       callback(null, resp);
       if (subInfo) {
-        let subAddrParts = subInfo.replace('http://', '').split(':');
-        let client = xmlrpc.createClient({host: subAddrParts[0], port: subAddrParts[1]});
+        let subAddrParts = subInfo.replace("http://", "").split(":");
+        let client = xmlrpc.createClient({
+          host: subAddrParts[0],
+          port: subAddrParts[1],
+        });
         let data = [1, TOPIC, []];
-        client.methodCall('publisherUpdate', data, (err, response) => { });
+        client.methodCall("publisherUpdate", data, (err, response) => {});
       }
       pubInfo = null;
     });
 
-    masterStub.on('registerService', (err, params, callback) => {
+    primaryStub.on("registerService", (err, params, callback) => {
       serviceInfo = params[2];
 
-      const resp = [1, 'You did it!', []];
+      const resp = [1, "You did it!", []];
       callback(null, resp);
     });
 
-    masterStub.on('unregisterService', (err, params, callback) => {
-      const resp = [1, 'You did it!', subInfo ? 1 : 0];
+    primaryStub.on("unregisterService", (err, params, callback) => {
+      const resp = [1, "You did it!", subInfo ? 1 : 0];
       callback(null, resp);
       serviceInfo = null;
     });
 
-    masterStub.on('lookupService', (err, params, callback) => {
+    primaryStub.on("lookupService", (err, params, callback) => {
       if (serviceInfo) {
         const resp = [1, "you did it", serviceInfo];
         callback(null, resp);
-      }
-      else {
+      } else {
         const resp = [-1, "no provider", ""];
         callback(null, resp);
       }
     });
 
-    masterStub.on('NotFound', (method, params) => {
-      console.error('Got unknown method call %s: %j', method, params);
+    primaryStub.on("NotFound", (method, params) => {
+      console.error("Got unknown method call %s: %j", method, params);
     });
 
-    return rosnodejs.initNode('/my_node', {rosMasterUri: `http://localhost:${MASTER_PORT}`, logging: {testing: true}, notime:true});
+    return rosnodejs.initNode("/my_node", {
+      rosPrimaryUri: `http://localhost:${PRIMARY_PORT}`,
+      logging: { testing: true },
+      notime: true,
+    });
   });
 
   afterEach(() => {
@@ -194,15 +208,15 @@ describe('ClientShutdown', function() {
     nh._node._subscribers = {};
     nh._node._publishers = {};
 
-    // remove any master api handlers we set up
-    masterStub.removeAllListeners();
+    // remove any primary api handlers we set up
+    primaryStub.removeAllListeners();
   });
 
-  it('Subscriber Shutdown', (done) => {
+  it("Subscriber Shutdown", (done) => {
     const nh = rosnodejs.nh;
     const pub = startPub(nh);
 
-    const msg = {data: 'This shouldn\'t crash'};
+    const msg = { data: "This shouldn't crash" };
 
     interval1 = setInterval(() => {
       pub.publish(msg);
@@ -211,8 +225,7 @@ describe('ClientShutdown', function() {
     interval2 = setInterval(() => {
       if (sub === null) {
         startSub(nh);
-      }
-      else {
+      } else {
         stopSub();
       }
     }, 10);
@@ -220,11 +233,11 @@ describe('ClientShutdown', function() {
     setTimeout(done, 8000);
   });
 
-  it('Publisher Shutdown', (done) => {
+  it("Publisher Shutdown", (done) => {
     const nh = rosnodejs.nh;
     startSub(nh);
 
-    const msg = {data: 'This shouldn\'t crash'};
+    const msg = { data: "This shouldn't crash" };
 
     interval1 = setInterval(() => {
       if (pub) {
@@ -235,8 +248,7 @@ describe('ClientShutdown', function() {
     interval2 = setInterval(() => {
       if (pub === null) {
         startPub(nh);
-      }
-      else {
+      } else {
         stopPub();
       }
     }, 10);
@@ -244,10 +256,10 @@ describe('ClientShutdown', function() {
     setTimeout(done, 8000);
   });
 
-  it('Pub Sub Shutdown', (done) => {
+  it("Pub Sub Shutdown", (done) => {
     const nh = rosnodejs.nh;
 
-    const msg = {data: 'This shouldn\'t crash'};
+    const msg = { data: "This shouldn't crash" };
 
     interval1 = setInterval(() => {
       if (pub) {
@@ -258,8 +270,7 @@ describe('ClientShutdown', function() {
     interval2 = setInterval(() => {
       if (pub === null) {
         startPub(nh);
-      }
-      else {
+      } else {
         stopPub();
       }
     }, 10);
@@ -267,8 +278,7 @@ describe('ClientShutdown', function() {
     interval3 = setInterval(() => {
       if (sub === null) {
         startSub(nh);
-      }
-      else {
+      } else {
         stopSub();
       }
     }, 7);
@@ -276,7 +286,7 @@ describe('ClientShutdown', function() {
     setTimeout(done, 8000);
   });
 
-  it('Service Shutdown', (done) => {
+  it("Service Shutdown", (done) => {
     const nh = rosnodejs.nh;
     const client = startClient(nh);
 
@@ -289,8 +299,7 @@ describe('ClientShutdown', function() {
     interval2 = setInterval(() => {
       if (service === null) {
         startService(nh);
-      }
-      else {
+      } else {
         stopService();
       }
     }, 10);
@@ -298,7 +307,7 @@ describe('ClientShutdown', function() {
     setTimeout(done, 8000);
   });
 
-  it('Client Shutdown', (done) => {
+  it("Client Shutdown", (done) => {
     const nh = rosnodejs.nh;
     startService(nh);
 
@@ -313,8 +322,7 @@ describe('ClientShutdown', function() {
     interval2 = setInterval(() => {
       if (client === null) {
         startClient(nh);
-      }
-      else {
+      } else {
         stopClient();
       }
     }, 10);
@@ -322,7 +330,7 @@ describe('ClientShutdown', function() {
     setTimeout(done, 8000);
   });
 
-  it('Client Service Shutdown', (done) => {
+  it("Client Service Shutdown", (done) => {
     const nh = rosnodejs.nh;
 
     const req = {};
@@ -336,8 +344,7 @@ describe('ClientShutdown', function() {
     interval2 = setInterval(() => {
       if (client === null) {
         startClient(nh);
-      }
-      else {
+      } else {
         stopClient();
       }
     }, 10);
@@ -345,13 +352,11 @@ describe('ClientShutdown', function() {
     interval3 = setInterval(() => {
       if (service === null) {
         startService(nh);
-      }
-      else {
+      } else {
         stopService();
       }
     }, 7);
 
     setTimeout(done, 8000);
   });
-
 });

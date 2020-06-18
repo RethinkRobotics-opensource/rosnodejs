@@ -15,13 +15,13 @@
  *    limitations under the License.
  */
 
-'use strict';
+"use strict";
 
-let RosNode = require('./RosNode.js');
-const messageUtils = require('../utils/message_utils.js');
-const names = require('./Names.js');
-const ActionClientInterface = require('./ActionClientInterface.js');
-const ActionServerInterface = require('./ActionServerInterface.js');
+let RosNode = require("./RosNode.js");
+const messageUtils = require("../utils/message_utils.js");
+const names = require("./Names.js");
+const ActionClientInterface = require("./ActionClientInterface.js");
+const ActionServerInterface = require("./ActionServerInterface.js");
 
 /**
  * Handle class for nodes created with rosnodejs
@@ -29,19 +29,19 @@ const ActionServerInterface = require('./ActionServerInterface.js');
  * @param namespace {string} namespace of node. @default null
  */
 class NodeHandle {
-  constructor(node, namespace=null) {
+  constructor(node, namespace = null) {
     this._node = node;
-    this._namespace = '';
+    this._namespace = "";
 
     this.setNamespace(namespace);
   }
 
   setNamespace(namespace) {
-    if (typeof namespace !== 'string') {
-      namespace = '';
+    if (typeof namespace !== "string") {
+      namespace = "";
     }
 
-    if (namespace.startsWith('~')) {
+    if (namespace.startsWith("~")) {
       namespace = names.resolve(namespace);
     }
 
@@ -56,9 +56,9 @@ class NodeHandle {
     return this._node && this._node.isShutdown();
   }
 
-//------------------------------------------------------------------
-// Pubs, Subs, Services
-//------------------------------------------------------------------
+  //------------------------------------------------------------------
+  // Pubs, Subs, Services
+  //------------------------------------------------------------------
   /**
    * Creates a ros publisher with the provided options
    * @param topic {string}
@@ -70,27 +70,27 @@ class NodeHandle {
    * @param [options.throttleMs] {number} milliseconds to throttle when publishing
    * @return {Publisher}
    */
-  advertise(topic, type, options={}) {
+  advertise(topic, type, options = {}) {
     if (!topic) {
       throw new Error(`Unable to advertise unnamed topic - got ${topic}`);
     }
     if (!type) {
-      throw new Error(`Unable to advertise topic ${topic} without type - got ${type}`);
+      throw new Error(
+        `Unable to advertise topic ${topic} without type - got ${type}`
+      );
     }
 
     try {
       options.topic = this.resolveName(topic);
-      if (typeof type === 'string' || type instanceof String) {
+      if (typeof type === "string" || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForMsgType(type, true);
-      }
-      else {
+      } else {
         options.typeClass = type;
         options.type = type.datatype();
       }
       return this._node.advertise(options);
-    }
-    catch (err) {
+    } catch (err) {
       this._node._log.error(`Exception trying to advertise topic ${topic}`);
       throw err;
     }
@@ -106,27 +106,27 @@ class NodeHandle {
    * @param [options.throttleMs] {number} milliseconds to throttle when subscribing
    * @return {Subscriber}
    */
-  subscribe(topic, type, callback, options={}) {
+  subscribe(topic, type, callback, options = {}) {
     if (!topic) {
       throw new Error(`Unable to subscribe to unnamed topic - got ${topic}`);
     }
     if (!type) {
-      throw new Error(`Unable to subscribe to topic ${topic} without type - got ${type}`);
+      throw new Error(
+        `Unable to subscribe to topic ${topic} without type - got ${type}`
+      );
     }
 
     try {
       options.topic = this.resolveName(topic);
-      if (typeof type === 'string' || type instanceof String) {
+      if (typeof type === "string" || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForMsgType(type, true);
-      }
-      else {
+      } else {
         options.typeClass = type;
         options.type = type.datatype();
       }
       return this._node.subscribe(options, callback);
-    }
-    catch (err) {
+    } catch (err) {
       this._node._log.error(`Exception trying to subscribe to topic ${topic}`);
       throw err;
     }
@@ -149,23 +149,23 @@ class NodeHandle {
       throw new Error(`Unable to advertise unnamed service - got ${service}`);
     }
     if (!type) {
-      throw new Error(`Unable to advertise service ${service} without type - got ${type}`);
+      throw new Error(
+        `Unable to advertise service ${service} without type - got ${type}`
+      );
     }
 
     try {
       let options = { service: this.resolveName(service) };
-      if (typeof type === 'string' || type instanceof String) {
+      if (typeof type === "string" || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForSrvType(type, true);
-      }
-      else {
+      } else {
         options.typeClass = type;
         options.type = type.datatype();
       }
 
       return this._node.advertiseService(options, callback);
-    }
-    catch (err) {
+    } catch (err) {
       this._node._log.error(`Exception trying to advertise service ${service}`);
       throw err;
     }
@@ -178,28 +178,32 @@ class NodeHandle {
    * @param options {Object} extra options to pass to service client
    * @return {ServiceClient}
    */
-  serviceClient(service, type, options={}) {
+  serviceClient(service, type, options = {}) {
     if (!service) {
-      throw new Error(`Unable to create unnamed service client - got ${service}`);
+      throw new Error(
+        `Unable to create unnamed service client - got ${service}`
+      );
     }
     if (!type) {
-      throw new Error(`Unable to create service client ${service} without type - got ${type}`);
+      throw new Error(
+        `Unable to create service client ${service} without type - got ${type}`
+      );
     }
     options.service = this.resolveName(service);
 
     try {
-      if (typeof type === 'string' || type instanceof String) {
+      if (typeof type === "string" || type instanceof String) {
         options.type = type;
         options.typeClass = messageUtils.getHandlerForSrvType(type, true);
-      }
-      else {
+      } else {
         options.typeClass = type;
         options.type = type.datatype();
       }
       return this._node.serviceClient(options);
-    }
-    catch (err) {
-      this._node._log.error(`Exception trying to create service client ${service}`);
+    } catch (err) {
+      this._node._log.error(
+        `Exception trying to create service client ${service}`
+      );
       throw err;
     }
   }
@@ -221,41 +225,51 @@ class NodeHandle {
    */
   actionClientInterface(actionServer, type, options = {}) {
     if (!actionServer) {
-      throw new Error(`Unable to create action client to unspecified server - [${actionServer}]`);
-    }
-    else if (!type) {
-      throw new Error(`Unable to create action client ${actionServer} without type - got ${type}`);
+      throw new Error(
+        `Unable to create action client to unspecified server - [${actionServer}]`
+      );
+    } else if (!type) {
+      throw new Error(
+        `Unable to create action client ${actionServer} without type - got ${type}`
+      );
     }
 
     // don't namespace action client - topics will be resolved by
     // advertising through this NodeHandle
-    return new ActionClientInterface(Object.assign({}, options, {
-      actionServer,
-      type,
-      nh: this
-    }));
+    return new ActionClientInterface(
+      Object.assign({}, options, {
+        actionServer,
+        type,
+        nh: this,
+      })
+    );
   }
 
-  actionServerInterface(actionServer, type, options={}) {
+  actionServerInterface(actionServer, type, options = {}) {
     if (!actionServer) {
-      throw new Error(`Unable to create unspecified action server  [${actionServer}]`);
-    }
-    else if (!type) {
-      throw new Error(`Unable to create action server ${actionServer} without type - got ${type}`);
+      throw new Error(
+        `Unable to create unspecified action server  [${actionServer}]`
+      );
+    } else if (!type) {
+      throw new Error(
+        `Unable to create action server ${actionServer} without type - got ${type}`
+      );
     }
 
     // don't namespace action server - topics will be resolved by
     // advertising through this NodeHandle
-    return new ActionServerInterface(Object.assign({}, options, {
-      actionServer,
-      type,
-      nh: this
-    }));
+    return new ActionServerInterface(
+      Object.assign({}, options, {
+        actionServer,
+        type,
+        nh: this,
+      })
+    );
   }
 
   /**
    * Stop receiving callbacks for this topic
-   * Unregisters subscriber from master
+   * Unregisters subscriber from primary
    * @param topic {string} topic to unsubscribe from
    */
   unsubscribe(topic) {
@@ -264,7 +278,7 @@ class NodeHandle {
 
   /**
    * Stops publishing on this topic
-   * Unregisters publisher from master
+   * Unregisters publisher from primary
    * @param topic {string} topic to unadvertise
    */
   unadvertise(topic) {
@@ -272,7 +286,7 @@ class NodeHandle {
   }
 
   /**
-   * Unregister service from master
+   * Unregister service from primary
    * @param service {string} service to unadvertise
    */
   unadvertiseService(service) {
@@ -280,7 +294,7 @@ class NodeHandle {
   }
 
   /**
-   * Polls master for service
+   * Polls primary for service
    * @param service {string} name of service
    * @param [timeout] {number} give up after some time
    * @return {Promise} resolved when service exists or timeout occurs. Returns true/false for service existence
@@ -289,14 +303,15 @@ class NodeHandle {
     service = this.resolveName(service);
 
     let _waitForService = (callback, timeout) => {
-      setTimeout( () => {
-        this._node.lookupService(service)
-        .then((resp) => {
-          callback(true);
-        })
-        .catch((err, resp) => {
-          _waitForService(callback, 500);
-        })
+      setTimeout(() => {
+        this._node
+          .lookupService(service)
+          .then((resp) => {
+            callback(true);
+          })
+          .catch((err, resp) => {
+            _waitForService(callback, 500);
+          });
       }, timeout);
     };
 
@@ -304,7 +319,7 @@ class NodeHandle {
       _waitForService(resolve, 0);
     });
 
-    if (typeof timeout === 'number') {
+    if (typeof timeout === "number") {
       let timeoutPromise = new Promise((resolve, reject) => {
         setTimeout(resolve.bind(null, false), timeout);
       });
@@ -315,15 +330,14 @@ class NodeHandle {
     return waitPromise;
   }
 
-  getMasterUri() {
-    return this._node.getMasterUri();
+  getPrimaryUri() {
+    return this._node.getPrimaryUri();
   }
 
   /**
    * @typedef {Object} TopicList
    * @property {{name: string, type: string}[]} topics Array of topics
    */
-
 
   /**
    * Get list of topics that can be subscribed to. This does not return
@@ -335,7 +349,7 @@ class NodeHandle {
    *                          Will return all names if no subgraph is given.
    * @return {Promise.<TopicList>}
    */
-  getPublishedTopics(subgraph="") {
+  getPublishedTopics(subgraph = "") {
     return this._node.getPublishedTopics(subgraph);
   }
 
@@ -347,7 +361,6 @@ class NodeHandle {
   getTopicTypes() {
     return this._node.getTopicTypes();
   }
-
 
   /**
    * @typedef {Object} SystemState
@@ -365,13 +378,13 @@ class NodeHandle {
    *
    * @return {Promise.<SystemState>}
    */
-  getSystemState(){
+  getSystemState() {
     return this._node.getSystemState();
   }
 
-//------------------------------------------------------------------
-// Param Interface
-//------------------------------------------------------------------
+  //------------------------------------------------------------------
+  // Param Interface
+  //------------------------------------------------------------------
   deleteParam(key) {
     return this._node.deleteParam(this.resolveName(key));
   }
@@ -401,20 +414,17 @@ class NodeHandle {
       return this._namespace;
     }
 
-    if (name.startsWith('~')) {
-      throw new Error('Using ~ names with NodeHandle methods is not allowed');
-    }
-    else if (!name.startsWith('/') && this._namespace.length > 0) {
+    if (name.startsWith("~")) {
+      throw new Error("Using ~ names with NodeHandle methods is not allowed");
+    } else if (!name.startsWith("/") && this._namespace.length > 0) {
       name = names.append(this._namespace, name);
-    }
-    else {
+    } else {
       name = names.clean(name);
     }
 
     if (remap) {
       return this._remapName(name);
-    }
-    else {
+    } else {
       return names.resolve(name, false);
     }
   }
