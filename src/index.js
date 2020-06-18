@@ -19,34 +19,34 @@
 
 //------------------------------------------------------------------
 
-const netUtils = require('./utils/network_utils.js');
-const msgUtils = require('./utils/message_utils.js');
-const messages = require('./utils/messageGeneration/messages.js');
-const util = require('util');
-const RosLogStream = require('./utils/log/RosLogStream.js');
-const ConsoleLogStream = require('./utils/log/ConsoleLogStream.js');
-const LogFormatter = require('./utils/log/LogFormatter.js');
-const RosNode = require('./lib/RosNode.js');
-const NodeHandle = require('./lib/NodeHandle.js');
-const Logging = require('./lib/Logging.js');
-const ActionClientInterface = require('./lib/ActionClientInterface.js');
-const Time = require('./lib/Time.js');
-const packages = require('./utils/messageGeneration/packages.js');
+const netUtils = require("./utils/network_utils.js");
+const msgUtils = require("./utils/message_utils.js");
+const messages = require("./utils/messageGeneration/messages.js");
+const util = require("util");
+const RosLogStream = require("./utils/log/RosLogStream.js");
+const ConsoleLogStream = require("./utils/log/ConsoleLogStream.js");
+const LogFormatter = require("./utils/log/LogFormatter.js");
+const RosNode = require("./lib/RosNode.js");
+const NodeHandle = require("./lib/NodeHandle.js");
+const Logging = require("./lib/Logging.js");
+const ActionClientInterface = require("./lib/ActionClientInterface.js");
+const Time = require("./lib/Time.js");
+const packages = require("./utils/messageGeneration/packages.js");
 
-const ActionServer = require('./actions/ActionServer.js');
-const ActionClient = require('./actions/ActionClient.js');
-const ClientStates = require('./actions/ClientStates.js');
-const SimpleActionClient = require('./actions/SimpleActionClient.js');
-const SimpleActionServer = require('./actions/SimpleActionServer.js');
+const ActionServer = require("./actions/ActionServer.js");
+const ActionClient = require("./actions/ActionClient.js");
+const ClientStates = require("./actions/ClientStates.js");
+const SimpleActionClient = require("./actions/SimpleActionClient.js");
+const SimpleActionServer = require("./actions/SimpleActionServer.js");
 
-const MsgLoader = require('./utils/messageGeneration/MessageLoader.js');
-const RemapUtils = require('./utils/remapping_utils.js');
-const names = require('./lib/Names.js');
-const ThisNode = require('./lib/ThisNode.js');
+const MsgLoader = require("./utils/messageGeneration/MessageLoader.js");
+const RemapUtils = require("./utils/remapping_utils.js");
+const names = require("./lib/Names.js");
+const ThisNode = require("./lib/ThisNode.js");
 
 // will be initialized through call to initNode
 let log = Logging.getLogger();
-let pingMasterTimeout = null;
+let pingPrimaryTimeout = null;
 
 //------------------------------------------------------------------
 
@@ -62,18 +62,17 @@ let Rosnodejs = {
    *                                                to be used for this node
    * @param {function}  options.logging.setLoggerLevel  the function for setting the logger
    *                                                    level
-   * @param {string}    options.rosMasterUri the Master URI to use for this node
+   * @param {string}    options.rosPrimaryUri the Primary URI to use for this node
    * @param {number}    options.timeout time in ms to wait for node to be initialized
    *                                    before timing out. A negative value will retry forever.
    *                                    A value of '0' will try once before stopping. @default -1
-   * @return {Promise} resolved when connection to master is established
+   * @return {Promise} resolved when connection to primary is established
    */
   initNode(nodeName, options) {
-    if (typeof nodeName !== 'string') {
-      throw new Error('The node name must be a string');
-    }
-    else if (nodeName.length === 0) {
-      throw new Error('The node name must not be empty!');
+    if (typeof nodeName !== "string") {
+      throw new Error("The node name must be a string");
+    } else if (nodeName.length === 0) {
+      throw new Error("The node name must not be empty!");
     }
 
     options = options || {};
@@ -85,7 +84,11 @@ let Rosnodejs = {
     // initialize netUtils from possible command line remappings
     netUtils.init(remappings);
 
-    const [resolvedName, namespace] = _resolveNodeName(nodeName, remappings, options);
+    const [resolvedName, namespace] = _resolveNodeName(
+      nodeName,
+      remappings,
+      options
+    );
 
     names.init(remappings, namespace);
 
@@ -94,30 +97,44 @@ let Rosnodejs = {
         return Promise.resolve(this.getNodeHandle());
       }
       // else
-      return Promise.reject( Error('Unable to initialize node [' + resolvedName + '] - node ['
-                      + ThisNode.getNodeName() + '] already exists'));
+      return Promise.reject(
+        Error(
+          "Unable to initialize node [" +
+            resolvedName +
+            "] - node [" +
+            ThisNode.getNodeName() +
+            "] already exists"
+        )
+      );
     }
 
     Logging.initializeNodeLogger(resolvedName, options.logging);
 
     // create the ros node. Return a promise that will
-    // resolve when connection to master is established
+    // resolve when connection to primary is established
     const nodeOpts = options.node || {};
-    const rosMasterUri = options.rosMasterUri || remappings['__master'] || process.env.ROS_MASTER_URI;;
+    const rosPrimaryUri =
+      options.rosPrimaryUri ||
+      remappings["__primary"] ||
+      process.env.ROS_PRIMARY_URI;
 
-    ThisNode.node = new RosNode(resolvedName, rosMasterUri, nodeOpts);
+    ThisNode.node = new RosNode(resolvedName, rosPrimaryUri, nodeOpts);
 
-    return new Promise((resolve,reject)=>{
+    return new Promise((resolve, reject) => {
       this._loadOnTheFlyMessages(options)
-      .then(()=>{return _checkMasterHelper(100, options.timeout);})
-      .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
-      .then(Time._initializeRosTime.bind(Time, this, options.notime))
-      .then(() => { resolve(this.getNodeHandle()); })
-      .catch((err) => {
-        log.error('Error during initialization: ' + err);
-        this.shutdown();
-        reject(err);
-      });
+        .then(() => {
+          return _checkPrimaryHelper(100, options.timeout);
+        })
+        .then(Logging.initializeRosOptions.bind(Logging, this, options.logging))
+        .then(Time._initializeRosTime.bind(Time, this, options.notime))
+        .then(() => {
+          resolve(this.getNodeHandle());
+        })
+        .catch((err) => {
+          log.error("Error during initialization: " + err);
+          this.shutdown();
+          reject(err);
+        });
     });
   },
 
@@ -126,7 +143,7 @@ let Rosnodejs = {
   },
 
   shutdown() {
-    clearTimeout(pingMasterTimeout);
+    clearTimeout(pingPrimaryTimeout);
     return ThisNode.shutdown();
   },
 
@@ -152,7 +169,7 @@ let Rosnodejs = {
     }
   },
 
-  _loadOnTheFlyMessages({onTheFly}) {
+  _loadOnTheFlyMessages({ onTheFly }) {
     if (onTheFly) {
       return messages.getAll();
     }
@@ -160,29 +177,29 @@ let Rosnodejs = {
     return Promise.resolve();
   },
 
-  loadPackage(packageName, outputDir=null, verbose=false) {
+  loadPackage(packageName, outputDir = null, verbose = false) {
     const msgLoader = new MsgLoader(verbose);
     if (!outputDir) {
       outputDir = msgUtils.getTopLevelMessageDirectory();
     }
-    return msgLoader.buildPackage(packageName, outputDir)
-    .then(() => {
-      console.log('Finished building messages!');
-    })
-    .catch((err) => {
-      console.error(err);
-    });
+    return msgLoader
+      .buildPackage(packageName, outputDir)
+      .then(() => {
+        console.log("Finished building messages!");
+      })
+      .catch((err) => {
+        console.error(err);
+      });
   },
 
-  loadAllPackages(outputDir=null, verbose=false) {
+  loadAllPackages(outputDir = null, verbose = false) {
     const msgLoader = new MsgLoader(verbose);
     if (!outputDir) {
       outputDir = msgUtils.getTopLevelMessageDirectory();
     }
-    return msgLoader.buildPackageTree(outputDir)
-      .then(() => {
-        console.log('Finished building messages!');
-      })
+    return msgLoader.buildPackageTree(outputDir).then(() => {
+      console.log("Finished building messages!");
+    });
   },
 
   findPackage(packageName) {
@@ -208,22 +225,22 @@ let Rosnodejs = {
   /** check that a message definition is loaded for a ros message
       type, e.g., geometry_msgs/Twist */
   checkMessage(type) {
-    const parts = type.split('/');
+    const parts = type.split("/");
     let rtv;
     try {
       rtv = this.require(parts[0]).msg[parts[1]];
-    } catch(e) {}
+    } catch (e) {}
     return rtv;
   },
 
   /** check that a service definition is loaded for a ros service
       type, e.g., turtlesim/TeleportRelative */
   checkService(type) {
-    const parts = type.split('/');
+    const parts = type.split("/");
     let rtv;
     try {
       rtv = this.require(parts[0]).srv[parts[1]];
-    } catch(e) {}
+    } catch (e) {}
     return rtv;
   },
 
@@ -249,8 +266,8 @@ let Rosnodejs = {
   get logStreams() {
     return {
       console: ConsoleLogStream,
-      ros:     RosLogStream
-    }
+      ros: RosLogStream,
+    };
   },
 
   get Time() {
@@ -275,8 +292,11 @@ let Rosnodejs = {
    */
   getActionClient(options) {
     return this.nh.actionClientInterface(
-      options.actionServer, options.type, options);
-  }
+      options.actionServer,
+      options.type,
+      options
+    );
+  },
 };
 
 Rosnodejs.ActionServer = ActionServer;
@@ -293,70 +313,80 @@ module.exports = Rosnodejs;
 
 /**
  * @private
- * Helper function to see if the master is available and able to accept
+ * Helper function to see if the primary is available and able to accept
  * connections.
  * @param {number} timeout time in ms between connection attempts
  * @param {number} maxTimeout maximum time in ms to retry before timing out.
  * A negative number will make it retry forever. 0 will only make one attempt
  * before timing out.
  */
-function _checkMasterHelper(timeout=100, maxTimeout=-1) {
+function _checkPrimaryHelper(timeout = 100, maxTimeout = -1) {
   const startTime = Date.now();
 
-  const localHelper = (resolve,reject) => {
-    pingMasterTimeout = setTimeout(() => {
-      // also check that the slave api server is set up
-      if (!ThisNode.node.slaveApiSetupComplete()) {
+  const localHelper = (resolve, reject) => {
+    pingPrimaryTimeout = setTimeout(() => {
+      // also check that the assistant api server is set up
+      if (!ThisNode.node.assistantApiSetupComplete()) {
         if (Date.now() - startTime >= maxTimeout && maxTimeout >= 0) {
-          log.error(`Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
-          reject(new Error('Unable to setup slave API server.'));
+          log.error(
+            `Unable to register with primary node [${ThisNode.node.getRosPrimaryUri()}]: unable to set up assistant API Server. Stopping...`
+          );
+          reject(new Error("Unable to setup assistant API server."));
           return;
         }
         localHelper(resolve, reject);
         return;
       }
-      ThisNode.node.getMasterUri({ maxAttempts: 1 })
-      .then(() => {
-        log.infoOnce(`Connected to master at ${ThisNode.node.getRosMasterUri()}!`);
-        pingMasterTimeout = null;
-        resolve();
-      })
-      .catch((err, resp) => {
-        if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ){
-          log.error(`Timed out before registering with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet.`);
-          reject(new Error('Registration with master timed out.'));
-          return;
-        } else {
-          log.warnThrottle(60000, `Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
-          localHelper(resolve, reject);
-        }
-      });
+      ThisNode.node
+        .getPrimaryUri({ maxAttempts: 1 })
+        .then(() => {
+          log.infoOnce(
+            `Connected to primary at ${ThisNode.node.getRosPrimaryUri()}!`
+          );
+          pingPrimaryTimeout = null;
+          resolve();
+        })
+        .catch((err, resp) => {
+          if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0)) {
+            log.error(
+              `Timed out before registering with primary node [${ThisNode.node.getRosPrimaryUri()}]: primary may not be running yet.`
+            );
+            reject(new Error("Registration with primary timed out."));
+            return;
+          } else {
+            log.warnThrottle(
+              60000,
+              `Unable to register with primary node [${ThisNode.node.getRosPrimaryUri()}]: primary may not be running yet. Will keep trying.`
+            );
+            localHelper(resolve, reject);
+          }
+        });
     }, timeout);
   };
 
   return new Promise((resolve, reject) => {
-    localHelper(resolve,reject);
+    localHelper(resolve, reject);
   });
 }
 
 function _resolveNodeName(nodeName, remappings, options) {
-  let namespace = remappings['__ns'] || process.env.ROS_NAMESPACE || '';
+  let namespace = remappings["__ns"] || process.env.ROS_NAMESPACE || "";
   namespace = names.clean(namespace);
-  if (namespace.length === 0 || !namespace.startsWith('/')) {
+  if (namespace.length === 0 || !namespace.startsWith("/")) {
     namespace = `/${namespace}`;
   }
 
   names.validate(namespace, true);
 
-  nodeName = remappings['__name'] || nodeName;
+  nodeName = remappings["__name"] || nodeName;
   nodeName = names.resolve(namespace, nodeName);
 
   // only anonymize node name if they didn't remap from the command line
-  if (options.anonymous && !remappings['__name']) {
+  if (options.anonymous && !remappings["__name"]) {
     nodeName = _anonymizeNodeName(nodeName);
   }
 
-  return [nodeName, namespace]
+  return [nodeName, namespace];
 }
 
 /**
@@ -366,5 +396,5 @@ function _resolveNodeName(nodeName, remappings, options) {
  * @return {string} anonymized nodeName
  */
 function _anonymizeNodeName(nodeName) {
-  return util.format('%s_%s_%s', nodeName, process.pid, Date.now());
+  return util.format("%s_%s_%s", nodeName, process.pid, Date.now());
 }

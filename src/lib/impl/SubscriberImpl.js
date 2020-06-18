@@ -17,18 +17,22 @@
 
 "use strict";
 
-const NetworkUtils = require('../../utils/network_utils.js');
-const SerializationUtils = require('../../utils/serialization_utils.js');
+const NetworkUtils = require("../../utils/network_utils.js");
+const SerializationUtils = require("../../utils/serialization_utils.js");
 const DeserializeStream = SerializationUtils.DeserializeStream;
-const Deserialize =  SerializationUtils.Deserialize;
+const Deserialize = SerializationUtils.Deserialize;
 const Serialize = SerializationUtils.Serialize;
-const TcprosUtils = require('../../utils/tcpros_utils.js');
-const Socket = require('net').Socket;
-const EventEmitter = require('events');
-const Logging = require('../Logging.js');
-const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
+const TcprosUtils = require("../../utils/tcpros_utils.js");
+const Socket = require("net").Socket;
+const EventEmitter = require("events");
+const Logging = require("../Logging.js");
+const {
+  REGISTERING,
+  REGISTERED,
+  SHUTDOWN,
+} = require("../../utils/ClientStates.js");
 
-const protocols = [['TCPROS']];
+const protocols = [["TCPROS"]];
 
 //-----------------------------------------------------------------------
 
@@ -38,7 +42,6 @@ const protocols = [['TCPROS']];
  * of this to use
  */
 class SubscriberImpl extends EventEmitter {
-
   constructor(options, nodeHandle) {
     super();
 
@@ -48,10 +51,9 @@ class SubscriberImpl extends EventEmitter {
 
     this._type = options.type;
 
-    if (options.hasOwnProperty('queueSize')) {
+    if (options.hasOwnProperty("queueSize")) {
       this._queueSize = options.queueSize;
-    }
-    else {
+    } else {
       this._queueSize = 1;
     }
 
@@ -60,26 +62,29 @@ class SubscriberImpl extends EventEmitter {
      *  < 0  : handle immediately - no interaction with queue
      *  >= 0 : place event at end of event queue to handle after minimum delay (MS)
      */
-    if (options.hasOwnProperty('throttleMs')) {
+    if (options.hasOwnProperty("throttleMs")) {
       this._throttleMs = options.throttleMs;
-    }
-    else {
+    } else {
       this._throttleMs = 0;
     }
 
     // tcpNoDelay will be set as a field in the connection header sent to the
     // relevant publisher - the publisher should then set tcpNoDelay on the socket
-    this._tcpNoDelay =  !!options.tcpNoDelay;
+    this._tcpNoDelay = !!options.tcpNoDelay;
 
     this._msgHandleTime = null;
 
     this._nodeHandle = nodeHandle;
-    this._nodeHandle.getSpinner().addClient(this, this._getSpinnerId(), this._queueSize, this._throttleMs);
+    this._nodeHandle
+      .getSpinner()
+      .addClient(this, this._getSpinnerId(), this._queueSize, this._throttleMs);
 
-    this._log = Logging.getLogger('ros.rosnodejs');
+    this._log = Logging.getLogger("ros.rosnodejs");
 
     if (!options.typeClass) {
-      throw new Error(`Unable to load message for subscriber ${this.getTopic()} with type ${this.getType()}`);
+      throw new Error(
+        `Unable to load message for subscriber ${this.getTopic()} with type ${this.getType()}`
+      );
     }
     this._messageHandler = options.typeClass;
 
@@ -137,10 +142,12 @@ class SubscriberImpl extends EventEmitter {
    */
   shutdown() {
     this._state = SHUTDOWN;
-    this._log.debug('Shutting down subscriber %s', this.getTopic());
+    this._log.debug("Shutting down subscriber %s", this.getTopic());
 
     Object.keys(this._pubClients).forEach(this._disconnectClient.bind(this));
-    Object.keys(this._pendingPubClients).forEach(this._disconnectClient.bind(this));
+    Object.keys(this._pendingPubClients).forEach(
+      this._disconnectClient.bind(this)
+    );
 
     // disconnect from the spinner in case we have any pending callbacks
     this._nodeHandle.getSpinner().disconnect(this._getSpinnerId());
@@ -175,7 +182,7 @@ class SubscriberImpl extends EventEmitter {
   }
 
   /**
-   * Handle an update from the ROS master with the list of current publishers. Connect to any new ones
+   * Handle an update from the ROS primary with the list of current publishers. Connect to any new ones
    * and disconnect from any not included in the list.
    * @param publisherList {Array.string}
    * @private
@@ -205,14 +212,20 @@ class SubscriberImpl extends EventEmitter {
   _requestTopicFromPublisher(pubUri) {
     let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
     // send a topic request to the publisher's node
-    this._log.debug('Sending topic request to ' + JSON.stringify(info));
-    this._nodeHandle.requestTopic(info.host, info.port, this._topic, protocols)
+    this._log.debug("Sending topic request to " + JSON.stringify(info));
+    this._nodeHandle
+      .requestTopic(info.host, info.port, this._topic, protocols)
       .then((resp) => {
         this._handleTopicRequestResponse(resp, pubUri);
       })
       .catch((err, resp) => {
         // there was an error in the topic request
-        this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
+        this._log.warn(
+          "Error requesting topic on %s: %s, %s",
+          this.getTopic(),
+          err,
+          resp
+        );
       });
   }
 
@@ -229,7 +242,11 @@ class SubscriberImpl extends EventEmitter {
     }
 
     if (client) {
-      this._log.debug('Subscriber %s disconnecting client %s', this.getTopic(), clientId);
+      this._log.debug(
+        "Subscriber %s disconnecting client %s",
+        this.getTopic(),
+        clientId
+      );
       client.end();
 
       client.removeAllListeners();
@@ -244,42 +261,47 @@ class SubscriberImpl extends EventEmitter {
       delete this._pendingPubClients[clientId];
 
       if (hasValidatedClient) {
-        this.emit('disconnect');
+        this.emit("disconnect");
       }
     }
   }
 
   /**
-   * Registers the subscriber with the ROS master
+   * Registers the subscriber with the ROS primary
    * will connect to any existing publishers on the topic that are included in the response
    */
   _register() {
-    this._nodeHandle.registerSubscriber(this._topic, this._type)
-    .then((resp) => {
-      // if we were shutdown between the starting the registration and now, bail
-      if (this.isShutdown()) {
-        return;
-      }
-
-      // else handle response from register subscriber call
-      let code = resp[0];
-      let msg = resp[1];
-      let pubs = resp[2];
-      if ( code === 1 ) {
-        // success! update state to reflect that we're registered
-        this._state = REGISTERED;
-
-        if (pubs.length > 0) {
-          // this means we're ok and that publishers already exist on this topic
-          // we should connect to them
-          this.requestTopicFromPubs(pubs);
+    this._nodeHandle
+      .registerSubscriber(this._topic, this._type)
+      .then((resp) => {
+        // if we were shutdown between the starting the registration and now, bail
+        if (this.isShutdown()) {
+          return;
         }
-        this.emit('registered');
-      }
-    })
-    .catch((err, resp) => {
-      this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
-    })
+
+        // else handle response from register subscriber call
+        let code = resp[0];
+        let msg = resp[1];
+        let pubs = resp[2];
+        if (code === 1) {
+          // success! update state to reflect that we're registered
+          this._state = REGISTERED;
+
+          if (pubs.length > 0) {
+            // this means we're ok and that publishers already exist on this topic
+            // we should connect to them
+            this.requestTopicFromPubs(pubs);
+          }
+          this.emit("registered");
+        }
+      })
+      .catch((err, resp) => {
+        this._log.warn(
+          "Error during subscriber %s registration: %s",
+          this.getTopic(),
+          err
+        );
+      });
   }
 
   /**
@@ -291,7 +313,7 @@ class SubscriberImpl extends EventEmitter {
       return;
     }
 
-    this._log.debug('Topic request response: ' + JSON.stringify(resp));
+    this._log.debug("Topic request response: " + JSON.stringify(resp));
 
     // resp[2] has port and address for where to connect
     let info = resp[2];
@@ -299,23 +321,33 @@ class SubscriberImpl extends EventEmitter {
     let address = info[1];
 
     let socket = new Socket();
-    socket.name = address + ':' + port;
+    socket.name = address + ":" + port;
     socket.nodeUri = nodeUri;
 
-    socket.on('end', () => {
-      this._log.info('Subscriber client socket %s on topic %s ended the connection',
-                     socket.name, this.getTopic());
+    socket.on("end", () => {
+      this._log.info(
+        "Subscriber client socket %s on topic %s ended the connection",
+        socket.name,
+        this.getTopic()
+      );
     });
 
-    socket.on('error', (err) => {
-      this._log.warn('Subscriber client socket %s on topic %s had error: %s',
-                     socket.name, this.getTopic(), err);
+    socket.on("error", (err) => {
+      this._log.warn(
+        "Subscriber client socket %s on topic %s had error: %s",
+        socket.name,
+        this.getTopic(),
+        err
+      );
     });
 
     // hook into close event to clean things up
-    socket.on('close', () => {
-      this._log.info('Subscriber client socket %s on topic %s disconnected',
-                     socket.name, this.getTopic());
+    socket.on("close", () => {
+      this._log.info(
+        "Subscriber client socket %s on topic %s disconnected",
+        socket.name,
+        this.getTopic()
+      );
       this._disconnectClient(socket.nodeUri);
     });
 
@@ -326,7 +358,14 @@ class SubscriberImpl extends EventEmitter {
         return;
       }
 
-      this._log.debug('Subscriber on ' + this.getTopic() + ' connected to publisher at ' + address + ':' + port);
+      this._log.debug(
+        "Subscriber on " +
+          this.getTopic() +
+          " connected to publisher at " +
+          address +
+          ":" +
+          port
+      );
       socket.write(this._createTcprosHandshake());
     });
 
@@ -342,7 +381,10 @@ class SubscriberImpl extends EventEmitter {
 
     // create a one-time handler for the connection header
     // if the connection is validated, we'll listen for more events
-    deserializer.once('message', this._handleConnectionHeader.bind(this, socket));
+    deserializer.once(
+      "message",
+      this._handleConnectionHeader.bind(this, socket)
+    );
   }
 
   /**
@@ -350,8 +392,14 @@ class SubscriberImpl extends EventEmitter {
    * @returns {string}
    */
   _createTcprosHandshake() {
-    return TcprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(),
-                                       this.getTopic(), this.getType(), this._messageHandler.messageDefinition(), this._tcpNoDelay);
+    return TcprosUtils.createSubHeader(
+      this._nodeHandle.getNodeName(),
+      this._messageHandler.md5sum(),
+      this.getTopic(),
+      this.getType(),
+      this._messageHandler.messageDefinition(),
+      this._tcpNoDelay
+    );
   }
 
   /**
@@ -374,14 +422,27 @@ class SubscriberImpl extends EventEmitter {
     }
 
     // now do our own validation of the publisher's header
-    const error = TcprosUtils.validatePubHeader(header, this.getType(), this._messageHandler.md5sum());
+    const error = TcprosUtils.validatePubHeader(
+      header,
+      this.getType(),
+      this._messageHandler.md5sum()
+    );
     if (error) {
-      this._log.error(`Unable to validate subscriber ${this.getTopic()} connection header ${JSON.stringify(header)}`);
+      this._log.error(
+        `Unable to validate subscriber ${this.getTopic()} connection header ${JSON.stringify(
+          header
+        )}`
+      );
       socket.end(Serialize(error));
       return;
     }
     // connection header was valid - we're good to go!
-    this._log.debug('Subscriber ' + this.getTopic() + ' got connection header ' + JSON.stringify(header));
+    this._log.debug(
+      "Subscriber " +
+        this.getTopic() +
+        " got connection header " +
+        JSON.stringify(header)
+    );
 
     // cache client now that we've verified the connection header
     this._pubClients[socket.nodeUri] = socket;
@@ -389,9 +450,9 @@ class SubscriberImpl extends EventEmitter {
     delete this._pendingPubClients[socket.nodeUri];
 
     // pipe all future messages to _handleMessage
-    socket.$deserializer.on('message', this._handleMessage.bind(this));
+    socket.$deserializer.on("message", this._handleMessage.bind(this));
 
-    this.emit('connection', header, socket.name);
+    this.emit("connection", header, socket.name);
   }
 
   /**
@@ -402,8 +463,7 @@ class SubscriberImpl extends EventEmitter {
   _handleMessage(msg) {
     if (this._throttleMs < 0) {
       this._handleMsgQueue([msg]);
-    }
-    else {
+    } else {
       this._nodeHandle.getSpinner().ping(this._getSpinnerId(), msg);
     }
   }
@@ -415,12 +475,15 @@ class SubscriberImpl extends EventEmitter {
   _handleMsgQueue(msgQueue) {
     try {
       msgQueue.forEach((msg) => {
-        this.emit('message', this._messageHandler.deserialize(msg));
+        this.emit("message", this._messageHandler.deserialize(msg));
       });
-    }
-    catch (err) {
-      this._log.error('Error while dispatching message on topic %s: %s', this.getTopic(), err);
-      this.emit('error', err);
+    } catch (err) {
+      this._log.error(
+        "Error while dispatching message on topic %s: %s",
+        this.getTopic(),
+        err
+      );
+      this.emit("error", err);
     }
   }
 }

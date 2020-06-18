@@ -17,18 +17,22 @@
 
 "use strict";
 
-const net = require('net');
-const NetworkUtils = require('../utils/network_utils.js');
-const ros_msg_utils = require('../ros_msg_utils');
+const net = require("net");
+const NetworkUtils = require("../utils/network_utils.js");
+const ros_msg_utils = require("../ros_msg_utils");
 const base_serializers = ros_msg_utils.Serialize;
-const SerializationUtils = require('../utils/serialization_utils.js');
+const SerializationUtils = require("../utils/serialization_utils.js");
 const DeserializeStream = SerializationUtils.DeserializeStream;
 const Deserialize = SerializationUtils.Deserialize;
 const Serialize = SerializationUtils.Serialize;
-const TcprosUtils = require('../utils/tcpros_utils.js');
-const EventEmitter = require('events');
-const Logging = require('./Logging.js');
-const {REGISTERING, REGISTERED, SHUTDOWN} = require('../utils/ClientStates.js');
+const TcprosUtils = require("../utils/tcpros_utils.js");
+const EventEmitter = require("events");
+const Logging = require("./Logging.js");
+const {
+  REGISTERING,
+  REGISTERED,
+  SHUTDOWN,
+} = require("../utils/ClientStates.js");
 
 class ServiceServer extends EventEmitter {
   constructor(options, callback, nodeHandle) {
@@ -41,12 +45,14 @@ class ServiceServer extends EventEmitter {
 
     this._nodeHandle = nodeHandle;
 
-    this._log = Logging.getLogger('ros.rosnodejs');
+    this._log = Logging.getLogger("ros.rosnodejs");
 
     this._requestCallback = callback;
 
     if (!options.typeClass) {
-      throw new Error(`Unable to load service for service ${this.getService()} with type ${this.getType()}`);
+      throw new Error(
+        `Unable to load service for service ${this.getService()} with type ${this.getType()}`
+      );
     }
     this._messageHandler = options.typeClass;
 
@@ -55,7 +61,7 @@ class ServiceServer extends EventEmitter {
     this._state = REGISTERING;
 
     this._register();
-  };
+  }
 
   getService() {
     return this._service;
@@ -84,7 +90,7 @@ class ServiceServer extends EventEmitter {
   /**
    * The ROS client shutdown code is a little noodly. Users can close a client through
    * the ROS node or the client itself and both are correct. Either through a node.unadvertise()
-   * call or a client.shutdown() call - in both instances a call needs to be made to the ROS master
+   * call or a client.shutdown() call - in both instances a call needs to be made to the ROS primary
    * and the client needs to tear itself down.
    */
   shutdown() {
@@ -116,47 +122,59 @@ class ServiceServer extends EventEmitter {
     }
     // else
     // TODO: verify header data
-    this._log.debug('Service %s handling new client connection ', this.getService());
+    this._log.debug(
+      "Service %s handling new client connection ",
+      this.getService()
+    );
 
-    const error = TcprosUtils.validateServiceClientHeader(header, this.getService(), this._messageHandler.md5sum());
+    const error = TcprosUtils.validateServiceClientHeader(
+      header,
+      this.getService(),
+      this._messageHandler.md5sum()
+    );
     if (error) {
-      this._log.error('Error while validating service %s connection header: %s', this.getService(), error);
+      this._log.error(
+        "Error while validating service %s connection header: %s",
+        this.getService(),
+        error
+      );
       client.end(Serialize(TcprosUtils.createTcpRosError(error)));
       return;
     }
 
-    let respHeader =
-      TcprosUtils.createServiceServerHeader(
-        this._nodeHandle.getNodeName(),
-        this._messageHandler.md5sum(),
-        this.getType());
+    let respHeader = TcprosUtils.createServiceServerHeader(
+      this._nodeHandle.getNodeName(),
+      this._messageHandler.md5sum(),
+      this.getType()
+    );
     client.write(respHeader);
 
-    client.$persist = (header['persistent'] === '1');
+    client.$persist = header["persistent"] === "1";
 
     // bind to message handler
     client.$messageHandler = this._handleMessage.bind(this, client);
-    client.$deserializeStream.on('message', client.$messageHandler);
+    client.$deserializeStream.on("message", client.$messageHandler);
 
-    client.on('close', () => {
+    client.on("close", () => {
       delete this._clients[client.name];
-      this._log.debug('Service client %s disconnected!', client.name);
+      this._log.debug("Service client %s disconnected!", client.name);
     });
 
     this._clients[client.name] = client;
-    this.emit('connection', header, client.name);
+    this.emit("connection", header, client.name);
   }
 
   _handleMessage(client, data) {
-    this._log.trace('Service  ' + this.getService() + ' got message! ' + data.toString('hex'));
+    this._log.trace(
+      "Service  " + this.getService() + " got message! " + data.toString("hex")
+    );
     // deserialize msg
     const req = this._messageHandler.Request.deserialize(data);
 
     // call service callback
     let resp = new this._messageHandler.Response();
     let result = this._requestCallback(req, resp);
-    Promise.resolve(result)
-    .then((success) => {
+    Promise.resolve(result).then((success) => {
       // client should already have been closed, so if we got here just cut out early
       if (this.isShutdown()) {
         return;
@@ -172,7 +190,7 @@ class ServiceServer extends EventEmitter {
       client.write(serializeResponse);
 
       if (!client.$persist) {
-        this._log.debug('Closing non-persistent client');
+        this._log.debug("Closing non-persistent client");
         client.end();
         delete this._clients[client.name];
       }
@@ -180,15 +198,14 @@ class ServiceServer extends EventEmitter {
   }
 
   _register() {
-    this._nodeHandle.registerService(this.getService())
-    .then((resp) => {
+    this._nodeHandle.registerService(this.getService()).then((resp) => {
       // if we were shutdown between the starting the registration and now, bail
       if (this.isShutdown()) {
         return;
       }
 
       this._state = REGISTERED;
-      this.emit('registered');
+      this.emit("registered");
     });
   }
 }

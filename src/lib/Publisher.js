@@ -17,9 +17,9 @@
 
 "use strict";
 
-const EventEmitter = require('events');
-const Ultron = require('ultron');
-const {rebroadcast} = require('../utils/event_utils.js');
+const EventEmitter = require("events");
+const Ultron = require("ultron");
+const { rebroadcast } = require("../utils/event_utils.js");
 
 /**
  * @class Publisher
@@ -37,10 +37,10 @@ class Publisher extends EventEmitter {
     this._topic = impl.getTopic();
     this._type = impl.getType();
 
-    rebroadcast('registered', this._ultron, this);
-    rebroadcast('connection', this._ultron, this);
-    rebroadcast('disconnect', this._ultron, this);
-    rebroadcast('error', this._ultron, this);
+    rebroadcast("registered", this._ultron, this);
+    rebroadcast("connection", this._ultron, this);
+    rebroadcast("disconnect", this._ultron, this);
+    rebroadcast("error", this._ultron, this);
   }
 
   /**
@@ -86,13 +86,13 @@ class Publisher extends EventEmitter {
 
   /**
    * Shuts down this publisher. If this is the last publisher on this topic
-   * for this node, closes the publisher and unregisters the topic from Master
+   * for this node, closes the publisher and unregisters the topic from Primary
    * @returns {Promise}
    */
   shutdown() {
-    const topic= this.getTopic();
+    const topic = this.getTopic();
     if (this._impl) {
-      const impl = this._impl
+      const impl = this._impl;
       this._impl = null;
       this._ultron.destroy();
       this._ultron = null;

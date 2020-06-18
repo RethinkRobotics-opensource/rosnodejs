@@ -17,12 +17,16 @@
 
 "use strict";
 
-const SerializationUtils = require('../../utils/serialization_utils.js');
+const SerializationUtils = require("../../utils/serialization_utils.js");
 const Serialize = SerializationUtils.Serialize;
-const TcprosUtils = require('../../utils/tcpros_utils.js');
-const EventEmitter = require('events');
-const Logging = require('../Logging.js');
-const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
+const TcprosUtils = require("../../utils/tcpros_utils.js");
+const EventEmitter = require("events");
+const Logging = require("../Logging.js");
+const {
+  REGISTERING,
+  REGISTERED,
+  SHUTDOWN,
+} = require("../../utils/ClientStates.js");
 
 /**
  * Implementation class for a Publisher. Handles registration, connecting to
@@ -41,12 +45,11 @@ class PublisherImpl extends EventEmitter {
 
     this._latching = !!options.latching;
 
-    this._tcpNoDelay =  !!options.tcpNoDelay;
+    this._tcpNoDelay = !!options.tcpNoDelay;
 
-    if (options.hasOwnProperty('queueSize')) {
+    if (options.hasOwnProperty("queueSize")) {
       this._queueSize = options.queueSize;
-    }
-    else {
+    } else {
       this._queueSize = 1;
     }
 
@@ -57,10 +60,9 @@ class PublisherImpl extends EventEmitter {
      * >= 0 : place event at end of event queue to publish message
          after minimum delay (MS)
      */
-    if (options.hasOwnProperty('throttleMs')) {
+    if (options.hasOwnProperty("throttleMs")) {
       this._throttleMs = options.throttleMs;
-    }
-    else {
+    } else {
       this._throttleMs = 0;
     }
 
@@ -73,14 +75,18 @@ class PublisherImpl extends EventEmitter {
     this._lastSentMsg = null;
 
     this._nodeHandle = nodeHandle;
-    this._nodeHandle.getSpinner().addClient(this, this._getSpinnerId(), this._queueSize, this._throttleMs);
+    this._nodeHandle
+      .getSpinner()
+      .addClient(this, this._getSpinnerId(), this._queueSize, this._throttleMs);
 
-    this._log = Logging.getLogger('ros.rosnodejs');
+    this._log = Logging.getLogger("ros.rosnodejs");
 
     this._subClients = {};
 
     if (!options.typeClass) {
-      throw new Error(`Unable to load message for publisher ${this.getTopic()} with type ${this.getType()}`);
+      throw new Error(
+        `Unable to load message for publisher ${this.getTopic()} with type ${this.getType()}`
+      );
     }
     this._messageHandler = options.typeClass;
 
@@ -131,7 +137,7 @@ class PublisherImpl extends EventEmitter {
 
   /**
    * Get the list of client addresses connect to this publisher.
-   * Used for getBusInfo Slave API calls
+   * Used for getBusInfo Assistant API calls
    * @returns {Array}
    */
   getClientUris() {
@@ -151,7 +157,7 @@ class PublisherImpl extends EventEmitter {
    */
   shutdown() {
     this._state = SHUTDOWN;
-    this._log.debug('Shutting down publisher %s', this.getTopic());
+    this._log.debug("Shutting down publisher %s", this.getTopic());
 
     Object.keys(this._subClients).forEach((clientId) => {
       const client = this._subClients[clientId];
@@ -182,15 +188,14 @@ class PublisherImpl extends EventEmitter {
       return;
     }
 
-    if (typeof throttleMs !== 'number') {
+    if (typeof throttleMs !== "number") {
       throttleMs = this._throttleMs;
     }
 
     if (throttleMs < 0) {
       // short circuit JS event queue, publish "synchronously"
       this._handleMsgQueue([msg]);
-    }
-    else {
+    } else {
       this._nodeHandle.getSpinner().ping(this._getSpinnerId(), msg);
     }
   }
@@ -200,7 +205,6 @@ class PublisherImpl extends EventEmitter {
    * @param msgQueue {Array} Array of messages. Type of each message matches this._type
    */
   _handleMsgQueue(msgQueue) {
-
     // There's a small chance that we were shutdown while the spinner was locked
     // which could cause _handleMsgQueue to be called if this publisher was in there.
     if (this.isShutdown()) {
@@ -209,7 +213,10 @@ class PublisherImpl extends EventEmitter {
 
     const numClients = this.getNumSubscribers();
     if (numClients === 0) {
-      this._log.debugThrottle(2000, `Publishing message on ${this.getTopic()} with no subscribers`);
+      this._log.debugThrottle(
+        2000,
+        `Publishing message on ${this.getTopic()} with no subscribers`
+      );
     }
 
     try {
@@ -218,7 +225,10 @@ class PublisherImpl extends EventEmitter {
           msg = this._messageHandler.Resolve(msg);
         }
 
-        const serializedMsg = TcprosUtils.serializeMessage(this._messageHandler, msg);
+        const serializedMsg = TcprosUtils.serializeMessage(
+          this._messageHandler,
+          msg
+        );
 
         Object.keys(this._subClients).forEach((client) => {
           this._subClients[client].write(serializedMsg);
@@ -231,10 +241,13 @@ class PublisherImpl extends EventEmitter {
           this._lastSentMsg = serializedMsg;
         }
       });
-    }
-    catch (err) {
-      this._log.error('Error when publishing message on topic %s: %s', this.getTopic(), err.stack);
-      this.emit('error', err);
+    } catch (err) {
+      this._log.error(
+        "Error when publishing message on topic %s: %s",
+        this.getTopic(),
+        err.stack
+      );
+      this.emit("error", err);
     }
   }
 
@@ -246,88 +259,112 @@ class PublisherImpl extends EventEmitter {
    */
   handleSubscriberConnection(socket, header) {
     let error = TcprosUtils.validateSubHeader(
-      header, this.getTopic(), this.getType(),
-      this._messageHandler.md5sum());
+      header,
+      this.getTopic(),
+      this.getType(),
+      this._messageHandler.md5sum()
+    );
 
     if (error !== null) {
-      this._log.error('Unable to validate subscriber connection header '
-                      + JSON.stringify(header));
+      this._log.error(
+        "Unable to validate subscriber connection header " +
+          JSON.stringify(header)
+      );
       socket.end(Serialize(error));
       return;
     }
     // else
-    this._log.info('Pub %s got connection header %s', this.getTopic(), JSON.stringify(header));
+    this._log.info(
+      "Pub %s got connection header %s",
+      this.getTopic(),
+      JSON.stringify(header)
+    );
 
     // create and send response
-    let respHeader =
-      TcprosUtils.createPubHeader(
-        this._nodeHandle.getNodeName(),
-        this._messageHandler.md5sum(),
-        this.getType(),
-        this.getLatching(),
-        this._messageHandler.messageDefinition());
+    let respHeader = TcprosUtils.createPubHeader(
+      this._nodeHandle.getNodeName(),
+      this._messageHandler.md5sum(),
+      this.getType(),
+      this.getLatching(),
+      this._messageHandler.messageDefinition()
+    );
     socket.write(respHeader);
 
     // if this publisher had the tcpNoDelay option set
     // disable the nagle algorithm
-    if  (this._tcpNoDelay || header.tcp_nodelay === '1') {
+    if (this._tcpNoDelay || header.tcp_nodelay === "1") {
       socket.setNoDelay(true);
     }
 
-    socket.on('close', () => {
-      this._log.info('Publisher client socket %s on topic %s disconnected',
-                     socket.name, this.getTopic());
+    socket.on("close", () => {
+      this._log.info(
+        "Publisher client socket %s on topic %s disconnected",
+        socket.name,
+        this.getTopic()
+      );
       socket.removeAllListeners();
       delete this._subClients[socket.name];
-      this.emit('disconnect');
+      this.emit("disconnect");
     });
 
-    socket.on('end', () => {
-      this._log.info('Publisher client socket %s on topic %s ended the connection',
-                     socket.name, this.getTopic());
+    socket.on("end", () => {
+      this._log.info(
+        "Publisher client socket %s on topic %s ended the connection",
+        socket.name,
+        this.getTopic()
+      );
     });
 
-    socket.on('error', (err) => {
-      this._log.warn('Publisher client socket %s on topic %s had error: %s',
-                     socket.name, this.getTopic(), err);
+    socket.on("error", (err) => {
+      this._log.warn(
+        "Publisher client socket %s on topic %s had error: %s",
+        socket.name,
+        this.getTopic(),
+        err
+      );
     });
 
     // if we've cached a message from latching, send it now
     if (this._lastSentMsg !== null) {
-      this._log.debug('Sending latched msg to new subscriber');
+      this._log.debug("Sending latched msg to new subscriber");
       socket.write(this._lastSentMsg);
     }
 
     // handshake was good - we'll start publishing to it
     this._subClients[socket.name] = socket;
 
-    this.emit('connection', header, socket.name);
+    this.emit("connection", header, socket.name);
   }
 
   /**
-   * Makes an XMLRPC call to registers this publisher with the ROS master
+   * Makes an XMLRPC call to registers this publisher with the ROS primary
    */
   _register() {
-    this._nodeHandle.registerPublisher(this._topic, this._type)
-    .then((resp) => {
-      // if we were shutdown between the starting the registration and now, bail
-      if (this.isShutdown()) {
-        return;
-      }
+    this._nodeHandle
+      .registerPublisher(this._topic, this._type)
+      .then((resp) => {
+        // if we were shutdown between the starting the registration and now, bail
+        if (this.isShutdown()) {
+          return;
+        }
 
-      this._log.info('Registered %s as a publisher: %j', this._topic, resp);
-      let code = resp[0];
-      let msg = resp[1];
-      let subs = resp[2];
-      if (code === 1) {
-        // registration worked
-        this._state = REGISTERED;
-        this.emit('registered');
-      }
-    })
-    .catch((err) => {
-      this._log.error('Error while registering publisher %s: %s', this.getTopic(), err);
-    })
+        this._log.info("Registered %s as a publisher: %j", this._topic, resp);
+        let code = resp[0];
+        let msg = resp[1];
+        let subs = resp[2];
+        if (code === 1) {
+          // registration worked
+          this._state = REGISTERED;
+          this.emit("registered");
+        }
+      })
+      .catch((err) => {
+        this._log.error(
+          "Error while registering publisher %s: %s",
+          this.getTopic(),
+          err
+        );
+      });
   }
 }
 

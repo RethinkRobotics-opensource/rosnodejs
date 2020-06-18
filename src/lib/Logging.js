@@ -15,40 +15,40 @@
  *    limitations under the License.
  */
 
-'use strict';
-const bunyan = require('bunyan');
-const Logger = require('../utils/log/Logger.js');
-const RosLogStream = require('../utils/log/RosLogStream.js');
-const ConsoleLogStream = require('../utils/log/ConsoleLogStream.js');
-const LogFormatter = require('../utils/log/LogFormatter.js');
+"use strict";
+const bunyan = require("bunyan");
+const Logger = require("../utils/log/Logger.js");
+const RosLogStream = require("../utils/log/RosLogStream.js");
+const ConsoleLogStream = require("../utils/log/ConsoleLogStream.js");
+const LogFormatter = require("../utils/log/LogFormatter.js");
 
 //-----------------------------------------------------------------------
 
-const DEFAULT_LOGGER_NAME = 'ros';
+const DEFAULT_LOGGER_NAME = "ros";
 const LOG_CLEANUP_INTERVAL_MS = 30000; // 30 seconds
 
 // TODO: put this in a config file somewhere
 const KNOWN_LOGS = [
   {
     name: `${DEFAULT_LOGGER_NAME}.superdebug`,
-    level: 'fatal'
+    level: "fatal",
   },
   {
     name: `${DEFAULT_LOGGER_NAME}.rosnodejs`,
-    level: 'warn'
+    level: "warn",
   },
   {
-    name: `${DEFAULT_LOGGER_NAME}.masterapi`,
-    level: 'warn'
+    name: `${DEFAULT_LOGGER_NAME}.primaryapi`,
+    level: "warn",
   },
   {
     name: `${DEFAULT_LOGGER_NAME}.params`,
-    level: 'warn'
+    level: "warn",
   },
   {
     name: `${DEFAULT_LOGGER_NAME}.spinner`,
-    level: 'error'
-  }
+    level: "error",
+  },
 ];
 
 //-----------------------------------------------------------------------
@@ -60,13 +60,15 @@ class LoggingManager {
     // initialize the root logger with a console stream
     const rootLoggerOptions = {
       name: DEFAULT_LOGGER_NAME,
-      streams: [{
-        type: 'raw',
-        name: 'ConsoleLogStream',
-        stream: new ConsoleLogStream({formatter: LogFormatter}),
-        level: 'info'
-      }],
-      level: 'info'
+      streams: [
+        {
+          type: "raw",
+          name: "ConsoleLogStream",
+          stream: new ConsoleLogStream({ formatter: LogFormatter }),
+          level: "info",
+        },
+      ],
+      level: "info",
     };
     this.rootLogger = new Logger(rootLoggerOptions);
 
@@ -82,7 +84,7 @@ class LoggingManager {
     // through the logging services (_handleGetLoggers, _handleSetLoggerLevel)
     this._externalLog = {
       getLoggers: null,
-      setLoggerLevel: null
+      setLoggerLevel: null,
     };
 
     KNOWN_LOGS.forEach((log) => {
@@ -90,34 +92,36 @@ class LoggingManager {
     });
   }
 
-  initializeNodeLogger(nodeName, options={}) {
-
+  initializeNodeLogger(nodeName, options = {}) {
     // setup desired streams
-    if (options.hasOwnProperty('streams')) {
+    if (options.hasOwnProperty("streams")) {
       options.streams.forEach((stream) => {
         this.addStream(stream);
       });
     }
     // set desired log level
-    if (options.hasOwnProperty('level')) {
+    if (options.hasOwnProperty("level")) {
       this.setLevel(options.level);
     }
 
     // automatically clear out expired throttled logs every so often unless specified otherwise
-    if (!options.hasOwnProperty('overrideLoggerCleanup')) {
-      this._cleanLoggersInterval = setInterval(this.clearThrottledLogs.bind(this), LOG_CLEANUP_INTERVAL_MS);
+    if (!options.hasOwnProperty("overrideLoggerCleanup")) {
+      this._cleanLoggersInterval = setInterval(
+        this.clearThrottledLogs.bind(this),
+        LOG_CLEANUP_INTERVAL_MS
+      );
     }
 
-    if (typeof options.getLoggers === 'function') {
+    if (typeof options.getLoggers === "function") {
       this._externalLog.getLoggers = options.getLoggers;
     }
 
-    if (typeof options.setLoggerLevel === 'function') {
+    if (typeof options.setLoggerLevel === "function") {
       this._externalLog.setLoggerLevel = options.setLoggerLevel;
     }
   }
 
-  initializeRosOptions(rosnodejs, options={}) {
+  initializeRosOptions(rosnodejs, options = {}) {
     if (options.skipRosLogging) {
       return Promise.resolve();
     }
@@ -125,35 +129,47 @@ class LoggingManager {
     const nh = rosnodejs.nh;
     let rosLogStream;
     try {
-      const rosgraphMsgs = rosnodejs.require('rosgraph_msgs');
+      const rosgraphMsgs = rosnodejs.require("rosgraph_msgs");
       rosLogStream = new RosLogStream(nh, rosgraphMsgs.msg.Log);
       this.addStream({
-        type: 'raw',
-        name: 'RosLogStream',
-        stream: rosLogStream
+        type: "raw",
+        name: "RosLogStream",
+        stream: rosLogStream,
       });
-    }
-    catch (err) {
-      this.rootLogger.warn('Unable to setup ros logging stream');
+    } catch (err) {
+      this.rootLogger.warn("Unable to setup ros logging stream");
     }
 
     // try to set up logging services
     try {
-      const roscpp = rosnodejs.require('roscpp');
-      const getLoggerSrv = nh.getNodeName() + '/get_loggers';
-      const setLoggerSrv = nh.getNodeName() + '/set_logger_level';
-      nh.advertiseService(getLoggerSrv, roscpp.srv.GetLoggers, this._handleGetLoggers.bind(this));
-      nh.advertiseService(setLoggerSrv, roscpp.srv.SetLoggerLevel, this._handleSetLoggerLevel.bind(this));
-    }
-    catch (err) {
-      this.rootLogger.warn('Unable to setup ros logging services');
+      const roscpp = rosnodejs.require("roscpp");
+      const getLoggerSrv = nh.getNodeName() + "/get_loggers";
+      const setLoggerSrv = nh.getNodeName() + "/set_logger_level";
+      nh.advertiseService(
+        getLoggerSrv,
+        roscpp.srv.GetLoggers,
+        this._handleGetLoggers.bind(this)
+      );
+      nh.advertiseService(
+        setLoggerSrv,
+        roscpp.srv.SetLoggerLevel,
+        this._handleSetLoggerLevel.bind(this)
+      );
+    } catch (err) {
+      this.rootLogger.warn("Unable to setup ros logging services");
     }
 
-    if (rosLogStream && options.waitOnRosOut !== undefined && options.waitOnRosOut) {
-      this.rootLogger.debug('Waiting for /rosout connection before resolving node initialization...');
-      return new Promise((resolve,reject) => {
-        rosLogStream.getPub().on('connection', () => {
-          this.rootLogger.debug('Got connection to /rosout !');
+    if (
+      rosLogStream &&
+      options.waitOnRosOut !== undefined &&
+      options.waitOnRosOut
+    ) {
+      this.rootLogger.debug(
+        "Waiting for /rosout connection before resolving node initialization..."
+      );
+      return new Promise((resolve, reject) => {
+        rosLogStream.getPub().on("connection", () => {
+          this.rootLogger.debug("Got connection to /rosout !");
           resolve();
         });
       });
@@ -162,8 +178,8 @@ class LoggingManager {
   }
 
   generateLogger(options) {
-    if (!options.hasOwnProperty('name')) {
-      throw new Error('Unable to generate logger without name');
+    if (!options.hasOwnProperty("name")) {
+      throw new Error("Unable to generate logger without name");
     }
     const loggerName = options.name;
 
@@ -173,7 +189,11 @@ class LoggingManager {
     }
     // else
     // generate a child logger from root
-    let newLogger = this._createChildLogger(loggerName, this.rootLogger, options);
+    let newLogger = this._createChildLogger(
+      loggerName,
+      this.rootLogger,
+      options
+    );
 
     // stash the logger and return it
     this.loggerMap[loggerName] = newLogger;
@@ -183,8 +203,7 @@ class LoggingManager {
   getLogger(loggerName, options) {
     if (!loggerName || loggerName === this.rootLogger.getName()) {
       return this.rootLogger;
-    }
-    else if (!this.hasLogger(loggerName)) {
+    } else if (!this.hasLogger(loggerName)) {
       options = options || {};
       options.name = loggerName;
       return this.generateLogger(options);
@@ -251,7 +270,7 @@ class LoggingManager {
     this._forEachLogger((logger) => {
       resp.loggers.push({
         name: logger.getName(),
-        level: bunyan.nameFromLevel[logger.getLevel()]
+        level: bunyan.nameFromLevel[logger.getLevel()],
       });
     }, true);
 
@@ -277,11 +296,11 @@ class LoggingManager {
   }
 
   _bindNodeLoggerMethods(logger) {
-    const rawMethods = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'];
+    const rawMethods = ["trace", "debug", "info", "warn", "error", "fatal"];
     let methods = [];
     rawMethods.forEach((method) => methods.push(method));
-    rawMethods.forEach((method) => methods.push(method + 'Throttle'));
-    rawMethods.forEach((method) => methods.push(method + 'Once'));
+    rawMethods.forEach((method) => methods.push(method + "Throttle"));
+    rawMethods.forEach((method) => methods.push(method + "Once"));
     methods.forEach((method) => {
       this[method] = logger[method].bind(logger);
     });
@@ -292,7 +311,7 @@ class LoggingManager {
       perLoggerCallback(this.rootLogger);
     }
     Object.keys(this.loggerMap).forEach((loggerName) => {
-      perLoggerCallback(this.loggerMap[loggerName])
+      perLoggerCallback(this.loggerMap[loggerName]);
     });
   }
 
@@ -302,12 +321,12 @@ class LoggingManager {
     options.scope = childLoggerName;
 
     // create logger
-    const childLogger =  parentLogger.child(options);
+    const childLogger = parentLogger.child(options);
 
     // cache in map
     this.loggerMap[childLoggerName] = childLogger;
     return childLogger;
-  };
+  }
 }
 
 module.exports = new LoggingManager();

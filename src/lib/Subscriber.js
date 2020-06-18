@@ -17,9 +17,9 @@
 
 "use strict";
 
-const EventEmitter = require('events');
-const Ultron = require('ultron');
-const {rebroadcast} = require('../utils/event_utils.js');
+const EventEmitter = require("events");
+const Ultron = require("ultron");
+const { rebroadcast } = require("../utils/event_utils.js");
 
 //-----------------------------------------------------------------------
 
@@ -39,11 +39,11 @@ class Subscriber extends EventEmitter {
     this._topic = impl.getTopic();
     this._type = impl.getType();
 
-    rebroadcast('registered', this._ultron, this);
-    rebroadcast('connection', this._ultron, this);
-    rebroadcast('disconnect', this._ultron, this);
-    rebroadcast('error', this._ultron, this);
-    rebroadcast('message', this._ultron, this);
+    rebroadcast("registered", this._ultron, this);
+    rebroadcast("connection", this._ultron, this);
+    rebroadcast("disconnect", this._ultron, this);
+    rebroadcast("error", this._ultron, this);
+    rebroadcast("message", this._ultron, this);
   }
 
   /**
@@ -77,12 +77,12 @@ class Subscriber extends EventEmitter {
 
   /**
    * Shuts down this subscriber. If this is the last subscriber on this topic
-   * for this node, closes the subscriber and unregisters the topic from Master
+   * for this node, closes the subscriber and unregisters the topic from Primary
    * @returns {Promise}
    */
   shutdown() {
     if (this._impl) {
-      const impl = this._impl
+      const impl = this._impl;
       this._impl = null;
       this._ultron.destroy();
       this._ultron = null;

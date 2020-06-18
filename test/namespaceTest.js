@@ -1,135 +1,138 @@
-'use strict';
+"use strict";
 
-const chai = require('chai');
+const chai = require("chai");
 const expect = chai.expect;
-const xmlrpc = require('xmlrpc');
-const names = require('../src/lib/Names.js');
-const NodeHandle = require('../src/lib/NodeHandle.js');
-const MasterStub = require('./utils/MasterStub.js');
-const rosnodejs = require('../src/index.js');
-const remapUtils = require('../src/utils/remapping_utils.js');
-const netUtils = require('../src/utils/network_utils.js');
+const xmlrpc = require("xmlrpc");
+const names = require("../src/lib/Names.js");
+const NodeHandle = require("../src/lib/NodeHandle.js");
+const PrimaryStub = require("./utils/PrimaryStub.js");
+const rosnodejs = require("../src/index.js");
+const remapUtils = require("../src/utils/remapping_utils.js");
+const netUtils = require("../src/utils/network_utils.js");
 
-describe('Namespace', function () {
+describe("Namespace", function () {
   let nodeHandle;
-  names.init({}, '/namespace');
+  names.init({}, "/namespace");
 
   function _setupNodeHandle(name) {
     nodeHandle = new NodeHandle(null, name);
-    nodeHandle.getNodeName = function() { return '/test_node' };
+    nodeHandle.getNodeName = function () {
+      return "/test_node";
+    };
   }
 
-  it('Validate', () => {
+  it("Validate", () => {
     expect(names.validate(null)).to.be.false;
     expect(names.validate()).to.be.false;
     expect(names.validate({})).to.be.false;
     expect(names.validate(1)).to.be.false;
-    expect(names.validate('/my-node')).to.be.false;
+    expect(names.validate("/my-node")).to.be.false;
 
-    expect(names.validate('')).to.be.true;
-    expect(names.validate('hi')).to.be.true;
-    expect(names.validate('/hi')).to.be.true;
-    expect(names.validate('~hi')).to.be.true;
-    expect(names.validate('~a_z09asdf')).to.be.true;
+    expect(names.validate("")).to.be.true;
+    expect(names.validate("hi")).to.be.true;
+    expect(names.validate("/hi")).to.be.true;
+    expect(names.validate("~hi")).to.be.true;
+    expect(names.validate("~a_z09asdf")).to.be.true;
   });
 
+  describe("Resolving", () => {
+    it("Utils", () => {
+      expect(names.resolve("bar")).to.equal("/namespace/bar");
+      expect(names.resolve("/bar")).to.equal("/bar");
+      expect(names.resolve("~bar")).to.equal("/namespace/bar");
 
-  describe('Resolving', () => {
+      expect(names.resolve("/scope_1", "bar")).to.equal("/scope_1/bar");
+      expect(names.resolve("/scope_1", "/bar")).to.equal("/bar");
+      expect(names.resolve("/scope_1", "~bar")).to.equal("/namespace/bar");
 
-    it('Utils', () => {
-      expect(names.resolve('bar')).to.equal('/namespace/bar');
-      expect(names.resolve('/bar')).to.equal('/bar');
-      expect(names.resolve('~bar')).to.equal('/namespace/bar');
+      names.init({}, "/");
+      expect(names.resolve("bar")).to.equal("/bar");
+      expect(names.resolve("/bar")).to.equal("/bar");
+      expect(names.resolve("~bar")).to.equal("/bar");
 
-      expect(names.resolve('/scope_1', 'bar')).to.equal('/scope_1/bar');
-      expect(names.resolve('/scope_1', '/bar')).to.equal('/bar');
-      expect(names.resolve('/scope_1', '~bar')).to.equal('/namespace/bar');
-
-      names.init({}, '/');
-      expect(names.resolve('bar')).to.equal('/bar');
-      expect(names.resolve('/bar')).to.equal('/bar');
-      expect(names.resolve('~bar')).to.equal('/bar');
-
-      expect(names.resolve('/scope_1', 'bar')).to.equal('/scope_1/bar');
-      expect(names.resolve('/scope_1', '/bar')).to.equal('/bar');
-      expect(names.resolve('/scope_1', '~bar')).to.equal('/bar');
+      expect(names.resolve("/scope_1", "bar")).to.equal("/scope_1/bar");
+      expect(names.resolve("/scope_1", "/bar")).to.equal("/bar");
+      expect(names.resolve("/scope_1", "~bar")).to.equal("/bar");
     });
 
-    it('Default Nodehandle', () => {
-
-      names.init({}, '/');
+    it("Default Nodehandle", () => {
+      names.init({}, "/");
       _setupNodeHandle();
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
 
-      names.init({}, '/scope');
+      names.init({}, "/scope");
       _setupNodeHandle();
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/scope/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/scope/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
     });
 
-    it('Named Nodehandle', () => {
-      names.init({}, '/');
-      _setupNodeHandle('/scope_1');
+    it("Named Nodehandle", () => {
+      names.init({}, "/");
+      _setupNodeHandle("/scope_1");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/scope_1/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/scope_1/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
 
-      names.init({}, '/');
-      _setupNodeHandle('scope_1');
+      names.init({}, "/");
+      _setupNodeHandle("scope_1");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/scope_1/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/scope_1/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
 
-      names.init({}, '/sooop');
-      _setupNodeHandle('/scope_1');
+      names.init({}, "/sooop");
+      _setupNodeHandle("/scope_1");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/scope_1/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/scope_1/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
 
-      names.init({}, '/sooop');
-      _setupNodeHandle('scope_1');
+      names.init({}, "/sooop");
+      _setupNodeHandle("scope_1");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/sooop/scope_1/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal(
+        "/sooop/scope_1/bar"
+      );
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
     });
 
-    it('Private Nodehandle', () => {
-      names.init({}, '/scope');
-      _setupNodeHandle('~');
+    it("Private Nodehandle", () => {
+      names.init({}, "/scope");
+      _setupNodeHandle("~");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/scope/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/scope/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
 
-      _setupNodeHandle('~/subscope');
+      _setupNodeHandle("~/subscope");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/scope/subscope/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal(
+        "/scope/subscope/bar"
+      );
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
 
-      names.init({}, '/');
-      _setupNodeHandle('~');
+      names.init({}, "/");
+      _setupNodeHandle("~");
 
-      expect(nodeHandle.resolveName('bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName('/bar', false)).to.equal('/bar');
-      expect(nodeHandle.resolveName.bind(nodeHandle, '~bar', false)).to.throw();
+      expect(nodeHandle.resolveName("bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName("/bar", false)).to.equal("/bar");
+      expect(nodeHandle.resolveName.bind(nodeHandle, "~bar", false)).to.throw();
     });
   });
 
-  describe('with ros', () => {
-    const MASTER_PORT = 12342;
-    const rosMasterUri = `http://localhost:${MASTER_PORT}`;
-    let masterStub = new MasterStub('localhost', MASTER_PORT);
-    masterStub.provideAll();
+  describe("with ros", () => {
+    const PRIMARY_PORT = 12342;
+    const rosPrimaryUri = `http://localhost:${PRIMARY_PORT}`;
+    let primaryStub = new PrimaryStub("localhost", PRIMARY_PORT);
+    primaryStub.provideAll();
 
     const ARGV_LEN = process.argv.length;
     function resetArgv() {
@@ -141,17 +144,15 @@ describe('Namespace', function () {
     }
 
     after((done) => {
-      masterStub.shutdown()
-      .then(() => {
+      primaryStub.shutdown().then(() => {
         done();
       });
-    })
+    });
 
     afterEach((done) => {
       resetArgv();
 
-      rosnodejs.shutdown()
-      .then(() => {
+      rosnodejs.shutdown().then(() => {
         rosnodejs.reset();
         done();
       });
@@ -159,135 +160,134 @@ describe('Namespace', function () {
 
     // test special key remapping
     // wiki.ros.org/Remapping Arguments
-    it('__name', function(done) {
+    it("__name", function (done) {
       this.slow(500);
 
-      const remappedName = 'custom_name';
+      const remappedName = "custom_name";
       setRemapArg(remapUtils.SPECIAL_KEYS.name, remappedName);
 
-      rosnodejs.initNode('node_name', { rosMasterUri })
-      .then(() => {
-        expect(rosnodejs.nh.getNodeName()).to.equal('/' + remappedName);
+      rosnodejs.initNode("node_name", { rosPrimaryUri }).then(() => {
+        expect(rosnodejs.nh.getNodeName()).to.equal("/" + remappedName);
 
         done();
       });
     });
 
-    it('__ip', function(done) {
+    it("__ip", function (done) {
       this.slow(500);
 
-      const remappedIp = '1.2.3.4';
+      const remappedIp = "1.2.3.4";
       setRemapArg(remapUtils.SPECIAL_KEYS.ip, remappedIp);
 
-      rosnodejs.initNode('node_name', { rosMasterUri })
-      .then(() => {
+      rosnodejs.initNode("node_name", { rosPrimaryUri }).then(() => {
         expect(netUtils.getHost()).to.equal(remappedIp);
 
         done();
       });
     });
 
-    it('__hostname', function(done) {
+    it("__hostname", function (done) {
       this.slow(500);
 
-      const remappedHost = 'customHost';
+      const remappedHost = "customHost";
       setRemapArg(remapUtils.SPECIAL_KEYS.hostname, remappedHost);
 
-      rosnodejs.initNode('node_name', { rosMasterUri })
-      .then(() => {
+      rosnodejs.initNode("node_name", { rosPrimaryUri }).then(() => {
         expect(netUtils.getHost()).to.equal(remappedHost);
 
         done();
       });
     });
 
-    it('__master', function(done) {
+    it("__primary", function (done) {
       this.slow(500);
 
-      const CUSTOM_MASTER_PORT = 12355;
-      const rosMasterUri = `http://localhost:${CUSTOM_MASTER_PORT}`;
-      let masterStub = new MasterStub('localhost', CUSTOM_MASTER_PORT);
-      masterStub.provideAll();
+      const CUSTOM_PRIMARY_PORT = 12355;
+      const rosPrimaryUri = `http://localhost:${CUSTOM_PRIMARY_PORT}`;
+      let primaryStub = new PrimaryStub("localhost", CUSTOM_PRIMARY_PORT);
+      primaryStub.provideAll();
 
-      const remappedMaster = `http://localhost:${CUSTOM_MASTER_PORT}`;
-      setRemapArg(remapUtils.SPECIAL_KEYS.master, remappedMaster);
+      const remappedPrimary = `http://localhost:${CUSTOM_PRIMARY_PORT}`;
+      setRemapArg(remapUtils.SPECIAL_KEYS.primary, remappedPrimary);
 
-      masterStub.once('ready', function() {
-        rosnodejs.initNode('node_name', { rosMasterUri })
-        .then(() => {
-          expect(rosnodejs.nh._node.getRosMasterUri()).to.equal(remappedMaster);
+      primaryStub.once("ready", function () {
+        rosnodejs
+          .initNode("node_name", { rosPrimaryUri })
+          .then(() => {
+            expect(rosnodejs.nh._node.getRosPrimaryUri()).to.equal(
+              remappedPrimary
+            );
 
-          // shutdown rosnodejs here since we're also killing our custom master stub
-          return rosnodejs.shutdown()
-        })
-        .then(() => {
-          return masterStub.shutdown()
-        })
-        .then(() => {
-          done();
-        });
+            // shutdown rosnodejs here since we're also killing our custom primary stub
+            return rosnodejs.shutdown();
+          })
+          .then(() => {
+            return primaryStub.shutdown();
+          })
+          .then(() => {
+            done();
+          });
       });
     });
 
-    it('__ns', function() {
+    it("__ns", function () {
       this.slow(500);
 
-      const remappedNs = 'customNs';
+      const remappedNs = "customNs";
       setRemapArg(remapUtils.SPECIAL_KEYS.ns, remappedNs);
 
-      const nodeName = 'node_name';
-      return rosnodejs.initNode(nodeName, { rosMasterUri })
-      .then(() => {
-        expect(rosnodejs.nh.getNodeName()).to.equal(`/${remappedNs}/${nodeName}`);
+      const nodeName = "node_name";
+      return rosnodejs.initNode(nodeName, { rosPrimaryUri }).then(() => {
+        expect(rosnodejs.nh.getNodeName()).to.equal(
+          `/${remappedNs}/${nodeName}`
+        );
 
         // make sure re-initing the same node still works
-        return rosnodejs.initNode(nodeName, { rosMasterUri })
-        .then(() => {
-          expect(rosnodejs.nh.getNodeName()).to.equal(`/${remappedNs}/${nodeName}`);
+        return rosnodejs.initNode(nodeName, { rosPrimaryUri }).then(() => {
+          expect(rosnodejs.nh.getNodeName()).to.equal(
+            `/${remappedNs}/${nodeName}`
+          );
         });
       });
     });
 
-    it('Re-init Without Remapping', function() {
+    it("Re-init Without Remapping", function () {
       this.slow(500);
-      const nodeName = 'node_name';
-      return rosnodejs.initNode(nodeName, { rosMasterUri })
-      .then(() => {
+      const nodeName = "node_name";
+      return rosnodejs.initNode(nodeName, { rosPrimaryUri }).then(() => {
         expect(rosnodejs.nh.getNodeName()).to.equal(`/${nodeName}`);
 
         // make sure re-initing the same node still works
-        return rosnodejs.initNode(nodeName, { rosMasterUri })
-        .then(() => {
+        return rosnodejs.initNode(nodeName, { rosPrimaryUri }).then(() => {
           expect(rosnodejs.nh.getNodeName()).to.equal(`/${nodeName}`);
         });
       });
     });
 
-    it('comms', function(done) {
+    it("comms", function (done) {
       this.slow(500);
 
-      const topic = '/base/topic';
-      const remappedTopic = '/newBase/topic';
-      const service = '/base/service';
-      const remappedService = '/newBase/service';
-      const param = '/base/param';
-      const remappedParam = '/newBase/param';
+      const topic = "/base/topic";
+      const remappedTopic = "/newBase/topic";
+      const service = "/base/service";
+      const remappedService = "/newBase/service";
+      const param = "/base/param";
+      const remappedParam = "/newBase/param";
       setRemapArg(topic, remappedTopic);
       setRemapArg(service, remappedService);
       setRemapArg(param, remappedParam);
 
-      rosnodejs.initNode('node_name', { rosMasterUri })
-      .then((nh) => {
-        const pub = nh.advertise(topic, 'std_msgs/Empty');
+      rosnodejs.initNode("node_name", { rosPrimaryUri }).then((nh) => {
+        const pub = nh.advertise(topic, "std_msgs/Empty");
         expect(pub.getTopic()).to.equal(remappedTopic);
 
-        const sub = nh.subscribe(topic, 'std_msgs/Empty');
+        const sub = nh.subscribe(topic, "std_msgs/Empty");
         expect(sub.getTopic()).to.equal(remappedTopic);
 
-        const srv = nh.advertiseService(service, 'std_srvs/Empty');
+        const srv = nh.advertiseService(service, "std_srvs/Empty");
         expect(srv.getService()).to.equal(remappedService);
 
-        const srvClient = nh.serviceClient(service, 'std_srvs/Empty');
+        const srvClient = nh.serviceClient(service, "std_srvs/Empty");
         expect(srvClient.getService()).to.equal(remappedService);
 
         let outstandingParamCalls = 4;
@@ -297,18 +297,17 @@ describe('Namespace', function () {
           --outstandingParamCalls;
         }
 
-        masterStub.once('setParam', paramTest);
-        masterStub.once('getParam', paramTest);
-        masterStub.once('hasParam', paramTest);
-        masterStub.once('deleteParam', paramTest);
+        primaryStub.once("setParam", paramTest);
+        primaryStub.once("getParam", paramTest);
+        primaryStub.once("hasParam", paramTest);
+        primaryStub.once("deleteParam", paramTest);
 
         Promise.all([
           nh.setParam(param, 2),
           nh.getParam(param, 2),
           nh.hasParam(param, 2),
-          nh.deleteParam(param, 2)
-        ])
-        .then(() => {
+          nh.deleteParam(param, 2),
+        ]).then(() => {
           if (outstandingParamCalls <= 0) {
             done();
           }
@@ -316,58 +315,56 @@ describe('Namespace', function () {
       });
     });
 
-    it('comms namespace', function(done) {
+    it("comms namespace", function (done) {
       this.slow(500);
 
-      const nodeName = 'node_name';
-      const topic = 'topic';
+      const nodeName = "node_name";
+      const topic = "topic";
       const remappedTopic = `/${nodeName}/topic`;
-      const service = 'service';
+      const service = "service";
       const remappedService = `/${nodeName}/service`;
-      const param = 'param';
+      const param = "param";
       const remappedParam = `/${nodeName}/param`;
       setRemapArg(topic, remappedTopic);
       setRemapArg(service, remappedService);
       setRemapArg(param, remappedParam);
 
-      rosnodejs.initNode(nodeName, { rosMasterUri })
-        .then((nh) => {
-          const pub = nh.advertise(topic, 'std_msgs/Empty');
-          expect(pub.getTopic()).to.equal(remappedTopic);
+      rosnodejs.initNode(nodeName, { rosPrimaryUri }).then((nh) => {
+        const pub = nh.advertise(topic, "std_msgs/Empty");
+        expect(pub.getTopic()).to.equal(remappedTopic);
 
-          const sub = nh.subscribe(topic, 'std_msgs/Empty');
-          expect(sub.getTopic()).to.equal(remappedTopic);
+        const sub = nh.subscribe(topic, "std_msgs/Empty");
+        expect(sub.getTopic()).to.equal(remappedTopic);
 
-          const srv = nh.advertiseService(service, 'std_srvs/Empty');
-          expect(srv.getService()).to.equal(remappedService);
+        const srv = nh.advertiseService(service, "std_srvs/Empty");
+        expect(srv.getService()).to.equal(remappedService);
 
-          const srvClient = nh.serviceClient(service, 'std_srvs/Empty');
-          expect(srvClient.getService()).to.equal(remappedService);
+        const srvClient = nh.serviceClient(service, "std_srvs/Empty");
+        expect(srvClient.getService()).to.equal(remappedService);
 
-          let outstandingParamCalls = 4;
+        let outstandingParamCalls = 4;
 
-          function paramTest(err, params) {
-            expect(params[1]).to.equal(remappedParam);
-            --outstandingParamCalls;
+        function paramTest(err, params) {
+          expect(params[1]).to.equal(remappedParam);
+          --outstandingParamCalls;
+        }
+
+        primaryStub.once("setParam", paramTest);
+        primaryStub.once("getParam", paramTest);
+        primaryStub.once("hasParam", paramTest);
+        primaryStub.once("deleteParam", paramTest);
+
+        Promise.all([
+          nh.setParam(param, 2),
+          nh.getParam(param, 2),
+          nh.hasParam(param, 2),
+          nh.deleteParam(param, 2),
+        ]).then(() => {
+          if (outstandingParamCalls <= 0) {
+            done();
           }
-
-          masterStub.once('setParam', paramTest);
-          masterStub.once('getParam', paramTest);
-          masterStub.once('hasParam', paramTest);
-          masterStub.once('deleteParam', paramTest);
-
-          Promise.all([
-            nh.setParam(param, 2),
-            nh.getParam(param, 2),
-            nh.hasParam(param, 2),
-            nh.deleteParam(param, 2)
-          ])
-          .then(() => {
-            if (outstandingParamCalls <= 0) {
-              done();
-            }
-          });
         });
+      });
     });
   });
 });
