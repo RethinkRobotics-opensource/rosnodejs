@@ -181,10 +181,12 @@ let TcprosUtils = {
     else if (!header.hasOwnProperty('md5sum')) {
       return this.serializeString('Connection header missing expected field [md5sum]');
     }
-    // rostopic will send '*' for some commands (hz)
-    else if (header.type !== type && header.type !== '*') {
-      return this.serializeString('Got incorrect message type [' + header.type + '] expected [' + type + ']');
-    }
+    /* Note that we are not checking the type of the incoming message against the type specified during
+       susbscription. If we did, then this would break subscriptions to the `/tf` topic, where messages
+       can be either tf/tfMessage (gazebo) or tf2_msgs/TFMessage (everywhere else), even though their md5 and
+       type definitions are actually the same. This is in-line with rospy, where the type isn't checked either:
+       https://github.com/ros/ros_comm/blob/6292d54dc14395531bffb2e165f3954fb0ef2c34/clients/rospy/src/rospy/impl/tcpros_pubsub.py#L332-L336
+    */
     else if (header.md5sum !== md5sum && header.md5sum !== '*') {
       return this.serializeString('Got incorrect md5sum [' + header.md5sum + '] expected [' + md5sum + ']');
     }
