@@ -6,6 +6,7 @@ const fieldsUtil = require('./fields.js');
 const IndentedWriter = require('./IndentedWriter.js');
 const MessageWriter = require('./MessageWriter.js');
 
+const specCache = {};
 const MSG_DIVIDER = '---';
 
 const MSG_TYPE = 'msg';
@@ -151,7 +152,12 @@ class RosMsgSpec {
    * @returns {RosMsgSpec}
    */
   getMsgSpecForType(type) {
-    return this.msgCache.getMessageSpec(type);
+    let spec = specCache[type]
+    if (!spec) {
+        spec = this.msgCache.getMessageSpec(type)
+        specCache[type] = spec
+    }
+    return spec
   }
 
   /**
