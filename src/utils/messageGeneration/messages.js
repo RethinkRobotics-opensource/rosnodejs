@@ -603,11 +603,7 @@ function deserializeInnerMessage(spec, message, buffer, bufferOffset) {
         bufferOffset[0] += 4; // only for variable length arrays
       }
 
-      let ArrayMsgClass;
       let isPrimitive = field.isBuiltin;
-      if (!isPrimitive) {
-        ArrayMsgClass = getMessageFromRegistry(arrayType, 'msg');
-      }
 
       for (var i = 0; i < arraySize; i++) {
         if (isPrimitive) {
@@ -616,7 +612,7 @@ function deserializeInnerMessage(spec, message, buffer, bufferOffset) {
           array.push(value);
         }
         else { // is message
-          var arrayMessage = new ArrayMsgClass();
+          var arrayMessage = {}
 
           arrayMessage = deserializeInnerMessage(spec.getMsgSpecForType(arrayType),
             arrayMessage, buffer, bufferOffset);
@@ -631,7 +627,7 @@ function deserializeInnerMessage(spec, message, buffer, bufferOffset) {
         field.type, buffer, bufferOffset)
     }
     else { // is message
-      var innerMessage = new getMessageFromRegistry(field.baseType, 'msg')();
+      var innerMessage = {}
       fieldValue = deserializeInnerMessage(spec.getMsgSpecForType(field.baseType),
         innerMessage, buffer, bufferOffset);
     }
