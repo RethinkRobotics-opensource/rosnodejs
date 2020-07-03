@@ -80,7 +80,7 @@ class RosNode extends EventEmitter {
     this._setupTcprosServer(options.tcprosPort)
     .then(this._setupSlaveApi.bind(this, options.xmlrpcPort));
 
-    this._setupExitHandler();
+    this._setupExitHandler(options.forceExit);
 
     this._setupSpinner(options.spinner);
 
@@ -662,7 +662,7 @@ class RosNode extends EventEmitter {
     }
   }
 
-  _setupExitHandler() {
+  _setupExitHandler(forceExit) {
     // we need to catch that this process is about to exit so we can unregister all our
     // publishers, subscribers, and services
 
@@ -766,7 +766,7 @@ class RosNode extends EventEmitter {
     this._exit = exitImpl;
 
     exitHandler = exitImpl.bind(this);
-    sigIntHandler = exitImpl.bind(this, true);
+    sigIntHandler = exitImpl.bind(this, !!forceExit);
 
     process.once('exit', exitHandler );
     process.once('SIGINT', sigIntHandler );
