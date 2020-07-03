@@ -314,6 +314,24 @@ describe('gennodejsTests', () => {
 
       done();
     });
+
+    it('string', (done) => {
+      const str = 'Hello, 世界';
+      const len = Buffer.byteLength(str);
+      const msgBuffer = Buffer.alloc(4 + len);
+      msgBuffer.writeUInt32LE(len)
+      msgBuffer.write(str, 4, len, 'utf8');
+
+      const msgBuffer2 =  Buffer.alloc(4 + len);
+      const StrMsg = msgUtils.getHandlerForMsgType('std_msgs/String');
+      StrMsg.serialize({data: str}, msgBuffer2, 0);
+
+      expect(msgBuffer.equals(msgBuffer2)).to.be.true;
+      const deserializedString = StrMsg.deserialize(msgBuffer2, [0]).data;
+      expect(deserializedString).to.equal(str);
+
+      done();
+    });
   });
 
   describe('complex_msgs', () => {
