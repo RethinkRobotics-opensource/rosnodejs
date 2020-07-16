@@ -90,7 +90,7 @@ class PublisherImpl extends EventEmitter {
 
     this._state = REGISTERING;
     this._register();
-    this.udpSocket = Udp.createSocket('udp4')
+    this.udpSocket = null;
   }
 
   /**
@@ -363,6 +363,9 @@ class PublisherImpl extends EventEmitter {
   }
 
   addUdpSubscriber(resp){
+    if(Object.keys(this._udpSubClients).length === 0){
+      this.udpSocket = Udp.createSocket('udp4');
+    }
     this._udpSubClients[resp[3]] = {
       port: resp[2],
       host: resp[1],
@@ -371,7 +374,10 @@ class PublisherImpl extends EventEmitter {
     }
   }
   removeUdpSubscriber(connId){
-    delete this.addUdpSubscriber[connId]
+    delete this._udpSubClients[connId]
+    if(Object.keys(this._udpSubClients).length === 0){
+      this.udpSocket.close();
+    }
   }
   /**
    * Makes an XMLRPC call to registers this publisher with the ROS master

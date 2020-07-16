@@ -491,7 +491,8 @@ class RosNode extends EventEmitter {
 
       const socket = UDPSocket.createSocket('udp4');
       socket.on('error', (err) => {
-        this._log.warn('Subscriber client socket %s on topic %s had error: %s', socket.name, this.getTopic(), err);
+        this._log.warn('Subscriber client socket %s on topic %s had error: %s',
+          socket.name, this.getTopic(), err);
         socket.close();
         this._disconnectClient(socket.nodeUri);
       });

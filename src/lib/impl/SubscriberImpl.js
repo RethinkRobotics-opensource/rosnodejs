@@ -47,21 +47,16 @@ class SubscriberImpl extends EventEmitter {
 
     this._type = options.type;
 
-    this._udp = !!options.udp
+    this._udp = !!~options.transports.indexOf('UDPROS')
 
     if(this._udp){
       this._dgramSize = typeof options.dgramSize === 'number' && options.dgramSize ? options.dgramSize : 1500
     }
 
-    this._tcp = options.tcp
-    if(this._tcp !== undefined && !this._tcp && !this._udp){
-      throw new Error("You must enable at least one transport protocol: TCP or UDP")
-    }
-    else if(this._tcp === undefined && this._udp === undefined){
-      this._tcp = true
-    }
+    this._tcp = !!~options.transports.indexOf('TCPROS');
 
-    this._udpFirst = !!options._udpFirst
+    this._udpFirst = options.transports.indexOf('TCPROS') > options.transports.indexOf('UDPROS')
+
     if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
     }
@@ -103,7 +98,7 @@ class SubscriberImpl extends EventEmitter {
     this._state = REGISTERING;
 
     this._port = options.port
-    this._connectionId = -1
+    this._connectionId = null
 
     this._udpMessage = {
       blkN: 0,
@@ -111,7 +106,6 @@ class SubscriberImpl extends EventEmitter {
       buffer: Buffer.alloc(0),
     }
     this._register();
-
   }
 
   /**
@@ -164,45 +158,44 @@ class SubscriberImpl extends EventEmitter {
   }
 
   getTransport(){
-    return this._udp ? 'UDPROS' : 'TCPROS'
+    return this._udpFirst && this._udp ? 'UDPROS' : 'TCPROS'
   }
   handleMessageChunk(header, dgramMsg) {
     const { connectionId, opCode, blkN, msgId } = header
-
     switch(opCode){
       // DATA0
       case 0:
-        // no chunks
+        // no chunk
         if(blkN === 1){
-          this._handleMessage(dgramMsg.slice(12))
+          this._handleMessage(dgramMsg.slice(12));
         } else {
           this._udpMessage = {
             blkN,
             msgId,
             buffer: dgramMsg.slice(12),
             connectionId
-          }
+          };
         }
-        break
+        break;
       // DATAN
       case 1:
         if(msgId === this._udpMessage.msgId && connectionId === this._udpMessage.connectionId){
-          let buffer = Buffer.from(dgramMsg.slice(8))
-          this._udpMessage.buffer = Buffer.concat([msg.buffer, buffer])
+          let buffer = Buffer.from(dgramMsg.slice(8));
+          this._udpMessage.buffer = Buffer.concat([msg.buffer, buffer]);
           // last chunk
           if(this._udpMessage.blkN -1 === header.blkN ){
-            this._handleMessage(Buffer.from(this._udpMessage.buffer))
+            this._handleMessage(Buffer.from(this._udpMessage.buffer));
           }
         }
-        break
+        break;
 
       // PING
       case 2:
-        break
+        break;
 
       // ERR
       case 3:
-        break
+        break;
     }
   }
   /**
@@ -214,7 +207,7 @@ class SubscriberImpl extends EventEmitter {
 
     Object.keys(this._pubClients).forEach(this._disconnectClient.bind(this));
     Object.keys(this._pendingPubClients).forEach(this._disconnectClient.bind(this));
-    Object.keys(this)
+
     // disconnect from the spinner in case we have any pending callbacks
     this._nodeHandle.getSpinner().disconnect(this._getSpinnerId());
     this._pubClients = {};
@@ -390,7 +383,6 @@ class SubscriberImpl extends EventEmitter {
   }
 
   _handleUdpTopicRequestResponse(resp, nodeUri){
-    //let hh = UdprosUtils.parseUdpRosHeader(resp[2][5])
     this._connectionId = resp[2][3]
   }
 

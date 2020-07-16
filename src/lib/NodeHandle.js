@@ -104,6 +104,7 @@ class NodeHandle {
    * @param [options] {object}
    * @param [options.queueSize] {number} number of messages to queue when subscribing
    * @param [options.throttleMs] {number} milliseconds to throttle when subscribing
+   * @param [options.transports] {string[]} transports list
    * @return {Subscriber}
    */
   subscribe(topic, type, callback, options={}) {
@@ -124,17 +125,15 @@ class NodeHandle {
         options.typeClass = type;
         options.type = type.datatype();
       }
-      options.tcp = options.tcp === undefined ? false : options.tcp
-      options.udp = options.udp === undefined ? false : options.udp
-
-      if(!options.udp && !options.tcp){
-        options.tcp = true
+      if(!Array.isArray(options.transports) || options.transports.length == 0 || (!~options.transports.indexOf('TCPROS') && !~options.transports.indexOf('UDPROS'))) {
+        options.transports = ['TCPROS'];
       }
-      if(options.udp && (!options.dgramSize || options.dgramSize < 0)){
+
+      if(!!~options.transports.indexOf('UDPROS') && (!options.dgramSize || options.dgramSize <= 0)){
         options.dgramSize = 1500
       }
 
-      if(options.udp){
+      if(!!~options.transports.indexOf('UDPROS')){
         options.port = this._node._udprosPort
       }
       return this._node.subscribe(options, callback);
