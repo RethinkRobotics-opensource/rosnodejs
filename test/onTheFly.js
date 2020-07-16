@@ -73,4 +73,20 @@ describe('OnTheFly', function () {
 
     done();
   });
+
+  it('UTF String', (done) => {
+    const nh = rosnodejs.nh;
+    const msg = 'Hello, 世界世界世界';
+    const topic = '/chatter';
+    const pub = nh.advertise(topic, 'std_msgs/String');
+
+    const sub = nh.subscribe(topic, 'std_msgs/String', (data) => {
+      expect(data.data).to.equal(msg);
+      done();
+    });
+
+    pub.on('connection', () => {
+      pub.publish({data: msg});
+    });
+  });
 });

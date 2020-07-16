@@ -80,6 +80,23 @@ describe('Protocol Test', () => {
     });
   });
 
+  it('serialize/deserialize String', (done) => {
+    const std_msgs = rosnodejs.require('std_msgs').msg;
+    const data = 'sДvΣ τhΣ 子猫';  // Test with multi-byte UTF-8 characters.
+                                   // If this test fails, you killed a kitten.
+    const msg = new std_msgs.String({ data: data });
+
+    const size = std_msgs.String.getMessageSize(msg);
+
+    const buffer = new Buffer(size);
+    std_msgs.String.serialize(msg, buffer, 0);
+
+    const read = std_msgs.String.deserialize(buffer);
+    expect(read.data).to.deep.equal(data);
+
+    done();
+  });
+
   describe('Xmlrpc', () => {
     afterEach(() => {
       const nh = rosnodejs.nh;
@@ -366,6 +383,21 @@ describe('Protocol Test', () => {
         valsToSend.forEach((val) => {
           pub.publish({data: val});
         });
+      });
+    });
+
+    it('UTF String', (done) => {
+      const nh = rosnodejs.nh;
+      const msg = 'Hello, 世界世界世界';
+      const pub = nh.advertise(topic, 'std_msgs/String');
+
+      const sub = nh.subscribe(topic, 'std_msgs/String', (data) => {
+        expect(data.data).to.equal(msg);
+        done();
+      });
+
+      pub.on('connection', () => {
+        pub.publish({data: msg});
       });
     });
 
@@ -1079,11 +1111,11 @@ describe('Protocol Test', () => {
 
       rosnodejs.initNode(nodeName, initArgs)
       .then((nh) => {
-        
+
         const pub = nh.advertise('/chatter', 'std_msgs/String');
         const sub = nh.subscribe('/chatter', 'std_msgs/String');
         pub.publish({data: 'hi'});
-      
+
 
         rosnodejs.shutdown()
         .then(() => {
