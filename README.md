@@ -29,10 +29,8 @@ const nh = rosnodejs.nh;
 const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
   console.log('Got msg on chatter: %j', msg);
 }, {
-  udp: true,  // enable udp transport
-  tcp: false,   // disable tcp transport (optional)
-  dgramSize: 1500   // datagram packet size, default: 1500 bytes
-  udpFirst: true // prefer udp when possible if tcp is enabled  
+  transports: ["TCPROS", "UDPROS"],  // specify transports, default ["TCPROS"]
+  dgramSize: 1500   // optional: datagram packet size, default: 1500 bytes
 });
 
 const pub = nh.advertise('/chatter', 'std_msgs/String');
