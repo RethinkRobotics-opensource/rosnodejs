@@ -23,12 +23,12 @@ const DeserializeStream = SerializationUtils.DeserializeStream;
 const Deserialize =  SerializationUtils.Deserialize;
 const Serialize = SerializationUtils.Serialize;
 const TcprosUtils = require('../../utils/tcpros_utils.js');
-const Socket = require('net').Socket;
+const UdprosUtils = require('../../utils/udpros_utils.js');
+
+const TCPSocket = require('net').Socket;
 const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
-
-const protocols = [['TCPROS']];
 
 //-----------------------------------------------------------------------
 
@@ -41,12 +41,21 @@ class SubscriberImpl extends EventEmitter {
 
   constructor(options, nodeHandle) {
     super();
-
     this.count = 0;
 
     this._topic = options.topic;
 
     this._type = options.type;
+
+    this._udp = !!~options.transports.indexOf('UDPROS')
+
+    if(this._udp){
+      this._dgramSize = typeof options.dgramSize === 'number' && options.dgramSize ? options.dgramSize : 1500
+    }
+
+    this._tcp = !!~options.transports.indexOf('TCPROS');
+
+    this._udpFirst = options.transports.indexOf('TCPROS') > options.transports.indexOf('UDPROS')
 
     if (options.hasOwnProperty('queueSize')) {
       this._queueSize = options.queueSize;
@@ -82,12 +91,20 @@ class SubscriberImpl extends EventEmitter {
       throw new Error(`Unable to load message for subscriber ${this.getTopic()} with type ${this.getType()}`);
     }
     this._messageHandler = options.typeClass;
-
     this._pubClients = {};
 
     this._pendingPubClients = {};
 
     this._state = REGISTERING;
+
+    this._port = options.port
+    this._connectionId = null
+
+    this._udpMessage = {
+      blkN: 0,
+      msgId: -1,
+      buffer: Buffer.alloc(0),
+    }
     this._register();
   }
 
@@ -133,6 +150,55 @@ class SubscriberImpl extends EventEmitter {
   }
 
   /**
+   * Return connection's Id
+   * @returns {Number}
+   */
+  getConnectionId(){
+    return this._connectionId
+  }
+
+  getTransport(){
+    return this._udpFirst && this._udp ? 'UDPROS' : 'TCPROS'
+  }
+  handleMessageChunk(header, dgramMsg) {
+    const { connectionId, opCode, blkN, msgId } = header
+    switch(opCode){
+      // DATA0
+      case 0:
+        // no chunk
+        if(blkN === 1){
+          this._handleMessage(dgramMsg.slice(12));
+        } else {
+          this._udpMessage = {
+            blkN,
+            msgId,
+            buffer: dgramMsg.slice(12),
+            connectionId
+          };
+        }
+        break;
+      // DATAN
+      case 1:
+        if(msgId === this._udpMessage.msgId && connectionId === this._udpMessage.connectionId){
+          let buffer = Buffer.from(dgramMsg.slice(8));
+          this._udpMessage.buffer = Buffer.concat([msg.buffer, buffer]);
+          // last chunk
+          if(this._udpMessage.blkN -1 === header.blkN ){
+            this._handleMessage(Buffer.from(this._udpMessage.buffer));
+          }
+        }
+        break;
+
+      // PING
+      case 2:
+        break;
+
+      // ERR
+      case 3:
+        break;
+    }
+  }
+  /**
    * Clears and closes all client connections for this subscriber.
    */
   shutdown() {
@@ -162,15 +228,17 @@ class SubscriberImpl extends EventEmitter {
     return Object.keys(this._pubClients);
   }
 
+
   /**
    * Send a topic request to each of the publishers in the list.
    * Assumes we have NOT connected to them.
    * @param pubs {Array} array of uris of nodes that are publishing this topic
    */
   requestTopicFromPubs(pubs) {
+
     pubs.forEach((pubUri) => {
       pubUri = pubUri.trim();
-      this._requestTopicFromPublisher(pubUri);
+      this._requestTopicFromPublisher(pubUri)
     });
   }
 
@@ -186,7 +254,7 @@ class SubscriberImpl extends EventEmitter {
     publisherList.forEach((pubUri) => {
       pubUri = pubUri.trim();
       if (!this._pubClients.hasOwnProperty(pubUri)) {
-        this._requestTopicFromPublisher(pubUri);
+        this._requestTopicFromPublisher(pubUri)
       }
 
       missingPublishers.delete(pubUri);
@@ -197,6 +265,8 @@ class SubscriberImpl extends EventEmitter {
     });
   }
 
+
+
   /**
    * Sends a topicRequest XMLRPC message to the provided URI and initiates
    *  the topic connection if possible.
@@ -204,10 +274,22 @@ class SubscriberImpl extends EventEmitter {
    */
   _requestTopicFromPublisher(pubUri) {
     let info = NetworkUtils.getAddressAndPortFromUri(pubUri);
-    // send a topic request to the publisher's node
     this._log.debug('Sending topic request to ' + JSON.stringify(info));
+
+    let protocols = []
+    if(this._tcp){
+      protocols.push(['TCPROS'])
+    }
+    if(this._udp){
+      let header = UdprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType())
+      protocols.push(['UDPROS', header, info.host, this._port, this._dgramSize || 1500])
+    }
+    if(this._udpFirst){
+      protocols.reverse();
+    }
     this._nodeHandle.requestTopic(info.host, info.port, this._topic, protocols)
       .then((resp) => {
+        this.emit('registered');
         this._handleTopicRequestResponse(resp, pubUri);
       })
       .catch((err, resp) => {
@@ -215,7 +297,6 @@ class SubscriberImpl extends EventEmitter {
         this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
       });
   }
-
   /**
    * disconnects and clears out the specified client
    * @param clientId {string}
@@ -255,31 +336,31 @@ class SubscriberImpl extends EventEmitter {
    */
   _register() {
     this._nodeHandle.registerSubscriber(this._topic, this._type)
-    .then((resp) => {
-      // if we were shutdown between the starting the registration and now, bail
-      if (this.isShutdown()) {
-        return;
-      }
-
-      // else handle response from register subscriber call
-      let code = resp[0];
-      let msg = resp[1];
-      let pubs = resp[2];
-      if ( code === 1 ) {
-        // success! update state to reflect that we're registered
-        this._state = REGISTERED;
-
-        if (pubs.length > 0) {
-          // this means we're ok and that publishers already exist on this topic
-          // we should connect to them
-          this.requestTopicFromPubs(pubs);
+      .then((resp) => {
+        // if we were shutdown between the starting the registration and now, bail
+        if (this.isShutdown()) {
+          return;
         }
-        this.emit('registered');
-      }
-    })
-    .catch((err, resp) => {
-      this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
-    })
+
+        // else handle response from register subscriber call
+        let code = resp[0];
+        let msg = resp[1];
+        let pubs = resp[2];
+        if ( code === 1 ) {
+          // success! update state to reflect that we're registered
+          this._state = REGISTERED;
+
+          if (pubs.length > 0) {
+            // this means we're ok and that publishers already exist on this topic
+            // we should connect to them
+            this.requestTopicFromPubs(pubs);
+          }
+          this.emit('registered');
+        }
+      })
+      .catch((err, resp) => {
+        this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
+      })
   }
 
   /**
@@ -290,32 +371,43 @@ class SubscriberImpl extends EventEmitter {
     if (this.isShutdown()) {
       return;
     }
-
-    this._log.debug('Topic request response: ' + JSON.stringify(resp));
-
     // resp[2] has port and address for where to connect
+    let proto = resp[2][0];
+    if(proto === 'UDPROS' && this._udp){
+      this._handleUdpTopicRequestResponse(resp, nodeUri)
+    } else if (proto === 'TCPROS' && this._tcp){
+      this._handleTcpTopicRequestResponse(resp, nodeUri)
+    } else {
+      this._log.warn(`Publisher supports only ${proto} but is not enabled`)
+    }
+  }
+
+  _handleUdpTopicRequestResponse(resp, nodeUri){
+    this._connectionId = resp[2][3]
+  }
+
+  _handleTcpTopicRequestResponse(resp, nodeUri){
     let info = resp[2];
     let port = info[2];
     let address = info[1];
-
-    let socket = new Socket();
+    let socket = new TCPSocket();
     socket.name = address + ':' + port;
     socket.nodeUri = nodeUri;
 
     socket.on('end', () => {
       this._log.info('Subscriber client socket %s on topic %s ended the connection',
-                     socket.name, this.getTopic());
+        socket.name, this.getTopic());
     });
 
     socket.on('error', (err) => {
       this._log.warn('Subscriber client socket %s on topic %s had error: %s',
-                     socket.name, this.getTopic(), err);
+        socket.name, this.getTopic(), err);
     });
 
     // hook into close event to clean things up
     socket.on('close', () => {
       this._log.info('Subscriber client socket %s on topic %s disconnected',
-                     socket.name, this.getTopic());
+        socket.name, this.getTopic());
       this._disconnectClient(socket.nodeUri);
     });
 
@@ -329,8 +421,6 @@ class SubscriberImpl extends EventEmitter {
       this._log.debug('Subscriber on ' + this.getTopic() + ' connected to publisher at ' + address + ':' + port);
       socket.write(this._createTcprosHandshake());
     });
-
-    // create a DeserializeStream to chunk out messages
     let deserializer = new DeserializeStream();
     socket.$deserializer = deserializer;
     socket.pipe(deserializer);
@@ -351,7 +441,7 @@ class SubscriberImpl extends EventEmitter {
    */
   _createTcprosHandshake() {
     return TcprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(),
-                                       this.getTopic(), this.getType(), this._messageHandler.messageDefinition(), this._tcpNoDelay);
+      this.getTopic(), this.getType(), this._messageHandler.messageDefinition(), this._tcpNoDelay);
   }
 
   /**
@@ -393,6 +483,8 @@ class SubscriberImpl extends EventEmitter {
 
     this.emit('connection', header, socket.name);
   }
+
+
 
   /**
    * Handles a single message from a publisher. Passes message off to

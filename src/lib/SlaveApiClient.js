@@ -35,7 +35,7 @@ class SlaveApiClient {
           reject(err, resp);
         }
         else {
-          resolve(resp);
+	  resolve(resp);
         }
       });
     });

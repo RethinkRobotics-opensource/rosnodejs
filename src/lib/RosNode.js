@@ -38,6 +38,8 @@ let Deserialize = SerializationUtils.Deserialize;
 let Serialize = SerializationUtils.Serialize;
 let EventEmitter = require('events');
 let Logging = require('./Logging.js');
+const UdprosUtils = require('../utils/udpros_utils.js');
+const UDPSocket = require('dgram');
 
 /**
  * Create a ros node interface to the master
@@ -52,7 +54,7 @@ class RosNode extends EventEmitter {
 	// ActionServers are listening to the shutdown event right now, each of which will add
 	// listeners to RosNode for shutdown
     this.setMaxListeners(0);
-
+    this._connections = 0
     this._log = Logging.getLogger('ros.rosnodejs');
     this._debugLog = Logging.getLogger('ros.superdebug');
 
@@ -60,7 +62,10 @@ class RosNode extends EventEmitter {
     this._xmlrpcPort = null;
 
     this._tcprosServer = null;
+    this._udprosServer = null;
+
     this._tcprosPort = null;
+    this._udprosPort = null;
 
     this._nodeName = nodeName;
 
@@ -78,7 +83,9 @@ class RosNode extends EventEmitter {
     this._services = {};
 
     this._setupTcprosServer(options.tcprosPort)
-    .then(this._setupSlaveApi.bind(this, options.xmlrpcPort));
+      .then(this._setupSlaveApi.bind(this, options.xmlrpcPort));
+
+    this._setupUdprosServer(options.udprosPort)
 
     this._setupExitHandler();
 
@@ -478,24 +485,94 @@ class RosNode extends EventEmitter {
       _createServer(resolve);
     });
   }
+  _setupUdprosServer(udprosPort=null){
 
+    return new Promise((resolve, reject) => {
+
+      const socket = UDPSocket.createSocket('udp4');
+      socket.on('error', (err) => {
+        this._log.warn('Subscriber client socket %s on topic %s had error: %s',
+          socket.name, this.getTopic(), err);
+        socket.close();
+        this._disconnectClient(socket.nodeUri);
+      });
+      // init empty msg
+
+      socket.on('message', (dgramMsg, rinfo) => {
+        let header = UdprosUtils.deserializeHeader(dgramMsg)
+        if(!header){
+          this._log.warn('Unable to parse packet\'s header')
+          return
+        }
+        // first dgram message
+        const { connectionId } = header
+        let topic = Object.keys(this._subscribers).find(s => this._subscribers[s].getConnectionId() === connectionId)
+        if(!this._subscribers[topic]){
+          this._log.warn('Unable to find subscriberImpl for connection id: '  + connectionId)
+          return
+        }
+        this._subscribers[topic].handleMessageChunk(header, dgramMsg)
+
+      });
+
+      socket.on('listening', () => {
+        const address = socket.address();
+        this._log.debug(`UDP socket bound: ${address.address}:${address.port}`);
+        this._debugLog.info('Listening on %j', address);
+        this._udprosPort = address.port;
+        resolve()
+      });
+
+      this._udprosServer = socket
+      if(udprosPort === null){
+        udprosPort = 0;
+      }
+      socket.bind(udprosPort);
+    })
+
+
+  }
   _handleTopicRequest(err, params, callback) {
     this._debugLog.info('Got topic request ' + JSON.stringify(params));
     if (!err) {
       let topic = params[1];
       let pub = this._publishers[topic];
       if (pub) {
-        let port = this._tcprosPort;
-        let resp = [
-          1,
-          'Allocated topic connection on port ' + port,
-          [
-            'TCPROS',
-            NetworkUtils.getHost(),
-            port
+        if(params[2][0][0] === 'TCPROS'){
+          let port = this._tcprosPort;
+          let resp = [
+            1,
+            'Allocated topic connection on port ' + port,
+            [
+              'TCPROS',
+              NetworkUtils.getHost(),
+              port
+            ]
+          ];
+          callback(null, resp);
+        }
+        else {
+          let header = UdprosUtils.parseUdpRosHeader(params[2][0][1])
+          let host = params[2][0][2];
+          let port = params[2][0][3];
+          let typeClass = messageUtils.getHandlerForMsgType(header.type, true)
+
+          let dgramSize = params[2][0][4];
+          let resp = [
+            1,
+            '',
+            [
+              'UDPROS',
+              NetworkUtils.getHost(), //maybe wrong
+              port,
+              ++this._connections, //connection Id
+              dgramSize,
+              UdprosUtils.createPubHeader(this.getNodeName(), typeClass.md5sum(), typeClass.messageDefinition(), topic, header.type)
+            ]
           ]
-        ];
-        callback(null, resp);
+          pub.addUdpSubscriber(resp[2])
+          callback(null, resp)
+        }
       }
     }
     else {
@@ -605,7 +682,7 @@ class RosNode extends EventEmitter {
           ++count,
           clientUri,
           'i',
-          'TCPROS',
+          sub.getTransport(),
           sub.getTopic(),
           true
         ]);
@@ -619,7 +696,7 @@ class RosNode extends EventEmitter {
           ++count,
           clientUri,
           'o',
-          'TCPROS',
+          pub.isUdpSubscriber(clientUri) ? 'UDPROS' : 'TCPROS' ,
           pub.getTopic(),
           true
         ]);
@@ -702,7 +779,8 @@ class RosNode extends EventEmitter {
       // while unregistering
       const promises = [
         shutdownServer(this._slaveApiServer, 'slaveapi'),
-        shutdownServer(this._tcprosServer, 'tcpros')
+        shutdownServer(this._tcprosServer, 'tcpros'),
+        shutdownServer(this._udprosServer, 'udpros')
       ];
 
       // clear out any existing calls that may block us when we try to unregister

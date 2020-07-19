@@ -22,7 +22,20 @@ const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
 const pub = nh.advertise('/chatter', 'std_msgs/String');
 pub.publish({ data: "hi" });
 ```
+### Udp transport (Experimental)
 
+```
+const nh = rosnodejs.nh;
+const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
+  console.log('Got msg on chatter: %j', msg);
+}, {
+  transports: ["TCPROS", "UDPROS"],  // specify transports, default ["TCPROS"]
+  dgramSize: 1500   // optional: datagram packet size, default: 1500 bytes
+});
+
+const pub = nh.advertise('/chatter', 'std_msgs/String');
+pub.publish({ data: "hi" });
+```
 ## Services
 ```
 const service = nh.advertiseService('/add_two_ints', 'beginner_tutorials/AddTwoInts', (req, resp) => {
