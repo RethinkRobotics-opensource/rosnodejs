@@ -92,6 +92,7 @@ const SetCameraInfo = sensorMsgs.srv.SetCameraInfo;
 const setRequest = new SetCameraInfo.Request();
 
 // messages can be used when advertising/subscribing
+const nh = rosnodejs.nh;
 const StringMsg = rosnodejs.require('std_msgs').msg.String;
 const sub = nh.subscribe('/chatter', StringMsg, (msg) => { ... });
 const pub = nh.advertise('/chatter', StringMsg);
