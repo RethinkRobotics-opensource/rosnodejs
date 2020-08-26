@@ -72,8 +72,10 @@ rosnodejs.loadAllPackages();
 - On the fly - all versions of ROS and Node.js 4.5+. When generating on the fly, messages can not be required until the node has initialized.
 ```
 const rosnodejs = require('rosnodejs');
-await rosnodejs.initNode('my_node', { onTheFly: true })
-const stdMsgs = rosnodejs.require('std_msgs');
+rosnodejs.initNode('my_node', { onTheFly: true }).then(() => {
+  const stdMsgs = rosnodejs.require('std_msgs');
+  ...
+}
 ```
 
 | |Pre-Kinetic|Kinetic & Later|
