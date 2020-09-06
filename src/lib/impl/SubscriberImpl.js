@@ -507,7 +507,7 @@ class SubscriberImpl extends EventEmitter {
   _handleMsgQueue(msgQueue) {
     try {
       msgQueue.forEach((msg) => {
-        this.emit('message', this._messageHandler.deserialize(msg));
+        this.emit('message', this._messageHandler.deserialize(msg), msg.length);
       });
     }
     catch (err) {
