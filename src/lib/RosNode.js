@@ -18,7 +18,7 @@
 "use strict"
 
 let net = require('net');
-let xmlrpc = require('xmlrpc');
+let xmlrpc = require('xmlrpc-rosnodejs');
 let MasterApiClient  = require('./MasterApiClient.js');
 let SlaveApiClient = require('./SlaveApiClient.js');
 let ParamServerApiClient = require('./ParamServerApiClient.js');

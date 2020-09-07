@@ -36,6 +36,6 @@
     "moment": "2.22.2",
     "ultron": "1.1.1",
     "walker": "1.0.7",
-    "xmlrpc": "chfritz/node-xmlrpc"
+    "xmlrpc-rosnodejs": "1.4.0"
   }
 }

@@ -6,7 +6,7 @@ const expect = chai.expect;
 const rosnodejs = require('../src/index.js');
 const Subscriber = require('../src/lib/Subscriber.js');
 const SubscriberImpl = require('../src/lib/impl/SubscriberImpl.js');
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('xmlrpc-rosnodejs');
 const netUtils = require('../src/utils/network_utils.js');
 const MasterStub = require('./utils/MasterStub.js');
 
