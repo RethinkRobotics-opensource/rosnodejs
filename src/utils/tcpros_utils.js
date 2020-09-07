@@ -41,7 +41,7 @@ function serializeStringFields(fields) {
   fields.forEach((field) => {
     length += (Buffer.byteLength(field) + 4);
   });
-  let buffer = new Buffer(4 + length);
+  let buffer = Buffer.allocUnsafe(4 + length);
   let offset = base_serializers.uint32(length, buffer, 0);
 
   fields.forEach((field) => {
@@ -214,11 +214,11 @@ let TcprosUtils = {
     let msgBuffer;
     let offset = 0;
     if (prependMessageLength) {
-      msgBuffer = new Buffer(msgSize + 4);
+      msgBuffer = Buffer.allocUnsafe(msgSize + 4);
       offset = base_serializers.uint32(msgSize, msgBuffer, 0);
     }
     else {
-      msgBuffer = new Buffer(msgSize);
+      msgBuffer = Buffer.allocUnsafe(msgSize);
     }
 
     MessageClass.serialize(message, msgBuffer, offset);
@@ -230,7 +230,7 @@ let TcprosUtils = {
     if (prependResponseInfo) {
       if (success) {
         const respSize = ResponseClass.getMessageSize(response);
-        responseBuffer = new Buffer(respSize + 5);
+        responseBuffer = Buffer.allocUnsafe(respSize + 5);
 
         // add the success byte
         base_serializers.uint8(1, responseBuffer, 0);
@@ -242,13 +242,13 @@ let TcprosUtils = {
         const errorMessage = 'Unable to handle service call';
         const errLen = errorMessage.length;
         // FIXME: check that we don't need the extra 4 byte message len here
-        responseBuffer = new Buffer(5 + errLen);
+        responseBuffer = Buffer.allocUnsafe(5 + errLen);
         base_serializers.uint8(0, responseBuffer, 0);
         base_serializers.string(errorMessage, responseBuffer, 1);
       }
     }
     else {
-      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
+      responseBuffer = Buffer.allocUnsafe(ResponseClass.getMessageSize(response));
     }
 
     return responseBuffer;
@@ -259,7 +259,7 @@ let TcprosUtils = {
   },
 
   serializeString(str) {
-    const buf = new Buffer(str.length + 4);
+    const buf = Buffer.allocUnsafe(str.length + 4);
     base_serializers.string(str, buf, 0);
     return buf;
   },

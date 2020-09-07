@@ -479,7 +479,8 @@ class SubscriberImpl extends EventEmitter {
     delete this._pendingPubClients[socket.nodeUri];
 
     // pipe all future messages to _handleMessage
-    socket.$deserializer.on('message', this._handleMessage.bind(this));
+    socket.$deserializer.on('message', (msg) =>
+      this._handleMessage.bind(this)(msg, socket.nodeUri));
 
     this.emit('connection', header, socket.name);
   }
@@ -491,12 +492,12 @@ class SubscriberImpl extends EventEmitter {
    * Spinner if we're queueing, otherwise handles it immediately.
    * @param msg {string}
    */
-  _handleMessage(msg) {
+  _handleMessage(msg, nodeUri) {
     if (this._throttleMs < 0) {
-      this._handleMsgQueue([msg]);
+      this._handleMsgQueue([{msg, nodeUri}]);
     }
     else {
-      this._nodeHandle.getSpinner().ping(this._getSpinnerId(), msg);
+      this._nodeHandle.getSpinner().ping(this._getSpinnerId(), {msg, nodeUri});
     }
   }
 
@@ -506,8 +507,8 @@ class SubscriberImpl extends EventEmitter {
    */
   _handleMsgQueue(msgQueue) {
     try {
-      msgQueue.forEach((msg) => {
-        this.emit('message', this._messageHandler.deserialize(msg), msg.length);
+      msgQueue.forEach(({msg, nodeUri}) => {
+        this.emit('message', this._messageHandler.deserialize(msg), msg.length, nodeUri);
       });
     }
     catch (err) {

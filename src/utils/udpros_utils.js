@@ -41,7 +41,7 @@ function serializeStringFields(fields) {
   fields.forEach((field) => {
     length += (field.length + 4);
   });
-  let buffer = new Buffer(length);
+  let buffer = Buffer.allocUnsafe(length);
   let offset = 0
 
   fields.forEach((field) => {
@@ -201,11 +201,11 @@ let UdprosUtils = {
     let msgBuffer;
     let offset = 0;
     if (prependMessageLength) {
-      msgBuffer = new Buffer(msgSize + 4);
+      msgBuffer = Buffer.allocUnsafe(msgSize + 4);
       offset = base_serializers.uint32(msgSize, msgBuffer, 0);
     }
     else {
-      msgBuffer = new Buffer(msgSize);
+      msgBuffer = Buffer.allocUnsafe(msgSize);
     }
 
     MessageClass.serialize(message, msgBuffer, offset);
@@ -217,7 +217,7 @@ let UdprosUtils = {
     if (prependResponseInfo) {
       if (success) {
         const respSize = ResponseClass.getMessageSize(response);
-        responseBuffer = new Buffer(respSize + 5);
+        responseBuffer = Buffer.allocUnsafe(respSize + 5);
 
         // add the success byte
         base_serializers.uint8(1, responseBuffer, 0);
@@ -229,13 +229,13 @@ let UdprosUtils = {
         const errorMessage = 'Unable to handle service call';
         const errLen = errorMessage.length;
         // FIXME: check that we don't need the extra 4 byte message len here
-        responseBuffer = new Buffer(5 + errLen);
+        responseBuffer = Buffer.allocUnsafe(5 + errLen);
         base_serializers.uint8(0, responseBuffer, 0);
         base_serializers.string(errorMessage, responseBuffer, 1);
       }
     }
     else {
-      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
+      responseBuffer = Buffer.allocUnsafe(ResponseClass.getMessageSize(response));
     }
 
     return responseBuffer;
@@ -246,7 +246,7 @@ let UdprosUtils = {
   },
 
   serializeString(str) {
-    const buf = new Buffer(str.length + 4);
+    const buf = Buffer.allocUnsafe(str.length + 4);
     base_serializers.string(str, buf, 0);
     return buf;
   },
@@ -267,7 +267,7 @@ let UdprosUtils = {
     let opCode = buff.readUInt8(4)
     let msgId = buff.readUInt8(5)
     let blkN = buff.readUInt16LE(6)
-    
+
     return {
       connectionId,
       opCode,
@@ -277,7 +277,7 @@ let UdprosUtils = {
   },
 
   serializeUdpHeader(connectionId, opCode, msgId, blkN){
-    const buf = new Buffer(8)
+    const buf = Buffer.allocUnsafe(8)
     base_serializers.uint32(connectionId, buf, 0)
     base_serializers.uint8(opCode, buf, 4)
     base_serializers.uint8(msgId, buf, 5)
@@ -289,5 +289,3 @@ let UdprosUtils = {
 //-----------------------------------------------------------------------
 
 module.exports = UdprosUtils;
-
-
