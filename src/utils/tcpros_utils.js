@@ -41,7 +41,7 @@ function serializeStringFields(fields) {
   fields.forEach((field) => {
     length += (Buffer.byteLength(field) + 4);
   });
-  let buffer = new Buffer(4 + length);
+  let buffer = Buffer.allocUnsafe(4 + length);
   let offset = base_serializers.uint32(length, buffer, 0);
 
   fields.forEach((field) => {
@@ -181,10 +181,12 @@ let TcprosUtils = {
     else if (!header.hasOwnProperty('md5sum')) {
       return this.serializeString('Connection header missing expected field [md5sum]');
     }
-    // rostopic will send '*' for some commands (hz)
-    else if (header.type !== type && header.type !== '*') {
-      return this.serializeString('Got incorrect message type [' + header.type + '] expected [' + type + ']');
-    }
+    /* Note that we are not checking the type of the incoming message against the type specified during
+       susbscription. If we did, then this would break subscriptions to the `/tf` topic, where messages
+       can be either tf/tfMessage (gazebo) or tf2_msgs/TFMessage (everywhere else), even though their md5 and
+       type definitions are actually the same. This is in-line with rospy, where the type isn't checked either:
+       https://github.com/ros/ros_comm/blob/6292d54dc14395531bffb2e165f3954fb0ef2c34/clients/rospy/src/rospy/impl/tcpros_pubsub.py#L332-L336
+    */
     else if (header.md5sum !== md5sum && header.md5sum !== '*') {
       return this.serializeString('Got incorrect md5sum [' + header.md5sum + '] expected [' + md5sum + ']');
     }
@@ -212,11 +214,11 @@ let TcprosUtils = {
     let msgBuffer;
     let offset = 0;
     if (prependMessageLength) {
-      msgBuffer = new Buffer(msgSize + 4);
+      msgBuffer = Buffer.allocUnsafe(msgSize + 4);
       offset = base_serializers.uint32(msgSize, msgBuffer, 0);
     }
     else {
-      msgBuffer = new Buffer(msgSize);
+      msgBuffer = Buffer.allocUnsafe(msgSize);
     }
 
     MessageClass.serialize(message, msgBuffer, offset);
@@ -228,7 +230,7 @@ let TcprosUtils = {
     if (prependResponseInfo) {
       if (success) {
         const respSize = ResponseClass.getMessageSize(response);
-        responseBuffer = new Buffer(respSize + 5);
+        responseBuffer = Buffer.allocUnsafe(respSize + 5);
 
         // add the success byte
         base_serializers.uint8(1, responseBuffer, 0);
@@ -240,13 +242,13 @@ let TcprosUtils = {
         const errorMessage = 'Unable to handle service call';
         const errLen = errorMessage.length;
         // FIXME: check that we don't need the extra 4 byte message len here
-        responseBuffer = new Buffer(5 + errLen);
+        responseBuffer = Buffer.allocUnsafe(5 + errLen);
         base_serializers.uint8(0, responseBuffer, 0);
         base_serializers.string(errorMessage, responseBuffer, 1);
       }
     }
     else {
-      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
+      responseBuffer = Buffer.allocUnsafe(ResponseClass.getMessageSize(response));
     }
 
     return responseBuffer;
@@ -257,7 +259,7 @@ let TcprosUtils = {
   },
 
   serializeString(str) {
-    const buf = new Buffer(str.length + 4);
+    const buf = Buffer.allocUnsafe(str.length + 4);
     base_serializers.string(str, buf, 0);
     return buf;
   },

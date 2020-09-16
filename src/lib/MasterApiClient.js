@@ -17,7 +17,7 @@
 
 "use strict";
 
-let xmlrpc = require('xmlrpc');
+let xmlrpc = require('xmlrpc-rosnodejs');
 let networkUtils = require('../utils/network_utils.js');
 let Logging = require('./Logging.js');
 const XmlrpcClient = require('../utils/XmlrpcClient.js');

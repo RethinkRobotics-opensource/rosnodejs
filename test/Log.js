@@ -3,7 +3,7 @@
 const chai = require('chai');
 const expect = chai.expect;
 const bunyan = require('bunyan');
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('xmlrpc-rosnodejs');
 const rosnodejs = require('../src/index.js');
 
 const MASTER_PORT = 11234;
