@@ -1,12 +1,9 @@
-'use strict';
-
-var fields = exports;
-
-const ros_msg_utils = require('../../ros_msg_utils');
-const BN = require('bn.js');
+import { Serialize, SerializeT } from '../../ros_msg_utils/lib/base_serialize';
+import { Deserialize, DeserializeT } from '../../ros_msg_utils/lib/base_deserialize';
+import * as BN from 'bn.js';
 
 /* map of all primitive types and their default values */
-var map = {
+var map: { [key: string]: any } = {
   'char': 0,
   'byte': 0,
   'bool': false,
@@ -25,47 +22,47 @@ var map = {
   'duration': {secs: 0, nsecs: 0}
 };
 
-fields.primitiveTypes = Object.keys(map);
+export const primitiveTypes = Object.keys(map);
 
-fields.getDefaultValue = function(type) {
+export function getDefaultValue(type: string): any {
   let match = type.match(/(.*)\[(\d*)\]/);
   if (match) {
     // it's an array
     const basetype = match[1];
     const length = (match[2].length > 0 ? parseInt(match[2]) : 0);
-    return new Array(length).fill(fields.getDefaultValue(basetype));
+    return new Array(length).fill(getDefaultValue(basetype));
   } else {
     return map[type];
   }
 };
 
-fields.isString = function(type) {
+export function isString(type: string): boolean {
   return type === 'string';
 }
 
-fields.isTime = function(type) {
+export function isTime(type: string): boolean {
   return type === 'time' || type === 'duration';
 }
 
-fields.isBool = function(type) {
+export function isBool(type: string): boolean {
   return type === 'bool';
 }
 
-fields.isFloat = function(type) {
+export function isFloat(type: string): boolean {
   return type === 'float32' || type === 'float64';
 }
 
-fields.isInteger = function(type) {
+export function isInteger(type: string): boolean {
   return (['byte', 'char', 'int8', 'uint8', 'int16', 'uint16',
            'int32', 'uint32', 'int64', 'uint64'].indexOf('type') >= 0);
 }
 
-fields.isPrimitive = function(fieldType) {
-  return (fields.primitiveTypes.indexOf(fieldType) >= 0);
+export function isPrimitive(fieldType: string): boolean {
+  return (primitiveTypes.indexOf(fieldType) >= 0);
 };
 
 var isArrayRegex = /\[(\d*)\]$/;
-fields.isArray = function(fieldType, details) {
+export function isArray(fieldType: string, details?: any): boolean {
   var match = fieldType.match(isArrayRegex);
   if (match) {
     if (match[1] && details) {
@@ -77,16 +74,15 @@ fields.isArray = function(fieldType, details) {
   }
 };
 
-fields.isMessage = function(fieldType) {
+export function isMessage(fieldType: string): boolean {
   return !this.isPrimitive(fieldType) && !this.isArray(fieldType);
 };
 
-fields.getTypeOfArray = function(arrayType) {
-  return this.isArray(arrayType) ? arrayType.split('[')[0]
-                                 : false;
+export function getTypeOfArray(arrayType: string): string {
+  return this.isArray(arrayType) ? arrayType.split('[')[0] : '';
 }
 
-fields.getLengthOfArray = function(arrayType) {
+export function getLengthOfArray(arrayType: string): number|null {
   var match = arrayType.match(/.*\[(\d*)\]$/);
   if (match[1] === '') {
     return null;
@@ -94,12 +90,12 @@ fields.getLengthOfArray = function(arrayType) {
   return parseInt(match[1]);
 }
 
-function parseType(msgType, field) {
+function parseType(msgType: string, field: Field): void {
   if (!msgType) {
     throw new Error(`Invalid empty type ${JSON.stringify(field)}`);
   }
   // else
-  if (fields.isArray(msgType)) {
+  if (isArray(msgType)) {
     field.isArray = true;
     var constantLength = msgType.endsWith('[]');
     var splits = msgType.split('[');
@@ -108,7 +104,7 @@ function parseType(msgType, field) {
     }
     field.baseType = splits[0];
     if (constantLength) {
-      field.arrayLen = fields.getLengthOfArray(msgType);
+      field.arrayLen = getLengthOfArray(msgType);
     }
     else {
       field.arrayLen = null;
@@ -121,41 +117,52 @@ function parseType(msgType, field) {
   }
 }
 
-function isHeader(type) {
+function isHeader(type: string): boolean {
   return (['Header', 'std_msgs/Header', 'roslib/Header'].indexOf(type) >= 0);
 }
 
-fields.Constant = function(name, type, val, valText) {
-  this.name = name;
-  this.type = type;
-  this.val = val;
-  this.valText = valText;
-};
+export class Field{
+  name: string;
+  type: string;
+  isHeader: boolean;
+  isBuiltin: boolean;
+  isArray: boolean = false;
+  baseType: string = '';
+  arrayLen: number|null;
 
-fields.Constant.prototype.equals = function(other) {
-  return other instanceof fields.Constant &&
-         other.name === this.name && other.type === this.type && other.val === this.val;
-};
+  constructor(name: string, type: string) {
+    this.name = name;
+    this.type = type;
+    parseType(type, this);
+    this.isHeader = isHeader(type);
+    this.isBuiltin = isPrimitive(this.baseType);
+  }
 
-fields.Field = function(name, type) {
-  this.name = name;
-  this.type = type;
-  parseType(type, this);
-  this.isHeader = isHeader(type);
-  this.isBuiltin = fields.isPrimitive(this.baseType);
-};
+  getPackage(): string|null {
+    if (this.isBuiltin) {
+      return null;
+    }
+    return this.baseType.split('/')[0];
+  }
 
-fields.Field.isHeader = function(type) {
-  return isHeader(type);
+  getMessage(): string|null {
+    if (this.isBuiltin) {
+      return null;
+    }
+    return this.baseType.split('/')[1];
+  }
+
+  static isHeader(type: string): boolean {
+    return isHeader(type);
+  }
+
+  static isBuiltin(type: string): boolean {
+    return isPrimitive(type);
+  }
 }
 
-fields.Field.isBuiltin = function(type) {
-  return fields.isPrimitive(type);
-};
-
-
-fields.parsePrimitive = function(fieldType, fieldValue) {
-  var parsedValue = fieldValue;
+export function parsePrimitive(fieldType: string, fieldValue: any): any {
+  let parsedValue: any = fieldValue;
 
   if (fieldType === 'bool') {
     parsedValue = (fieldValue === '1')
@@ -194,7 +201,7 @@ fields.parsePrimitive = function(fieldType, fieldValue) {
     parsedValue = parseFloat(fieldValue);
   }
   else if (fieldType === 'time') {
-    var now;
+    let now: number;
     if (fieldValue.secs && fieldValue.nsecs) {
       parsedValue.secs = fieldValue.secs;
       parsedValue.nsecs = fieldValue.nsecs;
@@ -206,8 +213,8 @@ fields.parsePrimitive = function(fieldType, fieldValue) {
       } else {
         now = Date.now();
       }
-      var secs = parseInt(now/1000);
-      var nsecs = (now % 1000) * 1000;
+      let secs = now/1000;
+      let nsecs = (now % 1000) * 1000;
 
       parsedValue.secs = secs;
       parsedValue.nsecs = nsecs;
@@ -217,20 +224,25 @@ fields.parsePrimitive = function(fieldType, fieldValue) {
   return parsedValue;
 };
 
-fields.serializePrimitive =
-  function(fieldType, fieldValue, buffer, bufferOffset) {
+export function serializePrimitive<T = any>(
+  fieldType: string,
+  fieldValue: T,
+  buffer: Buffer,
+  bufferOffset: number)
+{
+  if (fieldType === 'Array') {
+    throw new Error();
+  }
+  const serializer = (Serialize as any)[fieldType];
+  if (!serializer) {
+    throw new Error(`Unable to get primitive serializer for field type ${fieldType}`);
+  }
+  // else
+  return serializer(fieldValue, buffer, bufferOffset);
+}
 
-    const serializer = ros_msg_utils.Serialize[fieldType];
-    if (!serializer) {
-      throw new Error(`Unable to get primitive serializer for field type ${fieldType}`);
-    }
-    // else
-
-    return serializer(fieldValue, buffer, bufferOffset);
-  };
-
-fields.deserializePrimitive = function(fieldType, buffer, bufferOffset) {
-  const deserializer = ros_msg_utils.Deserialize[fieldType];
+export function deserializePrimitive(fieldType: string, buffer: Buffer, bufferOffset: number[]): any {
+  const deserializer = (Deserialize as any)[fieldType];
   if (!deserializer) {
     throw new Error(`Unable to get primitive deserializer for field type ${fieldType}`);
   }
@@ -239,7 +251,7 @@ fields.deserializePrimitive = function(fieldType, buffer, bufferOffset) {
   return deserializer(buffer, bufferOffset);
 };
 
-fields.getPrimitiveSize = function(fieldType, fieldValue) {
+export function getPrimitiveSize(fieldType: string, fieldValue?: any): number {
   var fieldSize = 0;
 
   if (fieldType === 'char') {
@@ -296,9 +308,8 @@ fields.getPrimitiveSize = function(fieldType, fieldValue) {
   return fieldSize;
 }
 
-fields.getArraySize = function(field, array, msgSpec) {
-  var that      = this
-    , arraySize = 0;
+export function getArraySize(field: Field, array: any[], msgSpec: any) {
+  var arraySize = 0;
 
   //  if this is a variable length array it has a 4 byte length field at the beginning
   if (field.arrayLen === null) {
@@ -307,44 +318,48 @@ fields.getArraySize = function(field, array, msgSpec) {
 
   array.forEach(function(value) {
     if (field.isBuiltin) {
-      arraySize += that.getPrimitiveSize(field.baseType, value);
+      arraySize += getPrimitiveSize(field.baseType, value);
     }
     else {
-      arraySize += that.getMessageSize(value, msgSpec.getMsgSpecForType(field.baseType));
+      arraySize += getMessageSize(value, msgSpec.getMsgSpecForType(field.baseType));
     }
   });
 
   return arraySize;
 };
 
-fields.getMessageSize = function(message, msgSpec) {
-  var that        = this
-    , messageSize = 0
+export function getMessageSize(message: any, msgSpec: any) {
+  var messageSize = 0
     , innerfields      = msgSpec.fields
     ;
 
-  innerfields.forEach(function(field) {
+  innerfields.forEach(function(field: Field) {
     var fieldValue = message[field.name];
     if (field.isArray) {
-      messageSize += that.getArraySize(field, fieldValue, msgSpec);
+      messageSize += getArraySize(field, fieldValue, msgSpec);
     }
     else if (field.isBuiltin) {
-      messageSize += that.getPrimitiveSize(field.type, fieldValue);
+      messageSize += getPrimitiveSize(field.type, fieldValue);
     }
     else { // it's a message
-      messageSize += that.getMessageSize(fieldValue, msgSpec.getMsgSpecForType(field.baseType));
+      messageSize += getMessageSize(fieldValue, msgSpec.getMsgSpecForType(field.baseType));
     }
   });
 
   return messageSize;
 };
 
-fields.getMessageNameFromMessageType = function(messageType) {
+export function getMessageNameFromMessageType(messageType: string): string {
   return messageType.indexOf('/') !== -1 ? messageType.split('/')[1]
     : messageType;
-};
+}
 
-fields.getPackageNameFromMessageType = function(messageType) {
+export function getPackageNameFromMessageType(messageType: string): string {
   return messageType.indexOf('/') !== -1 ? messageType.split('/')[0]
     : '';
-};
+}
+
+export function splitMessageType(messageType: string): string[] {
+  return messageType.indexOf('/') !== -1 ? messageType.split('/')
+                                         : ['', messageType];
+}

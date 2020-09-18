@@ -15,17 +15,15 @@
  *    limitations under the License.
  */
 
-'use strict';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const fs = require('fs');
-const path = require('path');
-
-const CMAKE_PREFIX_PATH = process.env.CMAKE_PREFIX_PATH;
+export const CMAKE_PREFIX_PATH: string = process.env.CMAKE_PREFIX_PATH;
 if (!CMAKE_PREFIX_PATH) {
   throw new Error('Unable to find CMAKE_PREFIX_PATH environment variable. Did you source setup.bash?')
 }
-const cmakePaths = CMAKE_PREFIX_PATH.split(path.delimiter);
-const jsMsgPath = path.join('share', 'gennodejs', 'ros');
+export const CMAKE_PATHS: string[] = CMAKE_PREFIX_PATH.split(path.delimiter);
+export const MESSAGE_PATH: string = path.join('share', 'gennodejs', 'ros');
 
 //-----------------------------------------------------------------------
 //  Search through the CMAKE_PREFIX_PATH for generated javascript messages.
@@ -33,9 +31,9 @@ const jsMsgPath = path.join('share', 'gennodejs', 'ros');
 //  rosnodejs and generated message files will consult this cache to require
 //  message packages
 //-----------------------------------------------------------------------
-const packagePaths = {};
-cmakePaths.forEach((cmakePath) => {
-  const dirPath = path.join(cmakePath, jsMsgPath);
+const packagePaths: {[key: string]: string} = {};
+CMAKE_PATHS.forEach((cmakePath) => {
+  const dirPath = path.join(cmakePath, MESSAGE_PATH);
   try {
     let msgPackages = fs.readdirSync(dirPath);
     msgPackages.forEach((msgPackage) => {
@@ -51,17 +49,12 @@ cmakePaths.forEach((cmakePath) => {
   }
 });
 
-module.exports = {
-  Find(messagePackage) {
-    if (packagePaths.hasOwnProperty(messagePackage)) {
-      return require(packagePaths[messagePackage]);
-    }
-    // else
-    throw new Error(`Unable to find message package ${messagePackage} from CMAKE_PREFIX_PATH`);
-  },
+export function Find<T>(messagePackage: string): T {
+  if (packagePaths.hasOwnProperty(messagePackage)) {
+    return require(packagePaths[messagePackage]);
+  }
+  // else
+  throw new Error(`Unable to find message package ${messagePackage} from CMAKE_PREFIX_PATH`);
+}
 
-  CMAKE_PREFIX_PATH,
-  CMAKE_PATHS: cmakePaths,
-  MESSAGE_PATH: jsMsgPath,
-  packageMap: Object.assign({}, packagePaths)
-};
+export const packageMap = Object.assign({}, packagePaths);

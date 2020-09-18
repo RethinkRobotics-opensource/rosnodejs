@@ -15,12 +15,11 @@
  *    limitations under the License.
  */
 
-'use strict';
-const bunyan = require('bunyan');
-const Logger = require('../utils/log/Logger.js');
-const RosLogStream = require('../utils/log/RosLogStream.js');
-const ConsoleLogStream = require('../utils/log/ConsoleLogStream.js');
-const LogFormatter = require('../utils/log/LogFormatter.js');
+import * as bunyan from 'bunyan';
+import Logger from '../utils/log/Logger.js';
+import RosLogStream from '../utils/log/RosLogStream.js';
+import ConsoleLogStream from '../utils/log/ConsoleLogStream.js';
+import LogFormatter from '../utils/log/LogFormatter.js';
 
 //-----------------------------------------------------------------------
 
@@ -54,6 +53,9 @@ const KNOWN_LOGS = [
 //-----------------------------------------------------------------------
 
 class LoggingManager {
+  loggerMap: { [key: string]: Logger };
+  rootLogger: Logger;
+
   constructor() {
     this.loggerMap = {};
 
@@ -66,7 +68,7 @@ class LoggingManager {
         stream: new ConsoleLogStream({formatter: LogFormatter}),
         level: 'info'
       }],
-      level: 'info'
+      level: bunyan.LogLevel.info
     };
     this.rootLogger = new Logger(rootLoggerOptions);
 
@@ -90,8 +92,7 @@ class LoggingManager {
     });
   }
 
-  initializeNodeLogger(nodeName, options={}) {
-
+  initializeNodeLogger(nodeName: string, options={}): void {
     // setup desired streams
     if (options.hasOwnProperty('streams')) {
       options.streams.forEach((stream) => {

@@ -15,10 +15,9 @@
  *    limitations under the License.
  */
 
-'use strict';
-
-const BN = require('bn.js');
-const getByteLength = require('./encoding_utils.js').getByteLength;
+import * as BN from 'bn.js';
+import { getByteLength, RosTime } from './encoding_utils.js';
+import * as Buffer from 'buffer';
 
 /*-----------------------------------------------------------------------------
  * Primitive Serialization Functions
@@ -32,25 +31,25 @@ const getByteLength = require('./encoding_utils.js').getByteLength;
  * SerializeFunc(value, buffer, bufferOffset)
  *-----------------------------------------------------------------------------*/
 
-function StringSerializer(value, buffer, bufferOffset) {
+function StringSerializer(value: string, buffer: Buffer, bufferOffset: number): number {
   let len = getByteLength(value);
   bufferOffset = buffer.writeUInt32LE(len, bufferOffset);
   return bufferOffset + buffer.write(value, bufferOffset, len, 'utf8');
 }
 
-function UInt8Serializer(value, buffer, bufferOffset) {
-  return buffer.writeUInt8(value, bufferOffset, true);
+function UInt8Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeUInt8(value, bufferOffset);
 }
 
-function UInt16Serializer(value, buffer, bufferOffset) {
-  return buffer.writeUInt16LE(value, bufferOffset, true);
+function UInt16Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeUInt16LE(value, bufferOffset);
 }
 
-function UInt32Serializer(value, buffer, bufferOffset) {
-  return buffer.writeUInt32LE(value, bufferOffset, true);
+function UInt32Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeUInt32LE(value, bufferOffset);
 }
 
-function UInt64Serializer(value, buffer, bufferOffset) {
+function UInt64Serializer(value: number|BN, buffer: Buffer, bufferOffset: number): number {
   if (!BN.isBN(value)) {
     value = new BN(value);
   }
@@ -61,19 +60,19 @@ function UInt64Serializer(value, buffer, bufferOffset) {
   return bufferOffset + 8;
 }
 
-function Int8Serializer(value, buffer, bufferOffset) {
-  return buffer.writeInt8(value, bufferOffset, true);
+function Int8Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeInt8(value, bufferOffset);
 }
 
-function Int16Serializer(value, buffer, bufferOffset) {
-  return buffer.writeInt16LE(value, bufferOffset, true);
+function Int16Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeInt16LE(value, bufferOffset);
 }
 
-function Int32Serializer(value, buffer, bufferOffset) {
-  return buffer.writeInt32LE(value, bufferOffset, true);
+function Int32Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeInt32LE(value, bufferOffset);
 }
 
-function Int64Serializer(value, buffer, bufferOffset) {
+function Int64Serializer(value: number|BN, buffer: Buffer, bufferOffset: number): number {
   if (!BN.isBN(value)) {
     value = new BN(value, 'le');
   }
@@ -86,21 +85,21 @@ function Int64Serializer(value, buffer, bufferOffset) {
   return bufferOffset + 8;
 }
 
-function Float32Serializer(value, buffer, bufferOffset) {
-  return buffer.writeFloatLE(value, bufferOffset, true);
+function Float32Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeFloatLE(value, bufferOffset);
 }
 
-function Float64Serializer(value, buffer, bufferOffset) {
-  return buffer.writeDoubleLE(value, bufferOffset, true);
+function Float64Serializer(value: number, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeDoubleLE(value, bufferOffset);
 }
 
-function TimeSerializer(value, buffer, bufferOffset) {
-  bufferOffset = buffer.writeInt32LE(value.secs, bufferOffset, true);
-  return buffer.writeInt32LE(value.nsecs, bufferOffset, true);
+function TimeSerializer(value: RosTime, buffer: Buffer, bufferOffset: number): number {
+  bufferOffset = buffer.writeInt32LE(value.secs, bufferOffset);
+  return buffer.writeInt32LE(value.nsecs, bufferOffset);
 }
 
-function BoolSerializer(value, buffer, bufferOffset) {
-  return buffer.writeInt8(value ? 1 : 0, bufferOffset, true);
+function BoolSerializer(value: boolean, buffer: Buffer, bufferOffset: number): number {
+  return buffer.writeInt8(value ? 1 : 0, bufferOffset);
 }
 
 /*-----------------------------------------------------------------------------
@@ -118,6 +117,8 @@ function BoolSerializer(value, buffer, bufferOffset) {
  * SerializeFunc(value, buffer, bufferOffset, specArrayLen)
  *-----------------------------------------------------------------------------*/
 
+export type SerializeT<T = any> = (data: T, buffer: Buffer, offset: number) => number;
+
 /**
  * Template for most primitive array serializers which are bound to this function and provide
  * the serializeFunc param
@@ -130,11 +131,11 @@ function BoolSerializer(value, buffer, bufferOffset) {
  * @returns {Number} buffer offset
  * @constructor
  */
-function DefaultArraySerializer(serializeFunc, array, buffer, bufferOffset, specArrayLen=null) {
+function DefaultArraySerializer<T = any>(serializeFunc: SerializeT<T>, array: T[], buffer: Buffer, bufferOffset: number, specArrayLen: number|null=null): number {
   const arrLen = array.length;
 
   if (specArrayLen === null || specArrayLen < 0) {
-    bufferOffset = buffer.writeUInt32LE(arrLen, bufferOffset, true);
+    bufferOffset = buffer.writeUInt32LE(arrLen, bufferOffset);
   }
 
   for (let i = 0; i < arrLen; ++i) {
@@ -147,11 +148,11 @@ function DefaultArraySerializer(serializeFunc, array, buffer, bufferOffset, spec
 /**
  * Specialized array serialization for UInt8 Arrays
  */
-function UInt8ArraySerializer(array, buffer, bufferOffset, specArrayLen=null) {
+function UInt8ArraySerializer(array: number[], buffer: Buffer, bufferOffset: number, specArrayLen:number|null=null): number {
   const arrLen = array.length;
 
   if (specArrayLen === null || specArrayLen < 0) {
-    bufferOffset = buffer.writeUInt32LE(arrLen, bufferOffset, true);
+    bufferOffset = buffer.writeUInt32LE(arrLen, bufferOffset);
   }
 
   buffer.set(array, bufferOffset);
@@ -199,5 +200,5 @@ const ArraySerializers = {
 };
 
 //-----------------------------------------------------------------------------
-
-module.exports = Object.assign({}, PrimitiveSerializers, {Array: ArraySerializers});
+export const Serialize: typeof PrimitiveSerializers & { Array: typeof ArraySerializers } =
+  Object.assign({}, PrimitiveSerializers, { Array: ArraySerializers });

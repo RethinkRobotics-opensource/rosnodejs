@@ -15,21 +15,32 @@
  *    limitations under the License.
  */
 
-'use strict';
-const bunyan = require('bunyan');
-const crypto = require('crypto');
+import * as bunyan from 'bunyan';
+import * as crypto from 'crypto';
 
 //------------------------------------------------------------------------
+
+type Options = {
+  name?: string;
+  $parent?: bunyan;
+  level?: bunyan.LogLevel;
+  streams?: bunyan.Stream[];
+  childOptions?: Options;
+}
 
 /**
  * Logger is a minimal wrapper around a bunyan logger. It adds useful methods
  * to throttle/limit logging.
  * @class Logger
  */
-class Logger {
-  constructor(options) {
-    options = options || {};
+export default class Logger extends bunyan {
+  private _name: string;
+  private _logger: bunyan;
+  private _throttledLogs: Map<string, ThrottledLog> = new Map();
+  private _onceLogs: Set<string> = new Set();
 
+  constructor(options: Options = {}) {
+    super(options);
     this._name = options.name;
 
     if (options.$parent) {
@@ -42,21 +53,13 @@ class Logger {
         streams: options.streams
       });
     }
-
-    this._throttledLogs = new Map();
-    this._onceLogs = new Set();
-
-    const logMethods = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
-    this._createLogMethods(logMethods);
-    this._createThrottleLogMethods(logMethods);
-    this._createOnceLogMethods(logMethods);
   }
 
-  getStreams() {
-    return this._logger.streams;
+  getStreams(): bunyan.Stream[] {
+    return (this._logger as any)['streams'] as bunyan.Stream[];
   }
 
-  child(childOptions) {
+  child(childOptions: Options) {
     // setup options
     const name = childOptions.name;
     delete childOptions.name;
@@ -70,42 +73,30 @@ class Logger {
     return new Logger(options);
   }
 
-  level(level=null) {
+  level(level: bunyan.LogLevel=null) {
     this._logger.level(level);
   }
 
-  setLevel(level) {
+  setLevel(level: bunyan.LogLevel) {
     this._logger.level(level);
   }
 
-  getLevel() {
+  getLevel(): bunyan.LogLevel {
     return this._logger.level();
   }
 
-  getName() {
+  getName(): string {
     return this._name;
   }
 
-  addStream(stream) {
-    this._logger.addStream(stream, this.getLevel());
+  addStream(stream: bunyan.Stream) {
+    this._logger.addStream(stream);
   }
 
-  clearStreams() {
-    this._logger.streams = [];
+  clearStreams(): void {
+    (this._logger as any)['streams'] = [];
   }
 
-  /**
-   * Binds to bunyan logger's method for each method (info, debug, etc)
-   * @param methods {Set.<String>}
-   */
-  _createLogMethods(methods) {
-    methods.forEach((method) => {
-      if (this.hasOwnProperty(method)) {
-        throw new Error('Unable to create method %s', method);
-      }
-      this[method] = this._logger[method].bind(this._logger);
-    });
-  }
 
   /**
    * Attaches throttled logging functions to this object for each level method
@@ -264,6 +255,19 @@ class Logger {
   }
 }
 
+function createLogMethods(methods: Set<string>) {
+  methods.forEach((method) => {
+    if (Logger.prototype.hasOwnProperty(method)) {
+      throw new Error(`Unable to create method ${method}`);
+    }
+    Logger.prototype[method] = function(...args: any) {
+      this._logger[method](...args);
+    }
+  });
+}
+this._createThrottleLogMethods(logMethods);
+this._createOnceLogMethods(logMethods);
+
 //-----------------------------------------------------------------------
 
 /**
@@ -291,7 +295,3 @@ function hashMessage(msg) {
   sha1.update(msg);
   return sha1.digest('hex');
 }
-
-//-----------------------------------------------------------------------
-
-module.exports = Logger;

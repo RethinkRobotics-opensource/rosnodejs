@@ -1,13 +1,13 @@
 const CLEAN_REGEX = /\/\//g;
 
+export type Remappings = { [key:string]: string };
+
 // http://wiki.ros.org/Names
 class Names {
-  constructor() {
-    this._remappings = {};
-    this._namespace = '';
-  }
+  _remappings: Remappings = {};
+  _namespace: string = '';
 
-  init(remappings, namespace) {
+  init(remappings: Remappings, namespace: string) {
     this._namespace = namespace;
     this._remappings = {};
 
@@ -23,7 +23,7 @@ class Names {
     });
   }
 
-  validate(name, throwError = false) {
+  validate(name: string, throwError: boolean = false): boolean {
     if (typeof name !== 'string') {
       if (throwError) {
         throw new Error('Unable to validate non-string name');
@@ -59,7 +59,7 @@ class Names {
     return true;
   }
 
-  clean(name) {
+  clean(name: string): string {
     name = name.replace(CLEAN_REGEX, '/');
 
     if (name.endsWith('/')) {
@@ -69,11 +69,11 @@ class Names {
     return name;
   }
 
-  append(left, right) {
+  append(left: string, right: string): string {
     return this.clean(left + '/' + right);
   }
 
-  remap(name) {
+  remap(name: string): string {
     return this.resolve(name, true);
   }
 
@@ -82,7 +82,7 @@ class Names {
    * @param name {string} name to resolve
    * @param [remap] {bool} flag indicating if we should also attempt to remap the name
    */
-  resolve(...args) {
+  resolve(...args: ResolveArgs): string {
     let [namespace, name, remap] = this._parseResolveArgs(args);
 
     this.validate(name, true);
@@ -115,7 +115,7 @@ class Names {
     return name;
   }
 
-  parentNamespace(name) {
+  parentNamespace(name: string): string {
     this.validate(name, true);
 
     if (name.length === 0) {
@@ -140,12 +140,15 @@ class Names {
     return name.substring(0, p);
   }
 
-  _remap(name) {
+  _remap(name: string): string {
     return this._remappings[name] || name;
   }
 
-  _parseResolveArgs(args) {
-    let name, namespace = this._namespace, remap = true;
+  _parseResolveArgs(args: ResolveArgs): [string, string, boolean] {
+    let name: string;
+    let namespace: string = this._namespace
+    let remap = true;
+
     switch (args.length) {
       case 0:
         name = '';
@@ -170,6 +173,8 @@ class Names {
   }
 }
 
+type ResolveArgs = [] | [string] | [string, string] | [string, boolean] | [string, string, boolean];
+
 module.exports = new Names();
 
 //------------------------------------------------------------------
@@ -178,7 +183,7 @@ module.exports = new Names();
 
 
 
-function isAlpha(char) {
+function isAlpha(char: string): boolean {
   if (char >= 'A' && char <= 'Z') {
     return true;
   }
@@ -189,7 +194,7 @@ function isAlpha(char) {
   return false;
 }
 
-function isAlnum(char) {
+function isAlnum(char: string): boolean {
   if (isAlpha(char)) {
     return true;
   }
@@ -200,6 +205,6 @@ function isAlnum(char) {
   return false;
 }
 
-function isValidCharInName(char) {
+function isValidCharInName(char: string): boolean {
   return (isAlnum(char) || char == '/' || char == '_');
 }

@@ -15,14 +15,23 @@
  *    limitations under the License.
  */
 
-'use strict';
-const bunyan = require('bunyan');
-const timeUtils = require('../time_utils.js');
+import * as bunyan from 'bunyan';
+import * as timeUtils from '../time_utils.js';
 
-let RosgraphLogMsg;
+let RosgraphLogMsg: any;
 
-class RosLogStream {
-  constructor(nh, rosgraphLogMsg, options) {
+type Formatter = (r: any) => string;
+export type RosLogOptions = {
+  queueSize?: number;
+  formatter?: Formatter;
+}
+
+export default class RosLogStream {
+  _formatter: Formatter;
+  _nodeName: string;
+  _rosoutPub: any;
+
+  constructor(nh: any, rosgraphLogMsg: any, options: RosLogOptions) {
     RosgraphLogMsg = rosgraphLogMsg;
     options = options || {};
 
@@ -48,17 +57,17 @@ class RosLogStream {
     return this._rosoutPub;
   }
 
-  _getRosLogLevel(bunyanLogLevel) {
+  private _getRosLogLevel(bunyanLogLevel: bunyan.LogLevel): string {
     // ROS log levels defined in rosgraph_msgs/Log
     // bunyan trace and debug levels will both map to ROS debug
     if (bunyanLogLevel === bunyan.TRACE) {
       return RosgraphLogMsg.Constants.DEBUG;
     }
     // else
-    return RosgraphLogMsg.Constants[bunyan.nameFromLevel[bunyanLogLevel].toUpperCase()];
+    return RosgraphLogMsg.Constants[(bunyan.nameFromLevel as any)[bunyanLogLevel].toUpperCase()];
   }
 
-  write(rec) {
+  write(rec: any): void {
     if (this._rosoutPub !== null) {
       const msg = new RosgraphLogMsg();
 
@@ -75,7 +84,7 @@ class RosLogStream {
         msg.file = rec.scope || rec.name;
         msg.level = this._getRosLogLevel(rec.level);
         const formattedMsg = this._formatter(rec);
-        if (typeof formattedMsg === 'string' || formattedMsg instanceof String) {
+        if (typeof formattedMsg === 'string') {
           msg.msg = formattedMsg;
         }
         else {
@@ -88,5 +97,3 @@ class RosLogStream {
     }
   }
 };
-
-module.exports = RosLogStream;

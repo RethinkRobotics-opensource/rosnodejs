@@ -15,9 +15,9 @@
  *    limitations under the License.
  */
 
-'use strict';
-
-const BN = require('bn.js');
+import * as BN from 'bn.js';
+import * as Buffer from 'buffer';
+import { RosTime } from './encoding_utils.js';
 
 /*-----------------------------------------------------------------------------
  * Primitive Deserialization Functions
@@ -32,83 +32,83 @@ const BN = require('bn.js');
  * DeserializeFunc(buffer, bufferOffset)
  *-----------------------------------------------------------------------------*/
 
-function StringDeserializer(buffer, bufferOffset) {
+function StringDeserializer(buffer: Buffer, bufferOffset: number[]): string {
   const len = UInt32Deserializer(buffer, bufferOffset);
   const str = buffer.toString('utf8', bufferOffset[0], bufferOffset[0] + len)
   bufferOffset[0] += len;
   return str;
 }
 
-function UInt8Deserializer(buffer, bufferOffset) {
-  const val = buffer.readUInt8(bufferOffset[0], true);
+function UInt8Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  const val = buffer.readUInt8(bufferOffset[0]);
   bufferOffset[0] += 1;
   return val;
 }
 
-function UInt16Deserializer(buffer, bufferOffset) {
-  let val = buffer.readUInt16LE(bufferOffset[0], true);
+function UInt16Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readUInt16LE(bufferOffset[0]);
   bufferOffset[0] += 2;
   return val;
 }
 
-function UInt32Deserializer(buffer, bufferOffset) {
-  let val = buffer.readUInt32LE(bufferOffset[0], true);
+function UInt32Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readUInt32LE(bufferOffset[0]);
   bufferOffset[0] += 4;
   return val;
 }
 
-function UInt64Deserializer(buffer, bufferOffset) {
+function UInt64Deserializer(buffer: Buffer, bufferOffset: number[]): BN {
   let slice = buffer.slice(bufferOffset[0], bufferOffset[0] + 8);
   let val = new BN(slice, 'le');
   bufferOffset[0] += 8;
   return val;
 }
 
-function Int8Deserializer(buffer, bufferOffset) {
-  let val = buffer.readInt8(bufferOffset[0], true);
+function Int8Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readInt8(bufferOffset[0]);
   bufferOffset[0] += 1;
   return val;
 }
 
-function Int16Deserializer(buffer, bufferOffset) {
-  let val = buffer.readInt16LE(bufferOffset[0], true);
+function Int16Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readInt16LE(bufferOffset[0]);
   bufferOffset[0] += 2;
   return val;
 }
 
-function Int32Deserializer(buffer, bufferOffset) {
-  let val = buffer.readInt32LE(bufferOffset[0], true);
+function Int32Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readInt32LE(bufferOffset[0]);
   bufferOffset[0] += 4;
   return val;
 }
 
-function Int64Deserializer(buffer, bufferOffset) {
+function Int64Deserializer(buffer: Buffer, bufferOffset: number[]): BN {
   let slice = buffer.slice(bufferOffset[0], bufferOffset[0] + 8);
   let val = new BN(slice, 'le').fromTwos(64);
   bufferOffset[0] += 8;
   return val;
 }
 
-function Float32Deserializer(buffer, bufferOffset) {
-  let val = buffer.readFloatLE(bufferOffset[0], true);
+function Float32Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readFloatLE(bufferOffset[0]);
   bufferOffset[0] += 4;
   return val;
 }
 
-function Float64Deserializer(buffer, bufferOffset) {
-  let val = buffer.readDoubleLE(bufferOffset[0], true);
+function Float64Deserializer(buffer: Buffer, bufferOffset: number[]): number {
+  let val = buffer.readDoubleLE(bufferOffset[0]);
   bufferOffset[0] += 8;
   return val;
 }
 
-function TimeDeserializer(buffer, bufferOffset) {
+function TimeDeserializer(buffer: Buffer, bufferOffset: number[]): RosTime {
   const secs = Int32Deserializer(buffer, bufferOffset);
   const nsecs = Int32Deserializer(buffer, bufferOffset);
   return {secs: secs, nsecs: nsecs};
 }
 
-function BoolDeserializer(buffer, bufferOffset) {
-  const val = !!buffer.readInt8(bufferOffset[0], true);
+function BoolDeserializer(buffer: Buffer, bufferOffset: number[]): boolean {
+  const val = !!buffer.readInt8(bufferOffset[0]);
   bufferOffset[0] += 1;
   return val;
 }
@@ -136,6 +136,8 @@ function BoolDeserializer(buffer, bufferOffset) {
  */
 const getArrayLen = UInt32Deserializer;
 
+export type DeserializeT<T> = (b: Buffer, o: number[]) => T;
+
 /**
  * Template for most primitive array deserializers which are bound to this function and provide
  * the deserializeFunc param
@@ -147,7 +149,7 @@ const getArrayLen = UInt32Deserializer;
  * @returns {Array}
  * @constructor
  */
-function DefaultArrayDeserializer(deserializeFunc, buffer, bufferOffset, arrayLen=null) {
+function DefaultArrayDeserializer<T = any>(deserializeFunc: DeserializeT<T>, buffer: Buffer, bufferOffset: number[], arrayLen:number|null=null) {
   // interpret a negative array len as a variable length array
   // so we need to parse its length ourselves
   if (arrayLen === null || arrayLen < 0) {
@@ -155,7 +157,8 @@ function DefaultArrayDeserializer(deserializeFunc, buffer, bufferOffset, arrayLe
   }
   const array = new Array(arrayLen);
   for (let i = 0; i < arrayLen; ++i) {
-    array[i] = deserializeFunc(buffer, bufferOffset, null);
+    // array[i] = deserializeFunc(buffer, bufferOffset, null);
+    array[i] = deserializeFunc(buffer, bufferOffset);
   }
   return array;
 }
@@ -164,7 +167,7 @@ function DefaultArrayDeserializer(deserializeFunc, buffer, bufferOffset, arrayLe
  * Specialized array deserialization for UInt8 Arrays
  * We return the raw buffer when deserializing uint8 arrays because it's much faster
   */
-function UInt8ArrayDeserializer(buffer, bufferOffset, arrayLen=null) {
+function UInt8ArrayDeserializer(buffer: Buffer, bufferOffset: number[], arrayLen:number|null=null) {
   if (arrayLen === null || arrayLen < 0) {
     arrayLen = getArrayLen(buffer, bufferOffset);
   }
@@ -216,4 +219,4 @@ const ArrayDeserializers = {
 
 //-----------------------------------------------------------------------------
 
-module.exports = Object.assign({}, PrimitiveDeserializers, {Array: ArrayDeserializers});
+export const Deserialize = Object.assign({}, PrimitiveDeserializers, {Array: ArrayDeserializers});

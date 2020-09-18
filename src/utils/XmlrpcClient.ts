@@ -1,12 +1,23 @@
-'use strict';
-const EventEmitter = require('events');
+import * as Events from 'events';
 const xmlrpc = require('xmlrpc-rosnodejs');
 
 const CONNECTION_REFUSED='ECONNREFUSED';
 const TRY_AGAIN_LIST = [1, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8, 16, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
-class XmlrpcCall {
-  constructor(method, data, resolve, reject, options={}) {
+type CallOptions = {
+  maxAttempts?: number;
+}
+type ResolveT<T> = (d: T) => void;
+type RejectT = (e: Error) => void;
+
+class XmlrpcCall<TReq, TResp> {
+  method: string;
+  data: TReq;
+  resolve: (d: TResp) => void;
+  reject: (e: Error) => void;
+  maxAttempts: number;
+
+  constructor(method: string, data: TReq, resolve: ResolveT<TResp>, reject: RejectT, options: CallOptions = {}) {
     this.method = method;
     this.data = data;
     this.resolve = resolve;
@@ -15,15 +26,15 @@ class XmlrpcCall {
     this.maxAttempts = options.maxAttempts || Infinity;
   }
 
-  call(client) {
+  call(client: any) {
     return new Promise((resolve, reject) => {
-      client.methodCall(this.method, this.data, (err, resp) => {
+      client.methodCall(this.method, this.data as any, (err: any, resp: any) => {
         if (err) {
           reject(err);
         }
         else if (resp[0] !== 1) {
           const msg = resp[1];
-          const error = new Error(`ROS XMLRPC Error: ${msg}`);
+          const error: any = new Error(`ROS XMLRPC Error: ${msg}`);
           error.code = 'EROSAPIERROR';
           error.statusCode = resp[0];
           error.statusMessage = msg;
@@ -38,8 +49,15 @@ class XmlrpcCall {
   }
 }
 
-class XmlrpcClient extends EventEmitter {
-  constructor(clientAddressInfo, log) {
+export default class XmlrpcClient extends Events.EventEmitter {
+  private _xmlrpcClient: any;
+  private _log: any;
+  private _callQueue: XmlrpcCall<any, any>[];
+  private _timeout: number;
+  private _timeoutId: NodeJS.Timer|null;
+  private _failedAttempts: number;
+
+  constructor(clientAddressInfo: { host: string, port: number }, log: any) {
     super();
 
     this._xmlrpcClient = xmlrpc.createClient(clientAddressInfo);
@@ -58,7 +76,7 @@ class XmlrpcClient extends EventEmitter {
     return this._xmlrpcClient;
   }
 
-  call(method, data, resolve, reject, options) {
+  call<TReq = any, TResp = any>(method: string, data: TReq, resolve: (d: TResp) => void, reject: (e: Error) => void, options: CallOptions) {
     const newCall = new XmlrpcCall(method, data, resolve, reject, options);
     const numCalls = this._callQueue.length;
     this._callQueue.push(newCall);
@@ -68,7 +86,7 @@ class XmlrpcClient extends EventEmitter {
     }
   }
 
-  clear() {
+  clear(): void {
     this._log.info('Clearing xmlrpc client queue...');
     if (this._callQueue.length !== 0) {
       this._callQueue[0].reject(new Error('Clearing call queue - probably shutting down...'));
@@ -97,7 +115,7 @@ class XmlrpcClient extends EventEmitter {
       ++this._failedAttempts;
       this._log.info('Call %s %j failed! %s', call.method, call.data, err);
       if (err instanceof Error &&
-          err.code === CONNECTION_REFUSED &&
+          (err as any).code === CONNECTION_REFUSED &&
           this._failedAttempts < call.maxAttempts) {
         // Call failed to connect - try to connect again.
         // All future calls would have same error since they're
@@ -139,5 +157,3 @@ class XmlrpcClient extends EventEmitter {
     this._timeoutId = setTimeout(this._tryExecuteCall.bind(this), timeout);
   }
 }
-
-module.exports = XmlrpcClient;

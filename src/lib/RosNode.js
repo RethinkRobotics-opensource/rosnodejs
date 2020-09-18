@@ -15,8 +15,6 @@
  *    limitations under the License.
  */
 
-"use strict"
-
 let net = require('net');
 let xmlrpc = require('xmlrpc-rosnodejs');
 let MasterApiClient  = require('./MasterApiClient.js');

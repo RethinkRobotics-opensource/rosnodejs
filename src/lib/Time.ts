@@ -1,37 +1,40 @@
-const timeUtils = require('../utils/time_utils.js');
+import * as timeUtils from '../utils/time_utils.js';
 
 let simTimeSub = null;
 let simTime = timeUtils.dateToRosTime(0);
 
-function handleSimTimeMessage(msg) {
+type RosgraphMsgClock = {
+  clock: timeUtils.RosTime;
+}
+
+function handleSimTimeMessage(msg: RosgraphMsgClock): void {
   simTime = msg.clock;
 }
 
 const Time = {
   useSimTime: false,
 
-  _initializeRosTime(rosnodejs, notime) {
+  async _initializeRosTime(rosnodejs: any, notime: boolean): Promise<void> {
     //Only for testing purposes!
     if (notime) {
-      return Promise.resolve();
+      return;
     }
     const nh = rosnodejs.nh;
-    return nh.getParam('/use_sim_time')
-    .then((val) => {
-      this.useSimTime = val;
+    try {
+      this.useSimTime = await nh.getParam('/use_sim_time')
 
-      if (val) {
+      if (this.useSimTime) {
         simTimeSub = nh.subscribe('/clock', 'rosgraph_msgs/Clock', handleSimTimeMessage, {throttleMs: -1});
       }
-    })
-    .catch((err) => {
+    }
+    catch(err) {
       if (err.statusCode === undefined) {
         throw err;
       }
-    });
+    }
   },
 
-  now() {
+  now(): timeUtils.RosTime {
     if (this.useSimTime) {
       return simTime;
     }
@@ -50,4 +53,4 @@ const Time = {
   lt:            timeUtils.lt,
 };
 
-module.exports = Time;
+export default Time;

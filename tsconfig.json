@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "noImplicitAny": true,
+    "preserveConstEnums": true,
+    "sourceMap": true,
+    "declaration": true,
+    "target": "ES2016",
+    "outDir": "dist",
+    "allowJs": true
+  },
+  "include": ["src/**/*"]
+}

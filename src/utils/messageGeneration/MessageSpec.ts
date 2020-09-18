@@ -1,42 +1,43 @@
-const fs = require('fs');
-const util = require('util');
-const path = require('path');
-const md5 = require('md5');
-const fieldsUtil = require('./fields.js');
-const IndentedWriter = require('./IndentedWriter.js');
-const MessageWriter = require('./MessageWriter.js');
+import * as fs from 'fs';
+import * as util from 'util';
+import * as path from 'path';
+import * as md5 from 'md5';
+import * as fieldsUtil from './fields';
+import { Field } from './fields';
+import IndentedWriter from './IndentedWriter';
+import * as MessageWriter from './MessageWriter';
 
-const specCache = {};
+const specCache: {[key: string]: RosMsgSpec} = {};
 const MSG_DIVIDER = '---';
 
-const MSG_TYPE = 'msg';
-const SRV_TYPE = 'srv';
-const SRV_REQUEST_TYPE = 'srvRequest';
-const SRV_RESPONSE_TYPE = 'srvResponse';
-const ACTION_TYPE = 'action';
-const ACTION_GOAL_TYPE = 'actionGoal';
-const ACTION_FEEDBACK_TYPE = 'actionFeedback';
-const ACTION_RESULT_TYPE = 'actionResult';
-const ACTION_ACTION_GOAL_TYPE = 'actionGoal';
-const ACTION_ACTION_FEEDBACK_TYPE = 'actionActionFeedback';
-const ACTION_ACTION_RESULT_TYPE = 'actionActionResult';
-const ACTION_ACTION_TYPE = 'actionAction';
+export const MSG_TYPE = 'msg';
+export const SRV_TYPE = 'srv';
+export const SRV_REQUEST_TYPE = 'srvRequest';
+export const SRV_RESPONSE_TYPE = 'srvResponse';
+export const ACTION_TYPE = 'action';
+export const ACTION_GOAL_TYPE = 'actionGoal';
+export const ACTION_FEEDBACK_TYPE = 'actionFeedback';
+export const ACTION_RESULT_TYPE = 'actionResult';
+export const ACTION_ACTION_GOAL_TYPE = 'actionGoal';
+export const ACTION_ACTION_FEEDBACK_TYPE = 'actionActionFeedback';
+export const ACTION_ACTION_RESULT_TYPE = 'actionActionResult';
+export const ACTION_ACTION_TYPE = 'actionAction';
 
-function getFullMessageName(packageName, messageName) {
+function getFullMessageName(packageName: string, messageName: string): string {
   return packageName + '/' + messageName;
 }
 
-function getPackageNameFromMessageType(messageType) {
+function getPackageNameFromMessageType(messageType: string): string {
   return messageType.indexOf('/') !== -1 ? messageType.split('/')[0]
     : '';
 }
 
 const isArrayRegex = /.*\[*\]$/;
-function isArray(fieldType) {
+function isArray(fieldType: string): boolean {
   return (fieldType.match(isArrayRegex) !== null);
 }
 
-function getLengthOfArray(arrayType) {
+function getLengthOfArray(arrayType: string): number|null {
   var match = arrayType.match(/.*\[(\d*)\]$/);
   if (match[1] === '') {
     return null;
@@ -44,79 +45,44 @@ function getLengthOfArray(arrayType) {
   return parseInt(match[1]);
 }
 
-function parseType(msgType) {
-  if (!msgType) {
-    throw new Error(`Invalid empty type ${JSON.stringify(field)}`);
-  }
-  // else
-  const field = {};
+function getBaseType(msgType: string): string {
   if (isArray(msgType)) {
-    field.isArray = true;
-    const variableLength = msgType.endsWith('[]');
     const splits = msgType.split('[');
-    if (splits.length > 2) {
-      throw new Error(`Only support 1-dimensional array types: ${msgType}`);
-    }
-    field.baseType = splits[0];
-    if (!variableLength) {
-      field.arrayLen = getLengthOfArray(msgType);
-    }
-    else {
-      field.arrayLen = null;
-    }
+    return splits[0];
   }
   else {
-    field.baseType= msgType;
-    field.isArray = false;
-    field.arrayLen = null;
+    return msgType;
   }
-  return field;
 }
 
-function isHeader(type) {
+function isHeader(type: string): boolean {
   return (['Header', 'std_msgs/Header', 'roslib/Header'].indexOf(type) >= 0);
 }
 
-class Field {
-  constructor(name, type) {
-    this.name = name;
-    this.type = type;
-    Object.assign(this, parseType(type));
-    this.isHeader = isHeader(type);
-    this.isBuiltin = fieldsUtil.isPrimitive(this.baseType);
-  }
-
-  getPackage() {
-    if (this.isBuiltin) {
-      return null;
-    }
-    return this.baseType.split('/')[0];
-  }
-
-  getMessage() {
-    if (this.isBuiltin) {
-      return null;
-    }
-    return this.baseType.split('/')[1];
-  }
-}
+type Constant = {
+  name: string;
+  type: string;
+  value: any;
+  stringValue: string;
+  index: number;
+  messageType: any;
+};
 
 /**
  * @class RosMsgSpec
  * Base class for message spec. Provides useful functionality on its own that is extended
  * by subclasses.
  */
-class RosMsgSpec {
-  /**
-   * Constructor for base class
-   * @param msgCache {MessageManager}
-   * @param packageName {string} name of package
-   * @param messageName {string} name of message
-   * @param type {string} type of message (see MSG_TYPE, SRV_TYPE, ... above)
-   * @param filePath {string|null} path to message file
-   * @returns {RosMsgSpec}
-   */
-  constructor(msgCache, packageName, messageName, type, filePath=null) {
+export class RosMsgSpec {
+  msgCache: any;
+  packageName: string;
+  messageName: string;
+  type: string;
+  fileContents: string|null;
+  fields: Field[] = [];
+  constants: Constant[] = [];
+
+  constructor(msgCache: any, packageName: string, messageName: string, type: string, filePath: string|null=null) {
     this.msgCache = msgCache;
     this.messageName = messageName;
     this.packageName = packageName;
@@ -126,14 +92,8 @@ class RosMsgSpec {
 
   /**
    * Given a type of message, returns the correct subclass of RosMsgSpec
-   * @param msgCache {MessageManager}
-   * @param packageName {string} name of package
-   * @param messageName {string} name of message
-   * @param type {string} type of message (see MSG_TYPE, SRV_TYPE, ... above)
-   * @param filePath {string|null} path to message file
-   * @returns {SrvSpec|MsgSpec|ActionSpec}
    */
-  static create(msgCache, packageName, messageName, type, filePath=null) {
+  static create(msgCache: any, packageName: string, messageName: string, type: string, filePath: string|null=null) {
     switch (type) {
       case SRV_TYPE:
         return new SrvSpec(msgCache, packageName, messageName, type, filePath);
@@ -151,8 +111,8 @@ class RosMsgSpec {
    * @param type {string} full type of message to search for (e.g. sensor_msgs/Image)
    * @returns {RosMsgSpec}
    */
-  getMsgSpecForType(type) {
-    let spec = specCache[type]
+  getMsgSpecForType(type: string): RosMsgSpec {
+    let spec = specCache[type];
     if (!spec) {
         spec = this.msgCache.getMessageSpec(type)
         specCache[type] = spec
@@ -162,11 +122,8 @@ class RosMsgSpec {
 
   /**
    * Tries to load and parse message file
-   * @param [filePath] {string} path to file - will load file from here if provided
-   * @param [fileContents] {string} file contents - will parse into desired fields
    */
-  loadFile(filePath=null, fileContents=null) {
-
+  loadFile(filePath: string|null=null, fileContents: string|null=null): void {
     if (filePath !== null) {
       fileContents = this._loadMessageFile(filePath);
     }
@@ -177,31 +134,21 @@ class RosMsgSpec {
     }
   }
 
-  _parseMessage() {
-    throw new Error('Unable to parse message file for base class RosMsgSpec');
-  }
-
-  /**
-   * Generates the file data for this class
-   */
-  writeMessageClassFile() {
-    throw new Error('Unable to write message class file for base class RosMsgSpec');
+  protected _parseMessage(f: string): void {
+    throw new Error('Unable to parse message in base class');
   }
 
   /**
    * Get full message name for this spec (e.g. sensor_msgs/String)
-   * @returns {string}
    */
-  getFullMessageName() {
+  getFullMessageName(): string {
     return getFullMessageName(this.packageName, this.messageName);
   }
 
   /**
    * Get a unique list of other packages this spec depends on
-   * @param [deps] {Set} dependencies will be added to this set if provided
-   * @returns {Set} list of dependencies
    */
-  getMessageDependencies(deps=new Set()) {
+  getMessageDependencies(deps=new Set<string>()): Set<string> {
     const {packageName} = this;
     this.fields.forEach((field) => {
       const fieldPackage = getPackageNameFromMessageType(field.baseType);
@@ -219,11 +166,9 @@ class RosMsgSpec {
 
   /**
    * Reads file at specified location and returns its contents
-   * @param fileName {string}
-   * @returns fileContents {string}
    * @private
    */
-  _loadMessageFile(fileName) {
+  _loadMessageFile(fileName: string): string {
     return fs.readFileSync(fileName, 'utf8');
   }
 
@@ -231,7 +176,7 @@ class RosMsgSpec {
    * For this message spec, generates the text used to calculate the message's md5 sum
    * @returns {string}
    */
-  getMd5text() {
+  getMd5text(): string {
     return '';
   }
 
@@ -239,17 +184,19 @@ class RosMsgSpec {
    * Get the md5 sum of this message
    * @returns {string}
    */
-  getMd5sum() {
+  getMd5sum(): string {
     return md5(this.getMd5text());
   }
 
   /**
    * Generates a depth-first list of all dependencies of this message in field order.
-   * @param [deps] {Array}
-   * @returns {Array}
    */
-  getFullDependencies(deps = []) {
+  getFullDependencies(deps: RosMsgSpec[] = []): RosMsgSpec[] {
     return [];
+  }
+
+  getMessageFixedSize(): number {
+    throw new Error('Unable to getMessageFixedSize on base class')
   }
 
   /**
@@ -284,21 +231,17 @@ class RosMsgSpec {
  * (e.g. Request, Response, Goal, ActionResult, ...)
  * @class MsgSpec
  */
-class MsgSpec extends RosMsgSpec {
-  constructor(msgCache, packageName, messageName, type, filePath=null, fileContents=null) {
+export class MsgSpec extends RosMsgSpec {
+  constructor(msgCache: any, packageName: string, messageName: string, type: string, filePath:string|null=null, fileContents:string|null=null) {
     super(msgCache, packageName, messageName, type, filePath);
-    this.constants = [];
-    this.fields = [];
 
     this.loadFile(filePath, fileContents);
   }
 
   /**
    * Parses through message definition for fields and constants
-   * @param content {string} relevant portion of message definition
-   * @private
    */
-  _parseMessage(content) {
+  protected _parseMessage(content: string): void {
     let lines = content.split('\n').map((line) => line.trim());
 
     try {
@@ -312,10 +255,9 @@ class MsgSpec extends RosMsgSpec {
 
   /**
    * Given a line from the message file, parse it for useful contents
-   * @param line {string}
    * @private
    */
-  _parseLine(line) {
+  private _parseLine(line: string): void {
     line = line.trim();
 
     const lineEqualIndex   = line.indexOf('=');
@@ -364,7 +306,7 @@ class MsgSpec extends RosMsgSpec {
         //    ComplexType fieldName  # this is assumed to be in tutorial_msgs
         // TODO: would ROS automatically search for fields in other packages if possible??
         //       we may need to support this...
-        const {baseType} = parseType(fieldType);
+        const baseType = getBaseType(fieldType);
         // if it's a header and isn't explicit, be explicit
         if (isHeader(baseType) && !getPackageNameFromMessageType(baseType)) {
           fieldType = 'std_msgs/' + fieldType;
@@ -380,9 +322,8 @@ class MsgSpec extends RosMsgSpec {
 
   /**
    * Check if this message will have a fixed size regardless of its contents
-   * @returns {boolean}
    */
-  isMessageFixedSize() {
+  isMessageFixedSize(): boolean {
     // Check if a particular message specification has a constant size in bytes
     const fields = this.fields;
     const types = fields.map((field) => { return field.baseType });
@@ -404,16 +345,15 @@ class MsgSpec extends RosMsgSpec {
         if (!msgSpec) {
           throw new Error(`Unable to load spec for field [${field.baseType}]`);
         }
-        return msgSpec.isMessageFixedSize();
+        return (msgSpec as MsgSpec).isMessageFixedSize();
       });
     }
   }
 
   /**
    * Calculates the fixed size of this message if it has a fixed size
-   * @returns {number|null} size if message has fixed size else null
    */
-  getMessageFixedSize() {
+  getMessageFixedSize(): number|null {
     // Return the size of the message.
     // If the message does not have a fixed size, returns null
     if (!this.isMessageFixedSize()) {
@@ -442,7 +382,7 @@ class MsgSpec extends RosMsgSpec {
         if (!msgSpec) {
           throw new Error(`Unable to load spec for field [${field.baseType}] in message ${this.getFullMessageName()}`);
         }
-        const fieldSize = msgSpec.getMessageFixedSize();
+        const fieldSize = (msgSpec as MsgSpec).getMessageFixedSize();
         if (fieldSize === null) {
           throw new Error(`Field ${field.baseType} in message ${this.getFullMessageName()} has a non-constant size`);
         }
@@ -454,9 +394,8 @@ class MsgSpec extends RosMsgSpec {
 
   /**
    * Generates the text used to calculate this message's md5 sum
-   * @returns {string}
    */
-  getMd5text() {
+  getMd5text(): string {
     let text = '';
     var constants = this.constants.map(function(constant) {
       // NOTE: use the string value of the constant from when we parsed it so that JS doesn't drop decimal precision
@@ -485,9 +424,8 @@ class MsgSpec extends RosMsgSpec {
 
   /**
    * Generates text for message class file
-   * @returns {string}
    */
-  generateMessageClassFile() {
+  generateMessageClassFile(): string {
     return MessageWriter.createMessageClass(this);
   }
 
@@ -496,7 +434,7 @@ class MsgSpec extends RosMsgSpec {
    * @param [deps] {Array}
    * @returns {Array}
    */
-  getFullDependencies(deps = []) {
+  getFullDependencies(deps: RosMsgSpec[] = []): RosMsgSpec[] {
     this.fields.forEach((field) => {
       if (!field.isBuiltin) {
         const fieldSpec = this.getMsgSpecForType(field.baseType);
@@ -516,8 +454,11 @@ class MsgSpec extends RosMsgSpec {
  * Implements logic for ros services. Creates MsgSpecs for request and response
  * @class SrvSpec
  */
-class SrvSpec extends RosMsgSpec {
-  constructor(msgCache, packageName, messageName, type, filePath=null) {
+export class SrvSpec extends RosMsgSpec {
+  request: MsgSpec;
+  response: MsgSpec;
+
+  constructor(msgCache: any, packageName: string, messageName: string, type: string, filePath: string|null=null) {
     super(msgCache, packageName, messageName, type, filePath);
 
     this.fileContents = this._loadMessageFile(filePath);
@@ -533,7 +474,7 @@ class SrvSpec extends RosMsgSpec {
    * @returns {object}
    * @private
    */
-  _extractMessageSections(fileContents) {
+  _extractMessageSections(fileContents: string): { req: string, resp: string } {
     let lines = fileContents.split('\n').map((line) => line.trim());
 
     const sections = {
@@ -541,7 +482,7 @@ class SrvSpec extends RosMsgSpec {
       resp: ''
     };
 
-    let currentSection = 'req';
+    let currentSection: 'req'|'resp' = 'req';
 
     lines.forEach((line) => {
       if (line.startsWith(MSG_DIVIDER)) {
@@ -555,11 +496,11 @@ class SrvSpec extends RosMsgSpec {
     return sections;
   }
 
-  getMd5text() {
+  getMd5text(): string {
     return this.request.getMd5text() + this.response.getMd5text();
   }
 
-  getMessageDependencies(deps=new Set()) {
+  getMessageDependencies(deps: Set<string> = new Set()): Set<string> {
     this.request.getMessageDependencies(deps);
     this.response.getMessageDependencies(deps);
     return deps;
@@ -567,9 +508,8 @@ class SrvSpec extends RosMsgSpec {
 
   /**
    * Generates text for service class file
-   * @returns {string}
    */
-  generateMessageClassFile() {
+  generateMessageClassFile(): string {
     return MessageWriter.createServiceClass(this);
   }
 }
@@ -581,8 +521,16 @@ class SrvSpec extends RosMsgSpec {
  * Creates MsgSpecs for goal, result, feedback, action goal, action result, action feedback, and action
  * @class ActionSpec
  */
-class ActionSpec extends RosMsgSpec {
-  constructor(msgCache, packageName, messageName, type, filePath=null) {
+export class ActionSpec extends RosMsgSpec {
+  goal: MsgSpec;
+  result: MsgSpec;
+  feedback: MsgSpec;
+  actionGoal: MsgSpec;
+  actionResult: MsgSpec;
+  actionFeedback: MsgSpec;
+  action: MsgSpec;
+
+  constructor(msgCache: any, packageName: string, messageName: string, type: string, filePath: string|null=null) {
     super(msgCache, packageName, messageName, type, filePath);
 
     this.fileContents = this._loadMessageFile(filePath);
@@ -601,7 +549,7 @@ class ActionSpec extends RosMsgSpec {
    * @returns {object}
    * @private
    */
-  _extractMessageSections(fileContents) {
+  _extractMessageSections(fileContents: string): { goal: string, result: string, feedback: string } {
     let lines = fileContents.split('\n').map((line) => line.trim());
 
     const sections = {
@@ -610,14 +558,19 @@ class ActionSpec extends RosMsgSpec {
       feedback: ''
     };
 
-    let currentSection = 'goal';
+    let currentSection: 'goal'|'result'|'feedback' = 'goal';
 
     lines.forEach((line) => {
       if (line.startsWith(MSG_DIVIDER)) {
-        currentSection = {
-          goal: 'result',
-          result: 'feedback'
-        }[currentSection];
+        if (currentSection === 'goal') {
+          currentSection = 'result';
+        }
+        else if (currentSection === 'result') {
+          currentSection = 'feedback';
+        }
+        else {
+          throw new Error('Invalid action spec');
+        }
       }
       else {
         sections[currentSection] += `\n${line}`;
@@ -629,9 +582,8 @@ class ActionSpec extends RosMsgSpec {
 
   /**
    * Get a list of all the message specs created by this ros action
-   * @returns {MsgSpec[]}
    */
-  getMessages() {
+  getMessages(): MsgSpec[] {
     return [this.goal, this.result, this.feedback, this.actionGoal,
             this.actionResult, this.actionFeedback, this.action];
   }
@@ -639,38 +591,38 @@ class ActionSpec extends RosMsgSpec {
   /**
    * Creates the remaining 4 action messages
    */
-  generateActionMessages() {
+  generateActionMessages(): void {
     this.generateActionGoalMessage();
     this.generateActionResultMessage();
     this.generateActionFeedbackMessage();
     this.generateActionMessage();
   }
 
-  generateActionGoalMessage() {
+  generateActionGoalMessage(): void {
     const goalMessage = MessageWriter.generateActionGoalMessage(this.getFullMessageName());
 
     this.actionGoal = new MsgSpec(this.msgCache, this.packageName, this.messageName + 'ActionGoal', ACTION_ACTION_GOAL_TYPE, null, goalMessage);
   }
 
-  generateActionResultMessage() {
+  generateActionResultMessage(): void {
     const resultMessage = MessageWriter.generateActionResultMessage(this.getFullMessageName());
 
     this.actionResult = new MsgSpec(this.msgCache, this.packageName, this.messageName + 'ActionResult', ACTION_ACTION_RESULT_TYPE, null, resultMessage);
   }
 
-  generateActionFeedbackMessage() {
+  generateActionFeedbackMessage(): void {
     const feedbackMessage = MessageWriter.generateActionFeedbackMessage(this.getFullMessageName());
 
     this.actionFeedback = new MsgSpec(this.msgCache, this.packageName, this.messageName + 'ActionFeedback', ACTION_ACTION_FEEDBACK_TYPE, null, feedbackMessage);
   }
 
-  generateActionMessage() {
+  generateActionMessage(): void {
     const actionMessage = MessageWriter.generateActionMessage(this.getFullMessageName());
 
     this.action = new MsgSpec(this.msgCache, this.packageName, this.messageName + 'Action', ACTION_ACTION_TYPE, null, actionMessage);
   }
 
-  getMessageDependencies(deps=new Set()) {
+  getMessageDependencies(deps: Set<string> = new Set()): Set<string> {
     this.goal.getMessageDependencies(deps);
     this.result.getMessageDependencies(deps);
     this.feedback.getMessageDependencies(deps);
@@ -681,18 +633,3 @@ class ActionSpec extends RosMsgSpec {
     return deps;
   }
 }
-
-RosMsgSpec.MSG_TYPE = MSG_TYPE;
-RosMsgSpec.SRV_TYPE = SRV_TYPE;
-RosMsgSpec.SRV_REQUEST_TYPE = SRV_REQUEST_TYPE;
-RosMsgSpec.SRV_RESPONSE_TYPE = SRV_RESPONSE_TYPE;
-RosMsgSpec.ACTION_TYPE = ACTION_TYPE;
-RosMsgSpec.ACTION_GOAL_TYPE = ACTION_GOAL_TYPE;
-RosMsgSpec.ACTION_FEEDBACK_TYPE = ACTION_FEEDBACK_TYPE;
-RosMsgSpec.ACTION_RESULT_TYPE = ACTION_RESULT_TYPE;
-RosMsgSpec.ACTION_ACTION_GOAL_TYPE = ACTION_ACTION_GOAL_TYPE;
-RosMsgSpec.ACTION_ACTION_FEEDBACK_TYPE = ACTION_ACTION_FEEDBACK_TYPE;
-RosMsgSpec.ACTION_ACTION_RESULT_TYPE = ACTION_ACTION_RESULT_TYPE;
-RosMsgSpec.ACTION_ACTION_TYPE = ACTION_ACTION_TYPE;
-
-module.exports = RosMsgSpec;

@@ -15,12 +15,18 @@
  *    limitations under the License.
  */
 
-'use strict';
+import * as bunyan from 'bunyan';
 
-const bunyan = require('bunyan');
+type Formatter = (r: any) => string;
 
-class ConsoleLogStream {
-  constructor(options) {
+export type ConsoleOptions = {
+  formatter: Formatter;
+}
+
+export default class ConsoleLogStream {
+  private _formatter: Formatter;
+
+  constructor(options: ConsoleOptions) {
     if (options.hasOwnProperty('formatter')) {
       this._formatter = options.formatter;
     }
@@ -29,7 +35,7 @@ class ConsoleLogStream {
     }
   }
 
-  write(rec) {
+  write(rec: any) {
     let msg;
     if (typeof rec === 'string' || rec instanceof String) {
       console.log(rec);
@@ -37,7 +43,7 @@ class ConsoleLogStream {
     }
     else if (typeof rec === 'object') {
       const formattedMsg = this._formatter(rec);
-      if (typeof formattedMsg === 'string' || formattedMsg instanceof String) {
+      if (typeof formattedMsg === 'string') {
         msg = formattedMsg;
       }
       else {
@@ -58,5 +64,3 @@ class ConsoleLogStream {
     }
   }
 };
-
-module.exports = ConsoleLogStream;

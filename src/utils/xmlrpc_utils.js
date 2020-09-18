@@ -1,6 +1,3 @@
-'use strict';
-
-
 module.exports = {
   call(client, method, data, resolve, reject, log, timeout) {
     log.debug('Calling method ' + method +': ' + data);

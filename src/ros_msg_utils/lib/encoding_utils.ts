@@ -15,18 +15,17 @@
  *    limitations under the License.
  */
 
-'use strict';
+/**
+ * Returns the number of bytes in a string (using utf8 encoding),
+ * in order to know the length needed to serialize it into a Buffer
+ * @param strValue
+ * @return {Number}
+ */
+export function getByteLength(strValue: string): number {
+  return Buffer.byteLength(strValue, 'utf8');
+}
 
-module.exports = {
-
-  /**
-   * Returns the number of bytes in a string (using utf8 encoding),
-   * in order to know the length needed to serialize it into a Buffer
-   * @param strValue
-   * @return {Number}
-   */
-  getByteLength(strValue) {
-    return Buffer.byteLength(strValue, 'utf8');
-  }
-
-};
+export type RosTime = {
+  secs: number;
+  nsecs: number;
+}

@@ -15,8 +15,6 @@
  *    limitations under the License.
  */
 
-"use strict";
-
 //------------------------------------------------------------------
 
 const netUtils = require('./utils/network_utils.js');

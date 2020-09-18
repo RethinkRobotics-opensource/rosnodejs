@@ -15,14 +15,12 @@
  *    limitations under the License.
  */
 
-'use strict';
-
-const fs = require('fs');
-const path = require('path');
-const utils = require('util');
-const loggingManager = require('../lib/Logging.js');
-const messages = require('./messageGeneration/messages.js');
-const ros_msg_utils = require('../ros_msg_utils');
+import * as fs from 'fs';
+import * as path from 'path';
+import * as utils from 'util';
+import loggingManager from '../lib/Logging';
+import * as messages from './messageGeneration/messages';
+import * as ros_msg_utils from '../ros_msg_utils';
 
 // *grumble grumble* this is unfortunate
 // Our ros messages are going to be loaded from all over the place

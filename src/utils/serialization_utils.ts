@@ -15,9 +15,8 @@
  *    limitations under the License.
  */
 
-'use strict';
-const util = require('util');
-const Transform = require('stream').Transform;
+import * as util from 'util';
+import { Transform } from 'stream';
 
 //-----------------------------------------------------------------------
 
@@ -27,9 +26,15 @@ const Transform = require('stream').Transform;
  * emits 'message' with the data for that message. All socket
  * communications should be piped through this.
  */
-class DeserializeStream extends Transform  {
+export class DeserializeStream extends Transform  {
+  private _inBody: boolean;
+  private _messageConsumed: number;
+  private _messageLen: number;
+  private _messageBuffer: Buffer[];
+  private _deserializeServiceResp: boolean;
+  private _serviceRespSuccess: null|number;
 
-  constructor(options) {
+  constructor(options: any) {
     super(options);
 
     // Transform.call(this, options);
@@ -55,7 +60,7 @@ class DeserializeStream extends Transform  {
     this._serviceRespSuccess = null;
   }
 
-  _transform(chunk, encoding, done) {
+  _transform(chunk: Buffer, encoding: string, done: () => void) {
     let pos = 0;
     let chunkLen = chunk.length;
 
@@ -89,7 +94,7 @@ class DeserializeStream extends Transform  {
         // if we're deserializing a service response, first byte is 'success'
         if (this._deserializeServiceResp &&
             this._serviceRespSuccess === null) {
-          this._serviceRespSuccess = chunk.readUInt8(pos, true);
+          this._serviceRespSuccess = chunk.readUInt8(pos);
           ++pos;
         }
 
@@ -109,7 +114,7 @@ class DeserializeStream extends Transform  {
           // if its an empty message, there won't be any bytes left and message
           // will never be emitted -- handle that case here
           if (this._messageLen === 0 && pos === chunkLen) {
-            this.emitMessage(Buffer.from([]));
+            this.emitMessage(new Buffer([]));
           }
           else {
             this._inBody = true;
@@ -125,7 +130,7 @@ class DeserializeStream extends Transform  {
     done();
   }
 
-  emitMessage(buffer) {
+  emitMessage(buffer: Buffer): void {
     if (this._deserializeServiceResp) {
       this.emit('message', buffer, this._serviceRespSuccess);
       this._serviceRespSuccess = null;
@@ -135,7 +140,7 @@ class DeserializeStream extends Transform  {
     }
   }
 
-  setServiceRespDeserialize() {
+  setServiceRespDeserialize(): void {
     this._deserializeServiceResp = true;
   }
 };
@@ -143,30 +148,21 @@ class DeserializeStream extends Transform  {
 
 //-----------------------------------------------------------------------
 
-function PrependLength(buffer, len) {
-  let lenBuf = Buffer.allocUnsafe(4);
+export function PrependLength(buffer: Buffer, len: number): Buffer {
+  let lenBuf = new Buffer(4);
   lenBuf.writeUInt32LE(len, 0);
   return Buffer.concat([lenBuf, buffer], buffer.length + 4);
 }
 
 //-----------------------------------------------------------------------
 
-let SerializationUtils = {
-  DeserializeStream: DeserializeStream,
-
-  PrependLength: PrependLength,
-
-  Serialize(buffer) {
-    return PrependLength(buffer, buffer.length);
-  },
-
-  Deserialize(buffer) {
-    let len = buffer.readUInt32LE(0, true);
-    buffer = buffer.slice(4);
-    return len;
-  }
-}
-
-//-----------------------------------------------------------------------
-
-module.exports = SerializationUtils;
+  //
+  // Serialize(buffer: Buffer): Buffer {
+  //   return PrependLength(buffer, buffer.length);
+  // },
+  //
+  // Deserialize(buffer: Buffer): number {
+  //   let len = buffer.readUInt32LE(0);
+  //   buffer = buffer.slice(4);
+  //   return len;
+  // }

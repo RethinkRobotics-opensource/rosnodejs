@@ -15,25 +15,25 @@
  *    limitations under the License.
  */
 
-'use strict';
+import * as moment from 'moment';
+import * as bunyan from 'bunyan';
 
-const moment= require('moment');
-const bunyan = require('bunyan');
-const timeUtils = require('../time_utils.js');
+type TokenName = 'severity' | 'time' | 'logger' | 'message' | 'isodate' | string;
 
 const DEFAULT_FORMAT = '[${severity}] [${time}] (${logger}): ${message}';
 const CONSOLE_FORMAT = process.env.ROSCONSOLE_JS_FORMAT || DEFAULT_FORMAT;
 const CONSOLE_TOKEN_REGEX = /\${([a-z|A-Z]+)}/g;
 
 class LogFormatter {
-  constructor() {
-    this._tokens = [];
+  _tokens: Token[] = [];
+  _numTokens: number;
 
+  constructor() {
     this._parseFormat();
     this._numTokens = this._tokens.length;
   }
 
-  _parseFormat() {
+  _parseFormat(): void {
     let match;
     let lastMatchIndex = 0;
     while ((match = CONSOLE_TOKEN_REGEX.exec(CONSOLE_FORMAT)) !== null) {
@@ -50,7 +50,7 @@ class LogFormatter {
     }
   }
 
-  _getTokenizer(token) {
+  _getTokenizer(token: TokenName) {
     switch(token) {
       case 'severity':
         return new SeverityToken();
@@ -67,7 +67,7 @@ class LogFormatter {
     }
   }
 
-  format(rec) {
+  format(rec: any) {
     const fields = this._tokens.map((token) => { return token.format(rec); });
     return fields.join('');
   }
@@ -77,55 +77,51 @@ class LogFormatter {
 // Tokens used for log formatting
 
 class DefaultToken {
-  constructor(val) {
+  val: TokenName;
+  constructor(val: TokenName) {
     this.val = val;
   }
 
-  format() {
+  format(): string {
     return this.val;
   }
 }
 
 class SeverityToken {
-  constructor() { }
-
-  format(rec) {
+  format(rec: any): string {
     return bunyan.nameFromLevel[rec.level].toUpperCase();
   }
 }
 
 class MessageToken {
-  constructor() { }
-
-  format(rec) {
+  format(rec: any): string {
     return rec.msg;
   }
 }
 
 class TimeToken {
-  constructor() { }
-
-  format(rec) {
+  format(rec: any): string {
     const recTime = rec.time;
     return `${(recTime / 1000).toFixed(3)}`;
   }
 }
 
 class LoggerToken {
-  constructor() { }
-
-  format(rec) {
+  format(rec: any): string {
     return rec.scope || rec.name;
   }
 }
 
 class IsoDateToken {
-  constructor() { }
-
-  format(rec) {
+  format(rec: any): string {
     return moment(rec.time).format('YYYY-MM-DDTHH:mm:ss.SSSZZ')
   }
 }
 
+type Token = SeverityToken | MessageToken | TimeToken | LoggerToken | IsoDateToken | DefaultToken;
+
 const logFormatter = new LogFormatter();
-module.exports = logFormatter.format.bind(logFormatter);
+
+export default function formate(rec: any): string {
+  return logFormatter.format(rec);
+}

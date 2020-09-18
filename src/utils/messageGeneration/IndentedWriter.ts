@@ -1,24 +1,19 @@
-'use strict';
-const util = require('util');
+import * as util from 'util';
 
-class IndentedWriter {
-  constructor() {
-    this._str = '';
-    this._indentation = 0;
-  }
+export default class IndentedWriter {
+  private _str: string = '';
+  private _indentation: number = 0;
 
-  write(args) {
-    let formattedStr = util.format.apply(this,arguments);
-    if (this.isIndented()) {
-      for (let i = 0; i < this._indentation; ++i) {
-        this._str += '  ';
-      }
+  write(...args: any[]): IndentedWriter {
+    let formattedStr = util.format.apply(this,...args);
+    for (let i = 0; i < this._indentation; ++i) {
+      this._str += '  ';
     }
     this._str += formattedStr;
     return this.newline();
   }
 
-  newline(indentDir=undefined) {
+  newline(indentDir:number|undefined=undefined): IndentedWriter {
     this._str += '\n';
     if (indentDir === undefined) {
       return this;
@@ -33,43 +28,41 @@ class IndentedWriter {
     return this;
   }
 
-  indent() {
+  indent(...args: any[]): IndentedWriter {
     ++this._indentation;
-    if (arguments.length > 0) {
-      return this.write(...arguments);
+    if (args.length > 0) {
+      return this.write(...args);
     }
     // else
     return this;
   }
 
-  isIndented() {
+  isIndented(): boolean {
     return this._indentation > 0;
   }
 
-  dedent() {
+  dedent(...args: any[]): IndentedWriter {
     --this._indentation;
     if (this._indentation < 0) {
       this.resetIndent();
     }
     if (arguments.length > 0) {
-      return this.write(...arguments);
+      return this.write(...args);
     }
     // else
     return this;
   }
 
-  resetIndent() {
+  resetIndent(): IndentedWriter {
     this._indentation = 0;
     return this;
   }
 
-  dividingLine() {
+  dividingLine(): IndentedWriter {
     return this.write('//-----------------------------------------------------------');
   }
 
-  get() {
+  get(): string {
     return this._str;
   }
 }
-
-module.exports = IndentedWriter;
