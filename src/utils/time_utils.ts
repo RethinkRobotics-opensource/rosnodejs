@@ -15,14 +15,11 @@
  *    limitations under the License.
  */
 
+import { RosTime } from "../types/RosTypes";
+
 const NSEC_TO_SEC = 1e-9;
 const USEC_TO_SEC = 1e-6;
 const MSEC_TO_SEC = 1e-3;
-
-export type RosTime = {
-  secs: number;
-  nsecs: number;
-}
 
 export function rosTimeToDate(rosTime: RosTime): Date {
   var date = new Date();

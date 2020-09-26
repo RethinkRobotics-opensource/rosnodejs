@@ -15,8 +15,10 @@
  *    limitations under the License.
  */
 
-import * as util from 'util';
 import { Transform } from 'stream';
+import * as ros_msg_utils from '../ros_msg_utils/index';
+const base_serializers = ros_msg_utils.Serialize;
+const base_deserializers = ros_msg_utils.Deserialize;
 
 //-----------------------------------------------------------------------
 
@@ -34,7 +36,7 @@ export class DeserializeStream extends Transform  {
   private _deserializeServiceResp: boolean;
   private _serviceRespSuccess: null|number;
 
-  constructor(options: any) {
+  constructor(options?: any) {
     super(options);
 
     // Transform.call(this, options);
@@ -148,21 +150,43 @@ export class DeserializeStream extends Transform  {
 
 //-----------------------------------------------------------------------
 
-export function PrependLength(buffer: Buffer, len: number): Buffer {
+export function PrependLength(buffer: Buffer): Buffer {
   let lenBuf = new Buffer(4);
-  lenBuf.writeUInt32LE(len, 0);
+  lenBuf.writeUInt32LE(buffer.length, 0);
   return Buffer.concat([lenBuf, buffer], buffer.length + 4);
 }
 
-//-----------------------------------------------------------------------
+export function serializeStringFields(fields: string[]): Buffer {
+  let length = 0;
+  for (const field of fields) {
+    length += (Buffer.byteLength(field) + 4);
+  }
+  let buffer = Buffer.allocUnsafe(4 + length);
+  let offset = base_serializers.uint32(length, buffer, 0);
 
-  //
-  // Serialize(buffer: Buffer): Buffer {
-  //   return PrependLength(buffer, buffer.length);
-  // },
-  //
-  // Deserialize(buffer: Buffer): number {
-  //   let len = buffer.readUInt32LE(0);
-  //   buffer = buffer.slice(4);
-  //   return len;
-  // }
+  for (const field of fields) {
+    offset = base_serializers.string(field, buffer, offset);
+  }
+  return buffer;
+}
+
+export function deserializeStringFields(buffer: Buffer): string[] {
+  const fields: string[] = [];
+  const offset = [0];
+  while (offset[0] < buffer.length) {
+    const str = base_deserializers.string(buffer, offset);
+    fields.push(str);
+  }
+
+  return fields;
+}
+
+export function serializeString(str: string): Buffer {
+  const buf = Buffer.allocUnsafe(str.length + 4);
+  base_serializers.string(str, buf, 0);
+  return buf;
+}
+
+export function deserializeString(buffer: Buffer): string {
+  return base_deserializers.string(buffer, [0]);
+}

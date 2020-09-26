@@ -15,32 +15,36 @@
  *    limitations under the License.
  */
 
+/// <reference path="../../../types.d.ts"/>
 import * as bunyan from 'bunyan';
 import * as crypto from 'crypto';
 
 //------------------------------------------------------------------------
 
-type Options = {
+export type Options = {
   name?: string;
-  $parent?: bunyan;
+  $parent?: bunyan.Logger;
   level?: bunyan.LogLevel;
   streams?: bunyan.Stream[];
   childOptions?: Options;
 }
+
+type LogFuncType = InstanceType<typeof bunyan.Logger>['info'];
+type ThrottleArgs = [string, ...any[]]|[any, string];
+type ThrottledMethodType = (t: number, ...p: ThrottleArgs)=>boolean;
 
 /**
  * Logger is a minimal wrapper around a bunyan logger. It adds useful methods
  * to throttle/limit logging.
  * @class Logger
  */
-export default class Logger extends bunyan {
+export default class Logger {
   private _name: string;
-  private _logger: bunyan;
+  private _logger: bunyan.Logger;
   private _throttledLogs: Map<string, ThrottledLog> = new Map();
   private _onceLogs: Set<string> = new Set();
 
   constructor(options: Options = {}) {
-    super(options);
     this._name = options.name;
 
     if (options.$parent) {
@@ -56,10 +60,10 @@ export default class Logger extends bunyan {
   }
 
   getStreams(): bunyan.Stream[] {
-    return (this._logger as any)['streams'] as bunyan.Stream[];
+    return this._logger.streams;
   }
 
-  child(childOptions: Options) {
+  child(childOptions: Options): Logger {
     // setup options
     const name = childOptions.name;
     delete childOptions.name;
@@ -77,11 +81,11 @@ export default class Logger extends bunyan {
     this._logger.level(level);
   }
 
-  setLevel(level: bunyan.LogLevel) {
-    this._logger.level(level);
+  setLevel(level: number|string) {
+    this._logger.level(level as bunyan.LogLevel);
   }
 
-  getLevel(): bunyan.LogLevel {
+  getLevel(): number {
     return this._logger.level();
   }
 
@@ -97,6 +101,26 @@ export default class Logger extends bunyan {
     (this._logger as any)['streams'] = [];
   }
 
+  trace = this._logger.trace;
+  debug = this._logger.debug;
+  info = this._logger.info;
+  warn = this._logger.warn;
+  error = this._logger.error;
+  fatal = this._logger.fatal;
+
+  traceThrottle = this._makeThrottleMethod(this._logger.trace);
+  debugThrottle = this._makeThrottleMethod(this._logger.debug);
+  infoThrottle = this._makeThrottleMethod(this._logger.info);
+  warnThrottle = this._makeThrottleMethod(this._logger.warn);
+  errorThrottle = this._makeThrottleMethod(this._logger.error);
+  fatalThrottle = this._makeThrottleMethod(this._logger.fatal);
+
+  traceOnce = this._makeOnceMethod(this._logger.trace);
+  debugOnce = this._makeOnceMethod(this._logger.debug);
+  infoOnce = this._makeOnceMethod(this._logger.info);
+  warnOnce = this._makeOnceMethod(this._logger.warn);
+  errorOnce = this._makeOnceMethod(this._logger.error);
+  fatalOnce = this._makeOnceMethod(this._logger.fatal);
 
   /**
    * Attaches throttled logging functions to this object for each level method
@@ -118,40 +142,27 @@ export default class Logger extends bunyan {
    *
    * @param methods {Set.<String>}
    */
-  _createThrottleLogMethods(methods) {
-    methods.forEach((method) => {
-      let throttleMethod = method + 'Throttle';
-      if (this.hasOwnProperty(throttleMethod)) {
-        throw new Error('Unable to create method %s', throttleMethod);
+  private _makeThrottleMethod(method: LogFuncType): ThrottledMethodType {
+    // there's currently a bug using arguments in a () => {} function
+    return (throttleTimeMs: number, ...args: ThrottleArgs) => {
+      // If the desired log level is enabled and the message
+      // isn't being throttled, then log the message.
+      if (method.call(this) && !this._throttle(throttleTimeMs, args)) {
+        method.apply(this, args);
+        return true;
       }
-
-      // there's currently a bug using arguments in a () => {} function
-      this[throttleMethod] = function(throttleTimeMs, args) {
-        // If the desired log level is enabled and the message
-        // isn't being throttled, then log the message.
-        if (this[method]() && !this._throttle(...arguments)) {
-          return this[method].apply(this, Array.from(arguments).slice(1));
-        }
-        return false;
-      }.bind(this);
-    });
+      return false;
+    }
   }
 
-  _createOnceLogMethods(methods) {
-    methods.forEach((method) => {
-      let onceMethod = method + 'Once';
-      if (this.hasOwnProperty(onceMethod)) {
-        throw new Error('Unable to create method %s', onceMethod);
+  private _makeOnceMethod(method: LogFuncType): (...a: ThrottleArgs)=>boolean {
+    return (...args: ThrottleArgs) => {
+      if (method.call(this) && this._once(args)) {
+        method.apply(this, args);
+        return true;
       }
-
-      // there's currently a bug using arguments in a () => {} function
-      this[onceMethod] = function(args) {
-        if (this[method]() && this._once(arguments)) {
-          return this[method].apply(this, arguments);
-        }
-        return false;
-      }.bind(this);
-    });
+      return false;
+    }
   }
 
   //--------------------------------------------------------------
@@ -167,7 +178,7 @@ export default class Logger extends bunyan {
    * @param args {Array} arguments provided to calling function
    * @return {boolean} should this log be throttled (if true, the log should not be written)
    */
-  _throttle(throttleTimeMs, ...args) {
+  private _throttle(throttleTimeMs: number, args: ThrottleArgs): boolean {
     const now = Date.now();
     const throttlingMsg = this._getThrottleMsg(args);
     if (throttlingMsg === null) {
@@ -179,8 +190,8 @@ export default class Logger extends bunyan {
 
     const throttledLog = this._throttledLogs.get(msgHash);
 
-    if (throttledLog === undefined || now + 1 - throttledLog.getStartTime() >= throttledLog.getThrottleTime()) {
-      const newThrottledLog = new ThrottledLog(now, throttleTimeMs);
+    if (throttledLog === undefined || now  > throttledLog.startTime + throttledLog.throttleTime) {
+      const newThrottledLog = { startTime: now, throttleTime: throttleTimeMs };
       this._throttledLogs.set(msgHash, newThrottledLog);
       return false;
     }
@@ -199,7 +210,7 @@ export default class Logger extends bunyan {
    * @param args {Array} arguments provided to calling function
    * @return {boolean} should this be written
    */
-  _once(args) {
+  _once(args: ThrottleArgs): boolean {
     const throttleMsg = this._getThrottleMsg(args);
     if (throttleMsg === null) {
       // we couldn't get a msg to hash - fall through and log the message
@@ -215,16 +226,16 @@ export default class Logger extends bunyan {
     return false;
   }
 
-  _getThrottleMsg(args) {
+  _getThrottleMsg(args: ThrottleArgs): string|null {
     const firstArg = args[0];
-    if (typeof firstArg === 'string' || firstArg instanceof String) {
+    if (typeof firstArg === 'string') {
       return firstArg;
     }
     else if (typeof firstArg === 'object') {
       // bunyan supports passing an object as the first argument with
       // optional fields to add to the log record - the second argument
       // is the actual string 'log message' in this case, so just return that
-      return args[1];
+      return args[1] as string;
     }
     // fall through *womp womp*
     return null;
@@ -234,11 +245,11 @@ export default class Logger extends bunyan {
    * Remove old throttled logs (logs that were throttled whose throttling time has passed) from the throttling map
    * @returns {Number} number of logs that were cleaned out
    */
-  clearExpiredThrottledLogs() {
-    const logsToRemove = [];
+  clearExpiredThrottledLogs(): number {
+    const logsToRemove: string[] = [];
     const now = Date.now();
     this._throttledLogs.forEach((log, key) => {
-      if (now - log.getStartTime() >= log.getThrottleTime()) {
+      if (now - log.startTime >= log.throttleTime) {
         logsToRemove.push(key);
       }
     });
@@ -250,47 +261,20 @@ export default class Logger extends bunyan {
     return logsToRemove.length;
   }
 
-  getThrottledLogSize() {
+  getThrottledLogSize(): number {
     return this._throttledLogs.size;
   }
 }
 
-function createLogMethods(methods: Set<string>) {
-  methods.forEach((method) => {
-    if (Logger.prototype.hasOwnProperty(method)) {
-      throw new Error(`Unable to create method ${method}`);
-    }
-    Logger.prototype[method] = function(...args: any) {
-      this._logger[method](...args);
-    }
-  });
-}
-this._createThrottleLogMethods(logMethods);
-this._createOnceLogMethods(logMethods);
-
 //-----------------------------------------------------------------------
 
-/**
- * @class ThrottledLog
- * Small utility class implementation for ThrottledLogger
- */
-class ThrottledLog {
-  constructor(timeThrottleStarted, throttlingTime) {
-    this.logThrottleStartTime = timeThrottleStarted;
-    this.logthrottleTimeMs = throttlingTime;
-  }
-
-  getStartTime() {
-    return this.logThrottleStartTime;
-  }
-
-  getThrottleTime() {
-    return this.logthrottleTimeMs;
-  }
+interface ThrottledLog {
+  startTime: number;
+  throttleTime: number;
 }
 
 // Utility function to help hash messages when we throttle them.
-function hashMessage(msg) {
+function hashMessage(msg: string): string {
   const sha1 = crypto.createHash('sha1');
   sha1.update(msg);
   return sha1.digest('hex');

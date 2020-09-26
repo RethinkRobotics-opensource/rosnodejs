@@ -14,7 +14,8 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-
+ 
+/// <reference path="../../../types.d.ts"/>
 import * as bunyan from 'bunyan';
 import * as timeUtils from '../time_utils.js';
 
@@ -31,7 +32,7 @@ export default class RosLogStream {
   _nodeName: string;
   _rosoutPub: any;
 
-  constructor(nh: any, rosgraphLogMsg: any, options: RosLogOptions) {
+  constructor(nh: any, rosgraphLogMsg: any, options?: RosLogOptions) {
     RosgraphLogMsg = rosgraphLogMsg;
     options = options || {};
 
@@ -50,7 +51,7 @@ export default class RosLogStream {
     this._nodeName = nh.getNodeName();
 
     this._rosoutPub = nh.advertise('/rosout', 'rosgraph_msgs/Log',
-                                   {queueSize: queueSize, latching: true});
+                                   { queueSize, latching: true });
   }
 
   getPub() {
@@ -81,7 +82,7 @@ export default class RosLogStream {
         msg.header.stamp = timeUtils.dateToRosTime(rec.time);
 
         msg.name = this._nodeName;
-        msg.file = rec.scope || rec.name;
+        msg.file = rec.name;
         msg.level = this._getRosLogLevel(rec.level);
         const formattedMsg = this._formatter(rec);
         if (typeof formattedMsg === 'string') {

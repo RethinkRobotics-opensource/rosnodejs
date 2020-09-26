@@ -14,7 +14,8 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-
+ 
+/// <reference path="../../../types.d.ts"/>
 import * as bunyan from 'bunyan';
 
 type Formatter = (r: any) => string;

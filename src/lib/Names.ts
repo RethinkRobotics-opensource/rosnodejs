@@ -175,7 +175,7 @@ class Names {
 
 type ResolveArgs = [] | [string] | [string, string] | [string, boolean] | [string, string, boolean];
 
-module.exports = new Names();
+export default new Names();
 
 //------------------------------------------------------------------
 // Local Helper functions

@@ -69,6 +69,25 @@ type Constant = {
 };
 
 /**
+ * Given a type of message, returns the correct subclass of RosMsgSpec
+ */
+export function create(msgCache: any, packageName: string, messageName: string, type: 'msg', filePath: string|null): MsgSpec;
+export function create(msgCache: any, packageName: string, messageName: string, type: 'srv', filePath: string|null): SrvSpec;
+export function create(msgCache: any, packageName: string, messageName: string, type: 'action', filePath: string|null): ActionSpec;
+export function create(msgCache: any, packageName: string, messageName: string, type: 'msg'|'srv'|'action', filePath: string|null=null): RosMsgSpec {
+  switch (type) {
+    case SRV_TYPE:
+      return new SrvSpec(msgCache, packageName, messageName, type, filePath);
+    case MSG_TYPE:
+      return new MsgSpec(msgCache, packageName, messageName, type, filePath);
+    case ACTION_TYPE:
+      return new ActionSpec(msgCache, packageName, messageName, type, filePath);
+    default:
+      throw new Error(`Unable to create message spec for type [${type}]`);
+  }
+}
+
+/**
  * @class RosMsgSpec
  * Base class for message spec. Provides useful functionality on its own that is extended
  * by subclasses.
@@ -88,22 +107,6 @@ export class RosMsgSpec {
     this.packageName = packageName;
     this.type = type;
     this.fileContents = null;
-  }
-
-  /**
-   * Given a type of message, returns the correct subclass of RosMsgSpec
-   */
-  static create(msgCache: any, packageName: string, messageName: string, type: string, filePath: string|null=null) {
-    switch (type) {
-      case SRV_TYPE:
-        return new SrvSpec(msgCache, packageName, messageName, type, filePath);
-      case MSG_TYPE:
-        return new MsgSpec(msgCache, packageName, messageName, type, filePath);
-      case ACTION_TYPE:
-        return new ActionSpec(msgCache, packageName, messageName, type, filePath);
-      default:
-        throw new Error(`Unable to create message spec for type [${type}]`);
-    }
   }
 
   /**

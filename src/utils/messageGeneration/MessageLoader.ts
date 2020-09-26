@@ -1,63 +1,31 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as util from 'util';
-import * as md5 from 'md5';
 
 import * as packages   from './packages';
 import * as fieldsUtil from './fields';
 import IndentedWriter from './IndentedWriter.js';
 import * as MsgSpec from './MessageSpec.js';
 
-const Field = fieldsUtil.Field;
-
-let packageCache: any = null;
-
-const PKG_LOADING = 'loading';
-const PKG_LOADED  = 'loaded';
-
-async function createDirectory(directory: string): Promise<void> {
-  let curPath = '/';
-  const paths = directory.split(path.sep);
-
-  function createLocal(dirPath: string) {
-    return new Promise((resolve, reject) => {
-      fs.mkdir(dirPath, (err) => {
-        if (err && err.code !== 'EEXIST' && err.code !== 'EISDIR') {
-          reject(err);
-        }
-        resolve();
-      });
-    });
-  }
-
-  for (const localPath of paths) {
-    curPath = path.join(curPath, localPath);
-    await createLocal(curPath);
-  }
+enum LoadStatus {
+  LOADING,
+  LOADED
 }
 
-function writeFile(filepath: string, data: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    fs.writeFile(filepath, data, (err) => {
-      if (err) {
-        reject(err);
-      }
-      else {
-        resolve();
-      }
-    });
-  });
-}
+type PackageMap = {
+  [key: string]: {
+    messages: {[key: string]: { file: string, spec: MsgSpec.MsgSpec }};
+    services: {[key: string]: { file: string, spec: MsgSpec.SrvSpec }};
+    actions: {[key: string]: { file: string, spec: MsgSpec.ActionSpec }};
+    localDeps: Set<string>; // this is only local package dependencies
+  }
+};
 
-class MessageManager {
+export default class MessageManager {
   _verbose: boolean;
-  _packageChain: any[];
-  _loadingPkgs: Map<any, any>;
+  _loadingPkgs: Map<string, LoadStatus> = new Map();
+  _packageCache: PackageMap = null;
 
   constructor(verbose=false) {
-    this._packageChain = [];
-    this._loadingPkgs = new Map();
-
     this._verbose = verbose;
   }
 
@@ -67,30 +35,32 @@ class MessageManager {
     }
   }
 
-  getCache(): any {
-    return packageCache;
+  getCache(): PackageMap {
+    return this._packageCache;
   }
 
-  getMessageSpec(msgType: string, type=MsgSpec.MSG_TYPE) {
+  getMessageSpec(msgType: string, type: 'msg'): MsgSpec.MsgSpec|null;
+  getMessageSpec(msgType: string, type: 'srv'): MsgSpec.SrvSpec|null;
+  getMessageSpec(msgType: string, type: 'msg'|'srv' = MsgSpec.MSG_TYPE): MsgSpec.RosMsgSpec|null {
     const [pkg, messageName] = fieldsUtil.splitMessageType(msgType);
-    if (packageCache.hasOwnProperty(pkg)) {
+    if (this._packageCache.hasOwnProperty(pkg)) {
       let pkgCache;
       switch(type) {
         case MsgSpec.MSG_TYPE:
-          pkgCache = packageCache[pkg].messages;
+          pkgCache = this._packageCache[pkg].messages;
           break;
         case MsgSpec.SRV_TYPE:
-          pkgCache = packageCache[pkg].services;
+          pkgCache = this._packageCache[pkg].services;
           break;
       }
       if (pkgCache) {
         // be case insensitive here...
         if (pkgCache.hasOwnProperty(messageName)) {
-          return pkgCache[messageName].msgSpec;
+          return pkgCache[messageName].spec;
         }
         const lcName = messageName.toLowerCase();
         if (pkgCache.hasOwnProperty(lcName)) {
-          return pkgCache[lcName].msgSpec;
+          return pkgCache[lcName].spec;
         }
       }
     }
@@ -100,12 +70,12 @@ class MessageManager {
 
   async buildPackageTree(outputDirectory: string, writeFiles=true): Promise<void> {
     await this.initTree();
-    this._packageChain = this._buildMessageDependencyChain();
+    // none of the loading here depends on message dependencies
+    // so don't worry about doing it in order, just do it all...
+    const packages = Object.keys(this._packageCache);
 
     try {
-      // none of the loading here depends on message dependencies
-      // so don't worry about doing it in order, just do it all...
-      await Promise.all(this._packageChain.map((pkgName) => {
+      await Promise.all(packages.map((pkgName) => {
         return this.loadPackage(pkgName, outputDirectory, false, writeFiles);
       }));
     }
@@ -127,55 +97,50 @@ class MessageManager {
     });
   }
 
-  async initTree() {
-    if (packageCache === null) {
+  async initTree(): Promise<void> {
+    if (this._packageCache === null) {
       this.log('Traversing ROS_PACKAGE_PATH...');
       await packages.findMessagePackages();
     }
-    packageCache = packages.getPackageCache();
 
-    // load all the messages
-    // TODO: only load messages we need
-    this._loadMessagesInCache();
+    this._loadMessagesInCache(packages.getMessagePackageCache());
   }
 
   async loadPackage(packageName: string, outputDirectory: string, loadDeps: boolean=true, writeFiles: boolean=true, filterDepFunc:(d:string)=>boolean=null) {
     if (this._loadingPkgs.has(packageName)) {
-      return Promise.resolve();
+      return;
     }
     // else
     this.log('Loading package %s', packageName);
-    this._loadingPkgs.set(packageName, PKG_LOADING);
+    this._loadingPkgs.set(packageName, LoadStatus.LOADING);
 
     if (loadDeps) {
       // get an ordered list of dependencies for this message package
-      const dependencies = this._buildMessageDependencyChain(this._getFullDependencyChain(packageName));
+      let dependencies = sortPackageList([...getFullDependencySet(packageName, this._packageCache)], this._packageCache);
 
       // filter out any packages that have already been loaded or are loading
-      let depsToLoad = dependencies;
       if (filterDepFunc && typeof filterDepFunc === 'function') {
-        depsToLoad = dependencies.filter(filterDepFunc);
+        dependencies = dependencies.filter(filterDepFunc);
       }
 
-      depsToLoad.forEach((depName) => {
-        this.loadPackage(depName, outputDirectory, loadDeps, writeFiles, filterDepFunc);
-      });
+      await Promise.all(dependencies.map((depName) => {
+        return this.loadPackage(depName, outputDirectory, loadDeps, writeFiles, filterDepFunc);
+      }));
     }
 
     // actions get parsed and are then cached with the rest of the messages
     // which is why there isn't a loadPackageActions
     if (writeFiles) {
       await this.initPackageWrite(packageName, outputDirectory);
-      await this.writePackageMessages.bind(this, packageName, outputDirectory);
-      await this.writePackageServices.bind(this, packageName, outputDirectory);
-      this._loadingPkgs.set(packageName, PKG_LOADED);
+      await this.writePackageMessages(packageName, outputDirectory);
+      await this.writePackageServices(packageName, outputDirectory);
+      this._loadingPkgs.set(packageName, LoadStatus.LOADING);
       console.log('Finished building package %s', packageName);
     }
   }
 
   async initPackageWrite(packageName: string, jsMsgDir: string): Promise<void> {
     const packageDir = path.join(jsMsgDir, packageName);
-    packageCache[packageName].directory = packageDir;
 
     await createDirectory(packageDir);
     if (this.packageHasMessages(packageName) || this.packageHasActions(packageName)) {
@@ -210,8 +175,8 @@ class MessageManager {
     return writeFile(path.join(directory, '_index.js'), w.get());
   }
 
-  createIndex(packageName: string, directory: string, msgKey: string): Promise<void> {
-    const messages = Object.keys(packageCache[packageName][msgKey]);
+  createIndex(packageName: string, directory: string, msgKey: 'messages'|'services'): Promise<void> {
+    const messages = Object.keys(this._packageCache[packageName][msgKey]);
     const w = new IndentedWriter();
     w.write('module.exports = {')
       .indent();
@@ -235,27 +200,28 @@ class MessageManager {
   }
 
   packageHasMessages(packageName: string): boolean {
-    return Object.keys(packageCache[packageName].messages).length > 0;
+    return Object.keys(this._packageCache[packageName].messages).length > 0;
   }
 
   packageHasServices(packageName: string): boolean {
-    return Object.keys(packageCache[packageName].services).length > 0;
+    return Object.keys(this._packageCache[packageName].services).length > 0;
   }
 
   packageHasActions(packageName: string): boolean {
-    return Object.keys(packageCache[packageName].actions).length > 0;
+    return Object.keys(this._packageCache[packageName].actions).length > 0;
   }
 
   async writePackageMessages(packageName: string, jsMsgDir: string): Promise<void> {
     const msgDir = path.join(jsMsgDir, packageName, 'msg');
 
-    const packageMsgs = packageCache[packageName].messages;
-    const numMsgs = Object.keys(packageMsgs).length;
+    const packageMsgs = this._packageCache[packageName].messages;
+    const pkgNames = Object.keys(packageMsgs);
+    const numMsgs = pkgNames.length;
     if (numMsgs > 0) {
       this.log('Building %d messages from %s', numMsgs, packageName);
       const promises: Promise<void>[] = [];
-      Object.keys(packageMsgs).forEach((msgName) => {
-        const spec = packageMsgs[msgName].msgSpec;
+      pkgNames.forEach((msgName) => {
+        const spec = packageMsgs[msgName].spec;
         this.log(`Building message ${spec.packageName}/${spec.messageName}`);
         promises.push(writeFile(path.join(msgDir, `${msgName}.js`), spec.generateMessageClassFile()));
       });
@@ -267,13 +233,14 @@ class MessageManager {
   async writePackageServices(packageName: string, jsMsgDir: string): Promise<void> {
     const msgDir = path.join(jsMsgDir, packageName, 'srv');
 
-    const packageSrvs = packageCache[packageName].services;
-    const numSrvs = Object.keys(packageSrvs).length;
+    const packageSrvs = this._packageCache[packageName].services;
+    const srvNames = Object.keys(packageSrvs);
+    const numSrvs = srvNames.length;
     if (numSrvs > 0) {
       this.log('Building %d services from %s', numSrvs, packageName);
       const promises: Promise<void>[] = [];
-      Object.keys(packageSrvs).forEach((srvName) => {
-        const spec = packageSrvs[srvName].msgSpec;
+      srvNames.forEach((srvName) => {
+        const spec = packageSrvs[srvName].spec;
         this.log(`Building service ${spec.packageName}/${spec.messageName}`);
         promises.push(writeFile(path.join(msgDir, `${srvName}.js`), spec.generateMessageClassFile()));
       });
@@ -282,50 +249,38 @@ class MessageManager {
     }
   }
 
-  _loadMessagesInCache(): void {
+  private _loadMessagesInCache(packageCache: packages.MsgPackageCache): void {
     this.log('Loading messages...');
-    Object.keys(packageCache).forEach((packageName) => {
 
+    for (const packageName in packageCache) {
       const packageInfo = packageCache[packageName];
       const packageDeps = new Set<string>();
 
-      type Pkg = { file: string };
-      type Ret = {key: string, val: any};
-      function packageForEach(item: string, func: (m: string, p: Pkg)=>Ret) {
-        let itemInfo = packageInfo[item];
-        Object.keys(itemInfo).forEach((item) => {
-          const ret = func(item, itemInfo[item]);
-          if (ret) {
-            itemInfo[item][ret.key] = ret.val;
-          }
-        });
-      };
-
-      packageForEach('messages', (message, {file}) => {
+      const messages: any = {};
+      for (const message in packageInfo.messages) {
+        const { file } = packageInfo.messages[message];
         this.log('Loading message %s from %s', message, file);
-        const msgSpec = MsgSpec.RosMsgSpec.create(this, packageName, message, MsgSpec.MSG_TYPE, file);
+        const msgSpec = MsgSpec.create(this, packageName, message, MsgSpec.MSG_TYPE, file);
 
         msgSpec.getMessageDependencies(packageDeps);
 
-        return {
-          key: 'msgSpec',
-          val: msgSpec
-        };
-      });
+        messages[message] = { msgSpec, file }
+      }
 
-      packageForEach('services', (message, {file}) => {
+      const services: any = {};
+      for (const message in packageInfo.services) {
+        const { file } = packageInfo.services[message];
         this.log('Loading service %s from %s', message, file);
         const msgSpec = MsgSpec.create(this, packageName, message, MsgSpec.SRV_TYPE, file);
 
         msgSpec.getMessageDependencies(packageDeps);
 
-        return {
-          key: 'msgSpec',
-          val: msgSpec
-        };
-      });
+        services[message] = { msgSpec, file };
+      }
 
-      packageForEach('actions', (message, {file}) => {
+      const actions: any = {};
+      for (const message in packageInfo.actions) {
+        const { file } = packageInfo.actions[message];
         this.log('Loading action %s from %s', message, file);
         const msgSpec = MsgSpec.create(this, packageName, message, MsgSpec.ACTION_TYPE, file);
 
@@ -336,76 +291,110 @@ class MessageManager {
           // have already run catkin_make, as it will generate action message definitions that
           // will just get loaded as regular messages
           if (!packageMsgs.hasOwnProperty(spec.messageName)) {
-            packageMsgs[spec.messageName] = {file: null, msgSpec: spec};
+            messages[spec.messageName] = { file: null, msgSpec: spec };
           }
         });
 
         msgSpec.getMessageDependencies(packageDeps);
 
-        return {
-          key: 'msgSpec',
-          val: msgSpec
-        };
-      });
+        actions[message] = { msgSpec, file };
+      }
 
-      packageInfo.dependencies = packageDeps;
-    });
+      this._packageCache[packageName] = {
+        messages,
+        services,
+        actions,
+        localDeps: packageDeps
+      };
+    }
+  }
+}
+
+//----------------------------------------------------------------------
+// Helper functions
+
+function sortPackageList(packageList: string[], cache: PackageMap): string[] {
+  // we'll cache full list of dependencies for each package here so we don't need to rebuild it
+  const fullPkgDeps: {[key: string]: string[]} = {};
+
+  function getDeps(pkg: string): string[] {
+    const deps = fullPkgDeps[pkg];
+    if (!deps) {
+      return fullPkgDeps[pkg] = [...getFullDependencySet(pkg, cache)];
+    }
+    return deps;
   }
 
-  _getFullDependencyChain(msgPackage, originalPackage=null, dependencyList=null) {
-    if (dependencyList === null) {
-      dependencyList = packageCache[msgPackage].dependencies;
+  packageList.sort((pkgA: string, pkgB: string): number => {
+    let aDeps = getDeps(pkgA);
+    let bDeps = getDeps(pkgB);
+
+    const aDependsOnB = aDeps.includes(pkgB);
+    const bDependsOnA = bDeps.includes(pkgA);
+
+    if (aDependsOnB && bDependsOnA) {
+      throw new Error(`Found circular dependency while sorting chain between [${pkgA}] and [${pkgB}]`);
     }
-    if (originalPackage === null) {
-      originalPackage = msgPackage;
+
+    if (aDependsOnB) {
+      return 1;
     }
-    const localDeps = packageCache[msgPackage].dependencies;
-    localDeps.forEach((dep) => {
+    else if (bDependsOnA) {
+      return -1;
+    }
+    return 0;
+  });
+  return packageList;
+}
+
+function getFullDependencySet(originalPackage: string, cache: PackageMap): Set<string> {
+  const dependencyList: Set<string> = new Set();
+
+  function getDependencies(msgPackage: string): void {
+    const localDeps = cache[msgPackage].localDeps;
+    localDeps.forEach((dep: string) => {
       if (dep === originalPackage) {
         throw new Error('Found circular dependency while building chain');
       }
       dependencyList.add(dep);
-      this._getFullDependencyChain(dep, originalPackage, dependencyList);
+      getDependencies(dep);
     });
-
-    return dependencyList;
   }
 
-  _recurseDependencyChain(dependencyChain, packageName) {
-    const packageDeps = packageCache[packageName].dependencies;
-    let maxInsertionIndex = -1;
-    packageDeps.forEach((depName) => {
-      const depIndex = dependencyChain.indexOf(depName);
-      if (depIndex === -1) {
-        // this dependency is not yet in the list anywhere
-        const insertionIndex = this._recurseDependencyChain(dependencyChain, depName);
-        if (insertionIndex > maxInsertionIndex) {
-          maxInsertionIndex = insertionIndex;
+  getDependencies(originalPackage);
+  return dependencyList;
+}
+
+async function createDirectory(directory: string): Promise<void> {
+  let curPath = '/';
+  const paths = directory.split(path.sep);
+
+  function createLocal(dirPath: string) {
+    return new Promise((resolve, reject) => {
+      fs.mkdir(dirPath, (err) => {
+        if (err && err.code !== 'EEXIST' && err.code !== 'EISDIR') {
+          reject(err);
         }
-      }
-      else {
-        maxInsertionIndex = depIndex;
-      }
+        resolve();
+      });
     });
-
-    if (maxInsertionIndex < 0) {
-      dependencyChain.unshift(packageName);
-      return 0;
-    }
-    else {
-      dependencyChain.splice(maxInsertionIndex+1, 0, packageName);
-      return maxInsertionIndex+1;
-    }
   }
 
-  _buildMessageDependencyChain(packageList=null) {
-    if (packageList === null) {
-      packageList = Object.keys(packageCache);
-    }
-    const dependencyChain = [];
-    packageList.forEach(this._recurseDependencyChain.bind(this, dependencyChain));
-    return dependencyChain;
+  for (const localPath of paths) {
+    curPath = path.join(curPath, localPath);
+    await createLocal(curPath);
   }
 }
 
-module.exports = MessageManager;
+function writeFile(filepath: string, data: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(filepath, data, (err) => {
+      if (err) {
+        reject(err);
+      }
+      else {
+        resolve();
+      }
+    });
+  });
+}

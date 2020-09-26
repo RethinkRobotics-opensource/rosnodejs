@@ -14,7 +14,8 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-
+ 
+/// <reference path="../../../types.d.ts"/>
 import * as moment from 'moment';
 import * as bunyan from 'bunyan';
 
@@ -108,7 +109,7 @@ class TimeToken {
 
 class LoggerToken {
   format(rec: any): string {
-    return rec.scope || rec.name;
+    return rec.name;
   }
 }
 

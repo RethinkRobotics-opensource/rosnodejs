@@ -1,10 +1,11 @@
 import * as timeUtils from '../utils/time_utils.js';
+import { RosTime } from '../types/RosTypes';
 
 let simTimeSub = null;
 let simTime = timeUtils.dateToRosTime(0);
 
 type RosgraphMsgClock = {
-  clock: timeUtils.RosTime;
+  clock: RosTime;
 }
 
 function handleSimTimeMessage(msg: RosgraphMsgClock): void {
@@ -34,7 +35,7 @@ const Time = {
     }
   },
 
-  now(): timeUtils.RosTime {
+  now(): RosTime {
     if (this.useSimTime) {
       return simTime;
     }

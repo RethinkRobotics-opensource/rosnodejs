@@ -4,7 +4,7 @@ import IndentedWriter from './IndentedWriter';
 import * as fieldsUtil from './fields';
 import type { Field } from './fields';
 import type { MsgSpec, SrvSpec, ActionSpec } from './MessageSpec';
-import type RosMsgSpec from './MessageSpec';
+import type { RosMsgSpec } from './MessageSpec';
 
 export function createMessageClass(msgSpec: MsgSpec) {
   let w = new IndentedWriter();

@@ -1,12 +1,12 @@
+/// <reference path="../../types.d.ts"/>
 import * as Events from 'events';
-const xmlrpc = require('xmlrpc-rosnodejs');
+import * as xmlrpc from 'xmlrpc-rosnodejs';
+import * as XmlTypes from '../types/XmlrpcTypes';
+type XmlrpcCallOptions = XmlTypes.XmlrpcCallOptions;
 
 const CONNECTION_REFUSED='ECONNREFUSED';
 const TRY_AGAIN_LIST = [1, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8, 16, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
-type CallOptions = {
-  maxAttempts?: number;
-}
 type ResolveT<T> = (d: T) => void;
 type RejectT = (e: Error) => void;
 
@@ -17,7 +17,7 @@ class XmlrpcCall<TReq, TResp> {
   reject: (e: Error) => void;
   maxAttempts: number;
 
-  constructor(method: string, data: TReq, resolve: ResolveT<TResp>, reject: RejectT, options: CallOptions = {}) {
+  constructor(method: string, data: TReq, resolve: ResolveT<TResp>, reject: RejectT, options: XmlrpcCallOptions = {}) {
     this.method = method;
     this.data = data;
     this.resolve = resolve;
@@ -49,6 +49,15 @@ class XmlrpcCall<TReq, TResp> {
   }
 }
 
+function makeCall<TReq = any, TResp = any>(method: string, data: TReq, options: XmlrpcCallOptions): [XmlrpcCall<TReq, TResp>, Promise<TResp>] {
+  let call;
+  const promise = new Promise<TResp>((resolve, reject) => {
+    call = new XmlrpcCall(method, data, resolve, reject, options);
+  });
+
+  return [call, promise];
+}
+
 export default class XmlrpcClient extends Events.EventEmitter {
   private _xmlrpcClient: any;
   private _log: any;
@@ -76,14 +85,15 @@ export default class XmlrpcClient extends Events.EventEmitter {
     return this._xmlrpcClient;
   }
 
-  call<TReq = any, TResp = any>(method: string, data: TReq, resolve: (d: TResp) => void, reject: (e: Error) => void, options: CallOptions) {
-    const newCall = new XmlrpcCall(method, data, resolve, reject, options);
+  call<T extends XmlTypes.XmlrpcCall>(method: string, data: T['Req'], options: XmlrpcCallOptions): Promise<T['Resp']> {
+    const [call, promise] = makeCall(method, data, options);
     const numCalls = this._callQueue.length;
-    this._callQueue.push(newCall);
+    this._callQueue.push(call);
     // if nothing else was on the queue, try executing the call now
     if (numCalls === 0) {
       this._tryExecuteCall();
     }
+    return promise;
   }
 
   clear(): void {
