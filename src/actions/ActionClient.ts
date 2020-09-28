@@ -20,7 +20,7 @@ import * as msgUtils from '../utils/message_utils';
 import ActionClientInterface, { ActionClientInterfaceOptions } from '../lib/ActionClientInterface';
 
 import { EventEmitter }  from 'events';
-import * as Ultron from 'ultron';
+import Ultron = require('ultron');
 
 import ClientGoalHandle from './ClientGoalHandle';
 import Time from '../lib/Time';
@@ -41,7 +41,7 @@ export default class ActionClient<G,F,R> extends EventEmitter {
   private _acInterface: ActionClientInterface<G,F,R>;
   private _goalLookup: {[key: string]: ClientGoalHandle<G,F,R> } = {};
   private _shutdown: boolean = false;
-  private _ultron: Ultron.Ultron;
+  private _ultron: Ultron;
   private _messageTypes: MessageLookup<G,F,R>;
 
   constructor(options: ActionClientInterfaceOptions) {
@@ -63,7 +63,7 @@ export default class ActionClient<G,F,R> extends EventEmitter {
       actionGoal: msgUtils.getHandlerForMsgType(actionType + 'ActionGoal')
     };
 
-    this._ultron = new Ultron.Ultron(ThisNode);
+    this._ultron = new Ultron(ThisNode);
 
     // FIXME: how to handle shutdown? Should user be responsible?
     // should we check for shutdown in interval instead of listening

@@ -16,7 +16,7 @@
  */
 
 import * as BN from 'bn.js';
-import { getByteLength, RosTime } from './encoding_utils.js';
+import { getByteLength, RosTime } from './encoding_utils';
 import * as Buffer from 'buffer';
 
 /*-----------------------------------------------------------------------------
@@ -161,7 +161,7 @@ function UInt8ArraySerializer(array: number[], buffer: Buffer, bufferOffset: num
 
 //-----------------------------------------------------------------------------
 
-const PrimitiveSerializers = {
+const Serialize = {
   string: StringSerializer,
   float32: Float32Serializer,
   float64: Float64Serializer,
@@ -177,28 +177,25 @@ const PrimitiveSerializers = {
   char: UInt8Serializer,
   byte: Int8Serializer,
   time: TimeSerializer,
-  duration: TimeSerializer
+  duration: TimeSerializer,
+  Array: {
+    string: DefaultArraySerializer.bind(null, StringSerializer),
+    float32: DefaultArraySerializer.bind(null, Float32Serializer),
+    float64: DefaultArraySerializer.bind(null, Float64Serializer),
+    bool: DefaultArraySerializer.bind(null, BoolSerializer),
+    int8: DefaultArraySerializer.bind(null, Int8Serializer),
+    int16: DefaultArraySerializer.bind(null, Int16Serializer),
+    int32: DefaultArraySerializer.bind(null, Int32Serializer),
+    int64: DefaultArraySerializer.bind(null, Int64Serializer),
+    uint8: UInt8ArraySerializer,
+    uint16: DefaultArraySerializer.bind(null, UInt16Serializer),
+    uint32: DefaultArraySerializer.bind(null, UInt32Serializer),
+    uint64: DefaultArraySerializer.bind(null, UInt64Serializer),
+    char: UInt8ArraySerializer,
+    byte: DefaultArraySerializer.bind(null, Int8Serializer),
+    time: DefaultArraySerializer.bind(null, TimeSerializer),
+    duration: DefaultArraySerializer.bind(null, TimeSerializer)
+  }
 };
 
-const ArraySerializers = {
-  string: DefaultArraySerializer.bind(null, StringSerializer),
-  float32: DefaultArraySerializer.bind(null, Float32Serializer),
-  float64: DefaultArraySerializer.bind(null, Float64Serializer),
-  bool: DefaultArraySerializer.bind(null, BoolSerializer),
-  int8: DefaultArraySerializer.bind(null, Int8Serializer),
-  int16: DefaultArraySerializer.bind(null, Int16Serializer),
-  int32: DefaultArraySerializer.bind(null, Int32Serializer),
-  int64: DefaultArraySerializer.bind(null, Int64Serializer),
-  uint8: UInt8ArraySerializer,
-  uint16: DefaultArraySerializer.bind(null, UInt16Serializer),
-  uint32: DefaultArraySerializer.bind(null, UInt32Serializer),
-  uint64: DefaultArraySerializer.bind(null, UInt64Serializer),
-  char: UInt8ArraySerializer,
-  byte: DefaultArraySerializer.bind(null, Int8Serializer),
-  time: DefaultArraySerializer.bind(null, TimeSerializer),
-  duration: DefaultArraySerializer.bind(null, TimeSerializer)
-};
-
-//-----------------------------------------------------------------------------
-export const Serialize: typeof PrimitiveSerializers & { Array: typeof ArraySerializers } =
-  Object.assign({}, PrimitiveSerializers, { Array: ArraySerializers });
+export default Serialize;

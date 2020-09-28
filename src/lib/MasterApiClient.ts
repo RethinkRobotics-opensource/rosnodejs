@@ -15,9 +15,9 @@
  *    limitations under the License.
  */
 
-import * as networkUtils from '../utils/network_utils.js';
-import Logging from './LoggingManager.js';
-import XmlrpcClient from '../utils/XmlrpcClient.js';
+import * as networkUtils from '../utils/network_utils';
+import Logging from './LoggingManager';
+import XmlrpcClient from '../utils/XmlrpcClient';
 import * as XmlTypes from '../types/XmlrpcTypes';
 type XmlrpcCallOptions = XmlTypes.XmlrpcCallOptions;
 

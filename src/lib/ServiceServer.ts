@@ -15,10 +15,7 @@
  *    limitations under the License.
  */
 
-import * as net from 'net';
 import * as NetworkUtils from '../utils/network_utils';
-import * as ros_msg_utils from '../ros_msg_utils';
-const base_serializers = ros_msg_utils.Serialize;
 import * as SerializationUtils from '../utils/serialization_utils';
 type DeserializeStream = SerializationUtils.DeserializeStream;
 const PrependLength = SerializationUtils.PrependLength;
@@ -111,7 +108,7 @@ export default class ServiceServer<Req,Res>extends EventEmitter implements IServ
     this._clients = {};
   }
 
-  handleClientConnection(socket: Socket, name: string, deserializer: DeserializeStream, header: ServiceConnectionHeader) {
+  handleClientConnection(socket: Socket, uri: string, deserializer: DeserializeStream, header: ServiceConnectionHeader) {
     if (this.isShutdown()) {
       return;
     }
@@ -137,23 +134,23 @@ export default class ServiceServer<Req,Res>extends EventEmitter implements IServ
 
     // bind to message handler
     deserializer.on('message', (msg: Buffer) => {
-      this._handleMessage(socket, msg, name, persist);
+      this._handleMessage(socket, msg, uri, persist);
     });
 
     socket.on('close', () => {
-      delete this._clients[name];
-      this._log.debug('Service client %s disconnected!', name);
+      delete this._clients[uri];
+      this._log.debug('Service client %s disconnected!', uri);
     });
 
-    this._clients[name] = {
+    this._clients[uri] = {
       socket,
       persist,
       deserializer
     };
-    this.emit('connection', header, name);
+    this.emit('connection', header, uri);
   }
 
-  private async _handleMessage(client: Socket, data: Buffer, name: string, persist?: boolean): Promise<void> {
+  private async _handleMessage(client: Socket, data: Buffer, uri: string, persist?: boolean): Promise<void> {
     this._log.trace('Service  ' + this.getService() + ' got message! ' + data.toString('hex'));
     // deserialize msg
     const req = this._messageHandler.Request.deserialize(data);
@@ -178,18 +175,25 @@ export default class ServiceServer<Req,Res>extends EventEmitter implements IServ
     if (!persist) {
       this._log.debug('Closing non-persistent client');
       client.end();
-      delete this._clients[name];
+      delete this._clients[uri];
     }
   }
 
   private async _register(): Promise<void> {
-    const resp = await this._nodeHandle.registerService(this.getService());
-    // if we were shutdown between the starting the registration and now, bail
-    if (this.isShutdown()) {
-      return;
-    }
+    try {
+      await this._nodeHandle.registerService(this.getService());
+      // if we were shutdown between the starting the registration and now, bail
+      if (this.isShutdown()) {
+        return;
+      }
 
-    this._state = ClientStates.REGISTERED;
-    this.emit('registered');
+      this._state = ClientStates.REGISTERED;
+      this.emit('registered');
+    }
+    catch(err) {
+      if (!this._nodeHandle.isShutdown()) {
+        this._log.error('Error while registering service %s: %s', this.getService(), err);
+      }
+    }
   }
 }

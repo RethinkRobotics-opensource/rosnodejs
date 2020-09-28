@@ -1,8 +1,8 @@
 'use strict'
 
-const chai = require('chai');
-const expect = chai.expect;
-const serUtils = require('../src/utils/serialization_utils.js');
+import { describe, it, beforeEach, afterEach } from 'mocha';
+import { expect } from 'chai';
+import * as serUtils from '../src/utils/serialization_utils';
 const DeserializeStream = serUtils.DeserializeStream;
 
 describe('DeserializeStream', () => {
@@ -16,8 +16,8 @@ describe('DeserializeStream', () => {
       done();
     });
 
-    const buf = new Buffer(len).fill(0);
-    const bufWithLen = serUtils.Serialize(buf);
+    const buf = Buffer.alloc(len, 0);
+    const bufWithLen = serUtils.PrependLength(buf);
 
     deserializeStream.write(bufWithLen);
   });
@@ -34,8 +34,8 @@ describe('DeserializeStream', () => {
       }
     });
 
-    const buf = new Buffer(len).fill(0);
-    const bufWithLen = serUtils.Serialize(buf);
+    const buf = Buffer.alloc(len, 0);
+    const bufWithLen = serUtils.PrependLength(buf);
 
     deserializeStream.write(bufWithLen);
     deserializeStream.write(bufWithLen);
@@ -53,8 +53,8 @@ describe('DeserializeStream', () => {
       }
     });
 
-    const buf = new Buffer(len).fill(0);
-    const bufWithLen = serUtils.Serialize(buf);
+    const buf = Buffer.alloc(len, 0);
+    const bufWithLen = serUtils.PrependLength(buf);
 
     const doubleBuf = Buffer.concat([bufWithLen, bufWithLen]);
     const bufA = doubleBuf.slice(0, len+5);
@@ -82,9 +82,9 @@ describe('DeserializeStream', () => {
         }
       });
 
-      const buf = new Buffer(len).fill(0);
-      const bufWithLen = serUtils.Serialize(buf);
-      const okBuf = new Buffer(1).fill(1);
+      const buf = Buffer.alloc(len, 0);
+      const bufWithLen = serUtils.PrependLength(buf);
+      const okBuf = Buffer.alloc(1, 1);
 
       const doubleBuf = Buffer.concat([okBuf, bufWithLen, okBuf, bufWithLen]);
       const bufA = doubleBuf.slice(0, len+5);
@@ -106,7 +106,7 @@ describe('DeserializeStream', () => {
         }
       });
 
-      const buf = new Buffer(len + 5).fill(0);
+      const buf = Buffer.alloc(len + 5, 0);
       buf[0] = 1;
       buf.writeUInt32LE(19, 1);
 
@@ -119,16 +119,16 @@ describe('DeserializeStream', () => {
     });
 
     afterEach(() => {
-      deserializeStream._deserializeServiceResp = false;
+      deserializeStream['_deserializeServiceResp'] = false;
     });
   });
 
   describe('various splits', () => {
     const len = 20;
-    const bufData = new Buffer(len).fill(0);
-    const serBufData = serUtils.Serialize(bufData);
+    const bufData = Buffer.alloc(len, 0);
+    const serBufData = serUtils.PrependLength(bufData);
 
-    const peelEmOff = (buff, sliceLens) => {
+    const peelEmOff = (buff: Buffer, sliceLens: number[]) => {
       let i = 0;
       while (buff.length > 0) {
         const sliceLen = sliceLens[i++];
@@ -224,12 +224,12 @@ describe('DeserializeStream', () => {
         expect(message.length).to.equal(len);
 
         if (iter === numBufs) {
-          deserializeStream._deserializeServiceResp = false;
+          deserializeStream['_deserializeServiceResp'] = false;
           done();
         }
       });
 
-      const buf = new Buffer(len + 5).fill(0);
+      const buf = Buffer.alloc(len + 5, 0);
       buf[0] = 1;
       buf.writeUInt32LE(19, 1);
 
@@ -245,8 +245,8 @@ describe('DeserializeStream', () => {
 
   it('random split stream', (done) => {
     const len = 20;
-    const bufData = new Buffer(len).fill(0);
-    const serBufData = serUtils.Serialize(bufData);
+    const bufData = Buffer.alloc(len, 0);
+    const serBufData = serUtils.PrependLength(bufData);
 
     const numBufs = 10000;
     const bufArr = new Array(numBufs).fill(serBufData);
@@ -274,8 +274,8 @@ describe('DeserializeStream', () => {
 
   it('random split stream 2', (done) => {
     const len = 20;
-    const bufData = new Buffer(len).fill(0);
-    const serBufData = serUtils.Serialize(bufData);
+    const bufData = Buffer.alloc(len, 0);
+    const serBufData = serUtils.PrependLength(bufData);
 
     const numBufs = 10000;
     const bufArr = new Array(numBufs).fill(serBufData);
@@ -313,12 +313,12 @@ describe('DeserializeStream', () => {
       expect(message.length).to.equal(len);
 
       if (iter === numBufs) {
-        deserializeStream._deserializeServiceResp = false;
+        deserializeStream['_deserializeServiceResp'] = false;
         done();
       }
     });
 
-    const buf = new Buffer(len + 5).fill(0);
+    const buf = Buffer.alloc(len + 5, 0);
     buf[0] = 1;
     buf.writeUInt32LE(19, 1);
 

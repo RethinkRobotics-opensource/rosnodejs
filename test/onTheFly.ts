@@ -1,15 +1,11 @@
-'use strict';
-
-const chai = require('chai');
-const expect = chai.expect;
-const xmlrpc = require('xmlrpc-rosnodejs');
-const rosnodejs = require('../src/index.js');
-const Master = require('./utils/MasterStub.js');
+import { expect } from 'chai';
+import rosnodejs from '../src/index';
+import Master from './utils/MasterStub';
 
 const MASTER_PORT = 11234;
 
 describe('OnTheFly', function () {
-  let master;
+  let master: Master;
 
   before(function() {
     this.timeout(0);
@@ -24,7 +20,8 @@ describe('OnTheFly', function () {
       logging: {skipRosLogging: true}})
   });
 
-  after(() => {
+  after(async () => {
+    await rosnodejs.shutdown();
     rosnodejs.reset();
     return master.shutdown();
   });
@@ -47,12 +44,12 @@ describe('OnTheFly', function () {
       });
 
     const size = geometry_msgs.PoseWithCovariance.getMessageSize(msg);
-    const buffer = new Buffer(size);
+    const buffer = Buffer.allocUnsafe(size);
     geometry_msgs.PoseWithCovariance.serialize(msg, buffer, 0);
 
     const read = geometry_msgs.PoseWithCovariance.deserialize(buffer);
     expect(read.covariance.length == msg.covariance.length
-      && read.covariance.every((v,i)=> v === msg.covariance[i])).to.be.true;
+      && read.covariance.every((v: any, i: number)=> v === msg.covariance[i])).to.be.true;
 
     done();
   });
@@ -65,7 +62,7 @@ describe('OnTheFly', function () {
 
     const size = std_msgs.String.getMessageSize(msg);
 
-    const buffer = new Buffer(size);
+    const buffer = Buffer.allocUnsafe(size);
     std_msgs.String.serialize(msg, buffer, 0);
 
     const read = std_msgs.String.deserialize(buffer);
@@ -80,7 +77,7 @@ describe('OnTheFly', function () {
     const topic = '/chatter';
     const pub = nh.advertise(topic, 'std_msgs/String');
 
-    const sub = nh.subscribe(topic, 'std_msgs/String', (data) => {
+    const sub = nh.subscribe(topic, 'std_msgs/String', (data: any) => {
       expect(data.data).to.equal(msg);
       done();
     });

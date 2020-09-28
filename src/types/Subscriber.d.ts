@@ -3,6 +3,8 @@ import type { Socket } from 'net';
 import type { Transform } from 'stream';
 import type { EventEmitter } from 'events';
 
+export type Transport = 'TCPROS'|'UDPROS';
+
 export type SubscriberOptions<M> = {
   topic: string;
   type: string;
@@ -10,7 +12,7 @@ export type SubscriberOptions<M> = {
   tcpNoDelay?: boolean;
   queueSize?: number;
   throttleMs?: number;
-  transports: string[];
+  transports: Transport[];
   dgramSize?: number;
   port?: number;
 }
@@ -37,6 +39,10 @@ export type UdpInfo = {
 export type SubscriberCallback<T> = (msg: T, len: number, uri?: string)=>void;
 interface SubscriberEvents<T> {
   'message': SubscriberCallback<T>;
+  'registered': ()=>void;
+  'connection': (header: any, uri: string)=>void;
+  'error': (error: any)=>void;
+  'disconnect': ()=>void;
 }
 
 export interface ISubscriber<M> extends EventEmitter {
@@ -46,6 +52,12 @@ export interface ISubscriber<M> extends EventEmitter {
   shutdown(): Promise<void>;
   isShutdown(): boolean;
   on<U extends keyof SubscriberEvents<M>>(
+    event: U, listener: SubscriberEvents<M>[U]
+  ): this;
+  once<U extends keyof SubscriberEvents<M>>(
+    event: U, listener: SubscriberEvents<M>[U]
+  ): this;
+  removeListener<U extends keyof SubscriberEvents<M>>(
     event: U, listener: SubscriberEvents<M>[U]
   ): this;
 

@@ -116,7 +116,7 @@ export class DeserializeStream extends Transform  {
           // if its an empty message, there won't be any bytes left and message
           // will never be emitted -- handle that case here
           if (this._messageLen === 0 && pos === chunkLen) {
-            this.emitMessage(new Buffer([]));
+            this.emitMessage(Buffer.allocUnsafe(0));
           }
           else {
             this._inBody = true;
@@ -151,7 +151,7 @@ export class DeserializeStream extends Transform  {
 //-----------------------------------------------------------------------
 
 export function PrependLength(buffer: Buffer): Buffer {
-  let lenBuf = new Buffer(4);
+  let lenBuf = Buffer.allocUnsafe(4);
   lenBuf.writeUInt32LE(buffer.length, 0);
   return Buffer.concat([lenBuf, buffer], buffer.length + 4);
 }

@@ -1,20 +1,16 @@
-'use strict';
-
-const chai = require('chai');
-const expect = chai.expect;
-const bunyan = require('bunyan');
-const xmlrpc = require('xmlrpc-rosnodejs');
-const rosnodejs = require('../src/index.js');
+import { expect } from 'chai';
+import * as bunyan from 'bunyan';
+import * as xmlrpc from 'xmlrpc-rosnodejs';
+import rosnodejs from '../src/index';
+import type * as XmlrpcTypes from '../src/types/XmlrpcTypes';
 
 const MASTER_PORT = 11234;
 
 /** setup pipe to stdout **/
 class OutputCapture {
-  constructor() {
-    this.flush();
-  }
+  lastMsg: any|null = null;
 
-  write(data) {
+  write(data: any) {
     this.lastMsg = data;
   }
 
@@ -27,23 +23,25 @@ class OutputCapture {
   }
 }
 
+type XmlrpcCallback = (err: any, resp: any)=>void;
+
 describe('Logging', () => {
   const outputCapture = new OutputCapture();
-  let masterStub;
+  let masterStub: xmlrpc.Server;
 
   const reset = function() {
     outputCapture.flush();
     expect(outputCapture.get()).to.equal(null);
 
-    rosnodejs.log.rootLogger._throttledLogs = new Map();
-    rosnodejs.log.rootLogger._onceLogs = new Set();
+    (rosnodejs.log.rootLogger as any)._throttledLogs = new Map();
+    (rosnodejs.log.rootLogger as any)._onceLogs = new Set();
   };
 
   before((done) => {
     masterStub = xmlrpc.createServer({host: 'localhost', port: MASTER_PORT}, () => {
       rosnodejs.initNode('/testNode', {
         rosMasterUri: `http://localhost:${MASTER_PORT}`,
-        logging: {skipRosLogging: true},
+        logging: { skipRosLogging: true },
         notime: true
       })
       .then(() => {
@@ -58,15 +56,20 @@ describe('Logging', () => {
       });
     });
 
-    masterStub.on('getUri', (err, params, callback) => {
-        const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
-        callback(null, resp);
-      });
+    masterStub.on('getUri', (err: any, params: any, callback: XmlrpcCallback) => {
+      const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
+      callback(null, resp);
+    });
+
+    masterStub.on('NotFound', (method: string) => {
+      console.error('Method %s does not exist', method);
+    });
   });
 
   after((done)=> {
     rosnodejs.shutdown()
-    .then(() => {
+    .catch()
+    .finally(() => {
       rosnodejs.reset();
       masterStub.close(() => { done(); });
     });
@@ -301,72 +304,62 @@ describe('Logging', () => {
   });
 
   describe('Rosout', () => {
-    let pubInfo = null;
-    let subInfo = null;
+    let pubInfo: any = null;
+    let subInfo: any = null;
 
-    before((done) => {
-      rosnodejs.shutdown()
-      .then(() => {
-        rosnodejs.reset();
-        return rosnodejs.initNode('/testNode', {logging: {waitOnRosOut: false, level: 'info'},
-                                  rosMasterUri: `http://localhost:${MASTER_PORT}`, notime: true});
-      })
-      .then(() => {
-        done();
+    before(async () => {
+      const pShutdown = rosnodejs.shutdown()
+
+      masterStub.on('getUri', (err: any, params: any, callback: XmlrpcCallback) => {
+        callback(null, [ 1, '', `localhost:${MASTER_PORT}/` ]);
       });
 
-      masterStub.on('getUri', (err, params, callback) => {
-        const resp = [ 1, '', `localhost:${MASTER_PORT}/` ];
-        callback(null, resp);
-      });
-
-      masterStub.on('registerSubscriber', (err, params, callback) => {
+      masterStub.on('registerSubscriber', (err: any, params: any, callback: XmlrpcCallback) => {
         subInfo = params[3];
-        //console.log('sub reg ' + params);
-        //console.log(pubInfo);
 
-        const resp =  [1, 'You did it!', []];
+        const resp: XmlrpcTypes.RegisterSubscriber['Resp'] =  [1, 'You did it!', []];
         if (pubInfo) {
           resp[2].push(pubInfo);
         }
         callback(null, resp);
       });
 
-      masterStub.on('unregisterSubscriber', (err, params, callback) => {
-        const resp =  [1, 'You did it!', subInfo ? 1 : 0];
-        callback(null, resp);
+      masterStub.on('unregisterSubscriber', (err: any, params: any, callback: XmlrpcCallback) => {
+        callback(null, [1, 'Unregistered Subscriber', subInfo ? 1 : 0]);
         subInfo = null;
       });
 
-      masterStub.on('registerPublisher', (err, params, callback) => {
+      masterStub.on('registerPublisher', (err: any, params: any, callback: XmlrpcCallback) => {
         //console.log('pub reg');
         pubInfo = params[3];
-        const resp =  [1, 'You did it!', []];
+        const resp: XmlrpcTypes.RegisterPublisher['Resp'] =  [1, 'You did it!', []];
         if (subInfo) {
           resp[2].push(pubInfo);
           let subAddrParts = subInfo.replace('http://', '').split(':');
           let client = xmlrpc.createClient({host: subAddrParts[0], port: subAddrParts[1]});
-          let data = [1, topic, [pubInfo]];
+          let data = [1, params[1], [pubInfo]];
           client.methodCall('publisherUpdate', data, (err, response) => { });
         }
         callback(null, resp);
       });
 
-      masterStub.on('unregisterPublisher', (err, params, callback) => {
-        const resp =  [1, 'You did it!', pubInfo ? 1 : 0];
-        callback(null, resp);
+      masterStub.on('unregisterPublisher', (err: any, params: any, callback: XmlrpcCallback) => {
+        callback(null, [1, 'Unregistered publisher', pubInfo ? 1 : 0]);
         pubInfo = null;
       });
 
-      masterStub.on('registerService', (err, params, callback) => {
-        const resp =  [1, 'You did it!', 1];
-        callback(null, resp);
+      masterStub.on('registerService', (err: any, params: any, callback: XmlrpcCallback) => {
+        callback(null, [1, 'Registered service', 1]);
       });
 
-      masterStub.on('unregisterService', (err, params, callback) => {
-        const resp =  [1, 'You did it!', 1];
-        callback(null, resp);
+      masterStub.on('unregisterService', (err: any, params: any, callback: XmlrpcCallback) => {
+        callback(null, [1, 'Unregistered Service', 1]);
       });
+
+      await pShutdown;
+      rosnodejs.reset();
+      return rosnodejs.initNode('/testNode', {logging: {waitOnRosOut: false, level: 'info'},
+                                rosMasterUri: `http://localhost:${MASTER_PORT}`, notime: true});
     });
 
     after(() => {
@@ -380,13 +373,13 @@ describe('Logging', () => {
       testLogger.setLevel('info');
       const nh = rosnodejs.nh;
       const message = 'This is my message';
-      let intervalId = null;
+      let intervalId: NodeJS.Timer = null;
 
       let timeout = setTimeout(() => {
-        throw new Error('Didn\'t receive log message within 500ms...');
+        done(new Error('Didn\'t receive log message within 500ms...'));
       }, 500);
 
-      const rosoutCallback = (msg) => {
+      const rosoutCallback = (msg: any) => {
         if (msg.msg.indexOf(message) > -1) {
           nh.unsubscribe('/rosout');
           clearInterval(intervalId);
@@ -396,7 +389,7 @@ describe('Logging', () => {
         }
       };
 
-      const sub = nh.subscribe('/rosout', 'rosgraph_msgs/Log', rosoutCallback);
+      nh.subscribe('/rosout', 'rosgraph_msgs/Log', rosoutCallback);
 
       intervalId = setInterval(() => {
         testLogger.info(message);

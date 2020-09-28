@@ -1,13 +1,7 @@
-'use strict';
-
-const chai = require('chai');
-const expect = chai.expect;
-const serialize = require('../lib/base_serialize.js');
-const BN = require('bn.js');
-
-function toBuf(val) {
-  return Buffer.from(val, 'hex');
-}
+import {describe, it} from 'mocha';
+import { expect } from 'chai';
+import serialize from '../lib/base_serialize';
+import * as BN from 'bn.js';
 
 describe('Serialization Tests', () => {
   it('Uint8', () => {

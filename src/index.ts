@@ -17,28 +17,28 @@
 
 //------------------------------------------------------------------
 
-import * as netUtils from './utils/network_utils.js';
-import * as msgUtils from './utils/message_utils.js';
-import * as OnTheFlyMessages from './utils/messageGeneration/OnTheFlyMessages.js';
+import * as netUtils from './utils/network_utils';
+import * as msgUtils from './utils/message_utils';
+import * as OnTheFlyMessages from './utils/messageGeneration/OnTheFlyMessages';
 import * as util from 'util';
-import RosLogStream from './utils/log/RosLogStream.js';
-import ConsoleLogStream from './utils/log/ConsoleLogStream.js';
-import RosNode from './lib/RosNode.js';
-import NodeHandle from './lib/NodeHandle.js';
-import LoggingManager from './lib/LoggingManager.js';
-import Time from './lib/Time.js';
-import * as packages from './utils/messageGeneration/packages.js';
+import RosLogStream from './utils/log/RosLogStream';
+import ConsoleLogStream from './utils/log/ConsoleLogStream';
+import RosNode from './lib/RosNode';
+import NodeHandle from './lib/NodeHandle';
+import LoggingManager from './lib/LoggingManager';
+import Time from './lib/Time';
+import * as packages from './utils/messageGeneration/packages';
 
-import ActionServer from './actions/ActionServer.js';
-import ActionClient from './actions/ActionClient.js';
+import ActionServer from './actions/ActionServer';
+import ActionClient from './actions/ActionClient';
 import * as ClientStates from './actions/ClientStates';
-import SimpleActionClient from './actions/SimpleActionClient.js';
-import SimpleActionServer from './actions/SimpleActionServer.js';
+import SimpleActionClient from './actions/SimpleActionClient';
+import SimpleActionServer from './actions/SimpleActionServer';
 
-import MsgLoader from './utils/messageGeneration/MessageLoader.js';
-import * as RemapUtils from './utils/remapping_utils.js';
-import names from './lib/Names.js';
-import ThisNode from './lib/ThisNode.js';
+import MsgLoader from './utils/messageGeneration/MessageLoader';
+import * as RemapUtils from './utils/remapping_utils';
+import names from './lib/Names';
+import ThisNode from './lib/ThisNode';
 import type { ActionClientInterfaceOptions } from './lib/ActionClientInterface';
 
 // will be initialized through call to initNode
@@ -112,7 +112,9 @@ const Rosnodejs = {
     }
     catch(err) {
       log.error('Error during initialization: ' + err);
-      this.shutdown();
+      if (this.ok()) {
+        await this.shutdown();
+      }
       throw err;
     }
   },
@@ -208,7 +210,7 @@ const Rosnodejs = {
   /**
    * @return {NodeHandle} for initialized node
    */
-  getNodeHandle(namespace: string): NodeHandle {
+  getNodeHandle(namespace?: string): NodeHandle {
     return new NodeHandle(ThisNode.node, namespace);
   },
 
@@ -280,7 +282,7 @@ export default Rosnodejs;
  */
 async function waitForMaster(timeout=100, maxTimeout=-1): Promise<void> {
   const startTime = Date.now();
-
+  await sleep(timeout);
   while (ThisNode.ok() && !ThisNode.node.serversReady()) {
     if (maxTimeout >= 0 && Date.now() - startTime >= maxTimeout) {
       log.error(`Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: unable to set up slave API Server. Stopping...`);
@@ -292,18 +294,29 @@ async function waitForMaster(timeout=100, maxTimeout=-1): Promise<void> {
   while (ThisNode.ok()) {
     try {
       await ThisNode.node.getMasterUri({ maxAttempts: 1 });
-      log.infoOnce(`Connected to master at ${ThisNode.node.getRosMasterUri()}!`);
+      log.info(`Connected to master at ${ThisNode.node.getRosMasterUri()}!`);
       break;
     }
     catch(err) {
-      if (Date.now() - startTime >= maxTimeout && !(maxTimeout < 0) ){
-        log.error(`Timed out before registering with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet.`);
-        throw new Error('Registration with master timed out.');
-      } else {
-        log.warnThrottle(60000, `Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
-        await sleep(timeout);
+      if (ThisNode.ok()) {
+        if (maxTimeout >= 0 && Date.now() - startTime >= maxTimeout){
+          log.error(`Timed out before registering with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet.`);
+          throw new Error('Registration with master timed out.');
+        } else {
+          log.warnThrottle(60000, `Unable to register with master node [${ThisNode.node.getRosMasterUri()}]: master may not be running yet. Will keep trying.`);
+          await sleep(timeout);
+        }
+      }
+      else {
+        log.warn(`Shutdown while trying to register with master node`);
+        throw new Error('Shutdown during initialization');
       }
     }
+  }
+
+  if (!ThisNode.ok()) {
+    log.warn(`Shutdown while trying to register with master node`);
+    throw new Error('Shutdown during initialization');
   }
 }
 

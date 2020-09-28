@@ -1,29 +1,27 @@
 'use strict';
 
-const chai = require('chai');
-const expect = chai.expect;
-const xmlrpc = require('xmlrpc-rosnodejs');
-const names = require('../src/lib/Names.js');
-const NodeHandle = require('../src/lib/NodeHandle.js');
-const MasterStub = require('./utils/MasterStub.js');
-const rosnodejs = require('../src/index.js');
-const remapUtils = require('../src/utils/remapping_utils.js');
-const netUtils = require('../src/utils/network_utils.js');
+import { expect } from 'chai';
+import names from '../src/lib/Names';
+import NodeHandle from '../src/lib/NodeHandle';
+import MasterStub from './utils/MasterStub';
+import rosnodejs from '../src/index';
+import * as remapUtils from '../src/utils/remapping_utils';
+import * as netUtils from '../src/utils/network_utils';
 
 describe('Namespace', function () {
-  let nodeHandle;
+  let nodeHandle: NodeHandle;
   names.init({}, '/namespace');
 
-  function _setupNodeHandle(name) {
+  function _setupNodeHandle(name?: string) {
     nodeHandle = new NodeHandle(null, name);
     nodeHandle.getNodeName = function() { return '/test_node' };
   }
 
   it('Validate', () => {
     expect(names.validate(null)).to.be.false;
-    expect(names.validate()).to.be.false;
-    expect(names.validate({})).to.be.false;
-    expect(names.validate(1)).to.be.false;
+    expect((names.validate as any)()).to.be.false;
+    expect((names.validate as any)({})).to.be.false;
+    expect((names.validate as any)(1)).to.be.false;
     expect(names.validate('/my-node')).to.be.false;
 
     expect(names.validate('')).to.be.true;
@@ -128,23 +126,26 @@ describe('Namespace', function () {
   describe('with ros', () => {
     const MASTER_PORT = 12342;
     const rosMasterUri = `http://localhost:${MASTER_PORT}`;
-    let masterStub = new MasterStub('localhost', MASTER_PORT);
-    masterStub.provideAll();
+    let masterStub: MasterStub;
 
     const ARGV_LEN = process.argv.length;
     function resetArgv() {
       process.argv.splice(ARGV_LEN);
     }
 
-    function setRemapArg(name, value) {
+    function setRemapArg(name: string, value: string) {
       process.argv.push(`${name}:=${value}`);
     }
 
-    after((done) => {
-      masterStub.shutdown()
-      .then(() => {
-        done();
-      });
+    before(() => {
+      rosnodejs.require('roscpp');
+      rosnodejs.require('rosgraph_msgs');
+      masterStub = new MasterStub('localhost', MASTER_PORT);
+      masterStub.provideAll();
+    });
+
+    after(async () => {
+      return masterStub.shutdown();
     })
 
     afterEach((done) => {
@@ -164,9 +165,10 @@ describe('Namespace', function () {
 
       const remappedName = 'custom_name';
       setRemapArg(remapUtils.SPECIAL_KEYS.name, remappedName);
-
+      rosnodejs.log.info("start init node");
       rosnodejs.initNode('node_name', { rosMasterUri })
       .then(() => {
+        rosnodejs.log.info("now in test");
         expect(rosnodejs.nh.getNodeName()).to.equal('/' + remappedName);
 
         done();
@@ -215,7 +217,7 @@ describe('Namespace', function () {
       masterStub.once('ready', function() {
         rosnodejs.initNode('node_name', { rosMasterUri })
         .then(() => {
-          expect(rosnodejs.nh._node.getRosMasterUri()).to.equal(remappedMaster);
+          expect(rosnodejs.nh['_node'].getRosMasterUri()).to.equal(remappedMaster);
 
           // shutdown rosnodejs here since we're also killing our custom master stub
           return rosnodejs.shutdown()
@@ -284,7 +286,8 @@ describe('Namespace', function () {
         const sub = nh.subscribe(topic, 'std_msgs/Empty');
         expect(sub.getTopic()).to.equal(remappedTopic);
 
-        const srv = nh.advertiseService(service, 'std_srvs/Empty');
+        // ignore that we're not passing a callback function
+        const srv = (nh.advertiseService as any)(service, 'std_srvs/Empty');
         expect(srv.getService()).to.equal(remappedService);
 
         const srvClient = nh.serviceClient(service, 'std_srvs/Empty');
@@ -292,7 +295,7 @@ describe('Namespace', function () {
 
         let outstandingParamCalls = 4;
 
-        function paramTest(err, params) {
+        function paramTest(err: any, params: any[]) {
           expect(params[1]).to.equal(remappedParam);
           --outstandingParamCalls;
         }
@@ -304,9 +307,9 @@ describe('Namespace', function () {
 
         Promise.all([
           nh.setParam(param, 2),
-          nh.getParam(param, 2),
-          nh.hasParam(param, 2),
-          nh.deleteParam(param, 2)
+          nh.getParam(param),
+          nh.hasParam(param),
+          nh.deleteParam(param)
         ])
         .then(() => {
           if (outstandingParamCalls <= 0) {
@@ -338,7 +341,8 @@ describe('Namespace', function () {
           const sub = nh.subscribe(topic, 'std_msgs/Empty');
           expect(sub.getTopic()).to.equal(remappedTopic);
 
-          const srv = nh.advertiseService(service, 'std_srvs/Empty');
+          // ignore that we're not passing a callback function
+          const srv = (nh.advertiseService as any)(service, 'std_srvs/Empty');
           expect(srv.getService()).to.equal(remappedService);
 
           const srvClient = nh.serviceClient(service, 'std_srvs/Empty');
@@ -346,7 +350,7 @@ describe('Namespace', function () {
 
           let outstandingParamCalls = 4;
 
-          function paramTest(err, params) {
+          function paramTest(err: any, params: any[]) {
             expect(params[1]).to.equal(remappedParam);
             --outstandingParamCalls;
           }
@@ -358,9 +362,9 @@ describe('Namespace', function () {
 
           Promise.all([
             nh.setParam(param, 2),
-            nh.getParam(param, 2),
-            nh.hasParam(param, 2),
-            nh.deleteParam(param, 2)
+            nh.getParam(param),
+            nh.hasParam(param),
+            nh.deleteParam(param)
           ])
           .then(() => {
             if (outstandingParamCalls <= 0) {

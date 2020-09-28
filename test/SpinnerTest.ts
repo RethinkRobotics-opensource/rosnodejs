@@ -1,20 +1,19 @@
-'use strict';
+import { expect } from 'chai';
+import GlobalSpinner from '../src/utils/spinners/GlobalSpinner';
 
-const chai = require('chai');
-const expect = chai.expect;
-const GlobalSpinner = require('../src/utils/spinners/GlobalSpinner.js');
+let handleList: {id: string, queue: any[]}[] = [];
+let spinner: GlobalSpinner;
 
-let handleList = [];
-let spinner;
+function genId(): string {
+  return 'xxxxxxxx'.replace(/[x]/g, function(c) {
+    return (Math.random()*8).toString(16);
+  });
+}
 
 class DummyClient {
-  constructor() {
-    this.id = 'xxxxxxxx'.replace(/[x]/g, function(c) {
-      return (Math.random()*8).toString(16);
-    });
-  }
+  id: string = genId();
 
-  _handleMsgQueue(queue) {
+  _handleMsgQueue(queue: any[]) {
     handleList.push({id: this.id, queue});
   }
 }
@@ -34,17 +33,17 @@ describe('GlobalSpinner', () => {
     });
 
     spinner.ping(clients[0].id, "junk");
-    expect(spinner._spinTimer).to.not.be.null;
+    expect(spinner['_spinTimer']).to.not.be.null;
 
     spinner.ping(clients[3].id, "junk");
     spinner.ping(clients[2].id, "junk");
     spinner.ping(clients[1].id, "junk");
 
-    expect(spinner._clientCallQueue.length).to.equal(4);
+    expect(spinner['_clientCallQueue'].length).to.equal(4);
 
     spinner.disconnect(clients[3].id);
 
-    expect(spinner._clientCallQueue.length).to.equal(3);
+    expect(spinner['_clientCallQueue'].length).to.equal(3);
 
     spinner.once('tick', () => {
       expect(handleList.length).to.equal(3);
@@ -87,78 +86,78 @@ describe('GlobalSpinner', () => {
     spinner.ping(client.id, 'junk');
 
     // lock the queue so that the next ping is cached
-    spinner._queueLocked = true;
+    spinner['_queueLocked'] = true;
 
     spinner.ping(client.id, 'junk');
 
-    expect(spinner._lockedOpCache.length).to.equal(1);
+    expect(spinner['_lockedOpCache'].length).to.equal(1);
 
     spinner.once('tick', () => {
       expect(handleList.length).to.equal(1);
       expect(handleList[0].queue.length).to.equal(1);
-      expect(spinner._lockedOpCache.length).to.equal(0);
-      expect(spinner._clientCallQueue.length).to.equal(1);
-      expect(spinner._spinTimer).to.not.be.null;
+      expect(spinner['_lockedOpCache'].length).to.equal(0);
+      expect(spinner['_clientCallQueue'].length).to.equal(1);
+      expect(spinner['_spinTimer']).to.not.be.null;
       handleList = [];
 
       spinner.once('tick', () => {
         expect(handleList.length).to.equal(1);
         expect(handleList[0].queue.length).to.equal(1);
-        expect(spinner._lockedOpCache.length).to.equal(0);
-        expect(spinner._clientCallQueue.length).to.equal(0);
+        expect(spinner['_lockedOpCache'].length).to.equal(0);
+        expect(spinner['_clientCallQueue'].length).to.equal(0);
         handleList = [];
 
         spinner.ping(client.id, 'junk');
 
         // lock the queue so the next disconnect is cached
-        spinner._queueLocked = true;
+        spinner['_queueLocked'] = true;
 
         spinner.disconnect(client.id);
-        expect(spinner._lockedOpCache.length).to.equal(1);
+        expect(spinner['_lockedOpCache'].length).to.equal(1);
 
         spinner.once('tick', () => {
           expect(handleList.length).to.equal(1);
           expect(handleList[0].queue.length).to.equal(1);
-          expect(spinner._lockedOpCache.length).to.equal(0);
-          expect(spinner._clientCallQueue.length).to.equal(0);
-          expect(spinner._clientQueueMap.has(client.id)).to.be.false;
+          expect(spinner['_lockedOpCache'].length).to.equal(0);
+          expect(spinner['_clientCallQueue'].length).to.equal(0);
+          expect(spinner['_clientQueueMap'].has(client.id)).to.be.false;
           handleList = [];
 
           spinner.addClient(client, client.id, 3, 0);
           spinner.ping(client.id, 'junk');
 
-          expect(spinner._lockedOpCache.length).to.equal(0);
+          expect(spinner['_lockedOpCache'].length).to.equal(0);
 
           // lock the queue so the next disconnect is cached
-          spinner._queueLocked = true;
+          spinner['_queueLocked'] = true;
 
           spinner.disconnect(client.id);
           spinner.addClient(client, client.id, 3, 0);
           spinner.ping(client.id, 'junk');
           spinner.ping(client.id, 'junk');
 
-          expect(spinner._lockedOpCache.length).to.equal(4);
+          expect(spinner['_lockedOpCache'].length).to.equal(4);
 
           spinner.once('tick', () => {
             // things that got in before we locked the spinner
             expect(handleList.length).to.equal(1);
             expect(handleList[0].queue.length).to.equal(1);
-            expect(spinner._lockedOpCache.length).to.equal(0);
-            expect(spinner._clientCallQueue.length).to.equal(1);
-            expect(spinner._clientQueueMap.has(client.id)).to.be.true;
+            expect(spinner['_lockedOpCache'].length).to.equal(0);
+            expect(spinner['_clientCallQueue'].length).to.equal(1);
+            expect(spinner['_clientQueueMap'].has(client.id)).to.be.true;
             handleList = [];
 
             // things that got in after we locked the spinner
             spinner.once('tick', () => {
               expect(handleList.length).to.equal(1);
               expect(handleList[0].queue.length).to.equal(2);
-              expect(spinner._lockedOpCache.length).to.equal(0);
-              expect(spinner._clientCallQueue.length).to.equal(0);
-              expect(spinner._clientQueueMap.has(client.id)).to.be.true;
+              expect(spinner['_lockedOpCache'].length).to.equal(0);
+              expect(spinner['_clientCallQueue'].length).to.equal(0);
+              expect(spinner['_clientQueueMap'].has(client.id)).to.be.true;
 
               spinner.disconnect(client.id);
 
-              expect(spinner._clientQueueMap.has(client.id)).to.be.false;
+              expect(spinner['_clientQueueMap'].has(client.id)).to.be.false;
 
               done();
             });
@@ -180,7 +179,7 @@ describe('GlobalSpinner', () => {
       spinner.ping(client.id, "junk");
 
       spinner.on('tick', () => {
-        if (spinner._clientCallQueue.length === 0) {
+        if (spinner['_clientCallQueue'].length === 0) {
           const lastTick = Date.now();
           const tDiff = lastTick - firstTick + 1;
           expect(tDiff).to.be.at.least(throttleMs);

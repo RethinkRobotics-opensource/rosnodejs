@@ -16,10 +16,10 @@
  */
 
 import ActionServer, { ActionServerOptions } from './ActionServer';
-import { Ultron } from 'ultron';
+import Ultron = require('ultron');
 import { EventEmitter } from 'events';
 
-import Time from '../lib/Time.js';
+import Time from '../lib/Time';
 
 import Logging from '../lib/LoggingManager'
 const log = Logging.getLogger('actionlib_nodejs');

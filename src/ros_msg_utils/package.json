@@ -4,8 +4,8 @@
   "description": "Provides Helper functions for ros messages",
   "main": "index.ts",
   "scripts": {
-    "test": "mocha test/directory.js",
-    "compile": "babel --presets es2015 index.js -d dist/ && babel --presets es2015 lib -d dist/lib/",
+    "test": "../../node_modules/mocha/bin/mocha -r ts-node/register 'test/**/*'",
+    "compile": "tsc",
     "prepublish": "npm run compile"
   },
   "keywords": [

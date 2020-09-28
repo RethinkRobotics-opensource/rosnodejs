@@ -15,8 +15,6 @@
  *    limitations under the License.
  */
 
-"use strict";
-
 import * as net from 'net'
 import * as NetworkUtils from '../utils/network_utils'
 import { DeserializeStream } from '../utils/serialization_utils'
@@ -24,9 +22,9 @@ import * as TcprosUtils from '../utils/tcpros_utils'
 import { EventEmitter } from 'events'
 import Logging from './LoggingManager'
 import { ServiceClientOptions } from '../types/ServiceClient';
-import IRosNode from '../types/RosNode.js';
+import IRosNode from '../types/RosNode';
 import type Logger from '../utils/log/Logger';
-import { MessageConstructor, ServiceConstructor } from '../types/Message';
+import { ServiceConstructor } from '../types/Message';
 
 /**
  * @class ServiceClient

@@ -15,16 +15,16 @@
  *    limitations under the License.
  */
 
-import * as NetworkUtils from '../../utils/network_utils.js'
-import * as SerializationUtils from '../../utils/serialization_utils.js'
+import * as NetworkUtils from '../../utils/network_utils'
+import * as SerializationUtils from '../../utils/serialization_utils'
 const DeserializeStream = SerializationUtils.DeserializeStream;
 const PrependLength = SerializationUtils.PrependLength;
-import * as TcprosUtils from '../../utils/tcpros_utils.js'
-import * as UdprosUtils from '../../utils/udpros_utils.js'
+import * as TcprosUtils from '../../utils/tcpros_utils'
+import * as UdprosUtils from '../../utils/udpros_utils'
 
 import { Socket } from 'net';
 import { EventEmitter } from 'events'
-import Logging from '../LoggingManager.js'
+import Logging from '../LoggingManager'
 import type Logger from '../../utils/log/Logger';
 import ClientStates from '../../utils/ClientStates'
 import { SubscriberOptions, SubscriberClientMap, UdpInfo } from '../../types/Subscriber';
@@ -319,7 +319,9 @@ export default class SubscriberImpl<M> extends EventEmitter {
       }
     }
     catch(err) {
-      this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
+      if (!this._nodeHandle.isShutdown()) {
+        this._log.warn('Error during subscriber %s registration: %s', this.getTopic(), err);
+      }
     }
   }
 
@@ -351,23 +353,22 @@ export default class SubscriberImpl<M> extends EventEmitter {
     let port = info[2];
     let address = info[1];
     let socket = new Socket();
-    const socketHost = address + ':' + port;
 
     socket.on('end', () => {
       this._log.info('Subscriber client socket %s on topic %s ended the connection',
-        socketHost, this.getTopic());
+        nodeUri, this.getTopic());
     });
 
     socket.on('error', (err) => {
       this._log.warn('Subscriber client socket %s on topic %s had error: %s',
-        socketHost, this.getTopic(), err);
+        nodeUri, this.getTopic(), err);
     });
 
     // hook into close event to clean things up
     socket.on('close', () => {
       this._log.info('Subscriber client socket %s on topic %s disconnected',
-        socketHost, this.getTopic());
-      this._disconnectClient(socketHost);
+        nodeUri, this.getTopic());
+      this._disconnectClient(nodeUri);
     });
 
     // open the socket at the provided address, port

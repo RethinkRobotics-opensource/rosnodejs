@@ -76,9 +76,20 @@ type ExternalLogInterface = {
   setLoggerLevel?: (req: SetLoggerLevel['Req'], resp: SetLoggerLevel['Resp'])=>boolean;
 }
 
+const rootLoggerOptions = {
+  name: DEFAULT_LOGGER_NAME,
+  streams: [{
+    type: 'raw',
+    name: 'ConsoleLogStream',
+    stream: new ConsoleLogStream({formatter: LogFormatter}),
+    level: bunyan.INFO
+  }],
+  level: bunyan.INFO
+};
+
 export class LoggingManager {
   loggerMap: { [key: string]: Logger };
-  rootLogger: Logger;
+  rootLogger = new Logger(rootLoggerOptions);
   nameFromLevel: typeof bunyan.nameFromLevel;
   levelFromName: typeof bunyan.levelFromName;
   DEFAULT_LOGGER_NAME: string;
@@ -87,19 +98,6 @@ export class LoggingManager {
 
   constructor() {
     this.loggerMap = {};
-
-    // initialize the root logger with a console stream
-    const rootLoggerOptions = {
-      name: DEFAULT_LOGGER_NAME,
-      streams: [{
-        type: 'raw',
-        name: 'ConsoleLogStream',
-        stream: new ConsoleLogStream({formatter: LogFormatter}),
-        level: bunyan.INFO
-      }],
-      level: bunyan.INFO
-    };
-    this.rootLogger = new Logger(rootLoggerOptions);
 
     this.nameFromLevel = bunyan.nameFromLevel;
     this.levelFromName = bunyan.levelFromName;
@@ -138,6 +136,7 @@ export class LoggingManager {
 
   initializeRosOptions(nh: INodeHandle, options: RosLoggerOptions={}) {
     if (options.skipRosLogging) {
+      console.log('skip ros logging')
       return Promise.resolve();
     }
 
@@ -152,7 +151,7 @@ export class LoggingManager {
       });
     }
     catch (err) {
-      this.rootLogger.warn('Unable to setup ros logging stream');
+      this.rootLogger.warn('Unable to setup ros logging stream', err);
     }
 
     // try to set up logging services
@@ -164,11 +163,11 @@ export class LoggingManager {
       nh.advertiseService(setLoggerSrv, roscpp.srv.SetLoggerLevel, this._handleSetLoggerLevel.bind(this));
     }
     catch (err) {
-      this.rootLogger.warn('Unable to setup ros logging services');
+      this.rootLogger.warn('Unable to setup ros logging services', err);
     }
 
     if (rosLogStream && options.waitOnRosOut !== undefined && options.waitOnRosOut) {
-      this.rootLogger.debug('Waiting for /rosout connection before resolving node initialization...');
+      this.rootLogger.info('Waiting for /rosout connection before resolving node initialization...');
       return new Promise((resolve) => {
         rosLogStream.getPub().once('connection', () => {
           this.rootLogger.debug('Got connection to /rosout !');
@@ -179,26 +178,26 @@ export class LoggingManager {
     return Promise.resolve();
   }
 
-  trace = this.rootLogger.trace;
-  debug = this.rootLogger.debug;
-  info = this.rootLogger.info;
-  warn = this.rootLogger.warn;
-  error = this.rootLogger.error;
-  fatal = this.rootLogger.fatal;
+  trace = this.rootLogger.trace.bind(this.rootLogger);
+  debug = this.rootLogger.debug.bind(this.rootLogger);
+  info = this.rootLogger.info.bind(this.rootLogger);
+  warn = this.rootLogger.warn.bind(this.rootLogger);
+  error = this.rootLogger.error.bind(this.rootLogger);
+  fatal = this.rootLogger.fatal.bind(this.rootLogger);
 
-  traceThrottle = this.rootLogger.traceThrottle;
-  debugThrottle = this.rootLogger.debugThrottle
-  infoThrottle = this.rootLogger.infoThrottle
-  warnThrottle = this.rootLogger.warnThrottle
-  errorThrottle = this.rootLogger.errorThrottle
-  fatalThrottle = this.rootLogger.fatalThrottle
+  traceThrottle = this.rootLogger.traceThrottle.bind(this.rootLogger);
+  debugThrottle = this.rootLogger.debugThrottle.bind(this.rootLogger);
+  infoThrottle = this.rootLogger.infoThrottle.bind(this.rootLogger);
+  warnThrottle = this.rootLogger.warnThrottle.bind(this.rootLogger);
+  errorThrottle = this.rootLogger.errorThrottle.bind(this.rootLogger);
+  fatalThrottle = this.rootLogger.fatalThrottle.bind(this.rootLogger);
 
-  traceOnce = this.rootLogger.traceOnce
-  debugOnce = this.rootLogger.debugOnce
-  infoOnce = this.rootLogger.infoOnce
-  warnOnce = this.rootLogger.warnOnce
-  errorOnce = this.rootLogger.errorOnce
-  fatalOnce = this.rootLogger.fatalOnce
+  traceOnce = this.rootLogger.traceOnce.bind(this.rootLogger);
+  debugOnce = this.rootLogger.debugOnce.bind(this.rootLogger);
+  infoOnce = this.rootLogger.infoOnce.bind(this.rootLogger);
+  warnOnce = this.rootLogger.warnOnce.bind(this.rootLogger);
+  errorOnce = this.rootLogger.errorOnce.bind(this.rootLogger);
+  fatalOnce = this.rootLogger.fatalOnce.bind(this.rootLogger);
 
   getLogger(loggerName?: string, options?: LoggerOptions): Logger {
     if (!loggerName || loggerName === this.rootLogger.getName()) {

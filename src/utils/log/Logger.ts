@@ -29,9 +29,10 @@ export type Options = {
   childOptions?: Options;
 }
 
-type LogFuncType = InstanceType<typeof bunyan.Logger>['info'];
 type ThrottleArgs = [string, ...any[]]|[any, string];
 type ThrottledMethodType = (t: number, ...p: ThrottleArgs)=>boolean;
+type OnceMethodType = (...a: ThrottleArgs)=>boolean;
+type LogMethod = bunyan.LogLevelString;
 
 /**
  * Logger is a minimal wrapper around a bunyan logger. It adds useful methods
@@ -101,69 +102,26 @@ export default class Logger {
     (this._logger as any)['streams'] = [];
   }
 
-  trace = this._logger.trace;
-  debug = this._logger.debug;
-  info = this._logger.info;
-  warn = this._logger.warn;
-  error = this._logger.error;
-  fatal = this._logger.fatal;
+  trace(...args: any[]) { return this._logger.trace.call(this._logger, ...args); };
+  debug(...args: any[]) { return this._logger.debug.call(this._logger, ...args); };
+  info(...args: any[]) { return this._logger.info.call(this._logger, ...args); };
+  warn(...args: any[]) { return this._logger.warn.call(this._logger, ...args); };
+  error(...args: any[]) { return this._logger.error.call(this._logger, ...args); };
+  fatal(...args: any[]) { return this._logger.fatal.call(this._logger, ...args); };
 
-  traceThrottle = this._makeThrottleMethod(this._logger.trace);
-  debugThrottle = this._makeThrottleMethod(this._logger.debug);
-  infoThrottle = this._makeThrottleMethod(this._logger.info);
-  warnThrottle = this._makeThrottleMethod(this._logger.warn);
-  errorThrottle = this._makeThrottleMethod(this._logger.error);
-  fatalThrottle = this._makeThrottleMethod(this._logger.fatal);
+  traceThrottle: ThrottledMethodType;
+  debugThrottle: ThrottledMethodType;
+  infoThrottle: ThrottledMethodType;
+  warnThrottle: ThrottledMethodType;
+  errorThrottle: ThrottledMethodType;
+  fatalThrottle: ThrottledMethodType;
 
-  traceOnce = this._makeOnceMethod(this._logger.trace);
-  debugOnce = this._makeOnceMethod(this._logger.debug);
-  infoOnce = this._makeOnceMethod(this._logger.info);
-  warnOnce = this._makeOnceMethod(this._logger.warn);
-  errorOnce = this._makeOnceMethod(this._logger.error);
-  fatalOnce = this._makeOnceMethod(this._logger.fatal);
-
-  /**
-   * Attaches throttled logging functions to this object for each level method
-   * (info, debug, etc)
-   * e.g.
-   *  logger.infoThrottle(1000, 'Hi');
-   *  logger.debugThrottle(1000, 'Hi');
-   * Logs are throttled by a String key taken from the second argument (first
-   * should always be throttle time in ms). So if you're logging something with
-   * variable values, using format strings should be preferred since it will
-   * throttle appropriately while composition will not.
-   * e.g.
-   *   let i = 0;
-   *   setInterval(() => {
-   *     logger.infoThrottle(1000, 'Counter: %d', i); // prints once second
-   *     logger.infoThrottle(1000, 'Counter: ' + i);  // prints twice a second
-   *     ++i;
-   *   }, 500);
-   *
-   * @param methods {Set.<String>}
-   */
-  private _makeThrottleMethod(method: LogFuncType): ThrottledMethodType {
-    // there's currently a bug using arguments in a () => {} function
-    return (throttleTimeMs: number, ...args: ThrottleArgs) => {
-      // If the desired log level is enabled and the message
-      // isn't being throttled, then log the message.
-      if (method.call(this) && !this._throttle(throttleTimeMs, args)) {
-        method.apply(this, args);
-        return true;
-      }
-      return false;
-    }
-  }
-
-  private _makeOnceMethod(method: LogFuncType): (...a: ThrottleArgs)=>boolean {
-    return (...args: ThrottleArgs) => {
-      if (method.call(this) && this._once(args)) {
-        method.apply(this, args);
-        return true;
-      }
-      return false;
-    }
-  }
+  traceOnce: OnceMethodType;
+  debugOnce: OnceMethodType;
+  infoOnce: OnceMethodType;
+  warnOnce: OnceMethodType;
+  errorOnce: OnceMethodType;
+  fatalOnce: OnceMethodType;
 
   //--------------------------------------------------------------
   // Throttled loggers
@@ -271,6 +229,63 @@ export default class Logger {
 interface ThrottledLog {
   startTime: number;
   throttleTime: number;
+}
+
+Logger.prototype.traceThrottle = makeThrottleMethod('trace');
+Logger.prototype.debugThrottle = makeThrottleMethod('debug');
+Logger.prototype.infoThrottle = makeThrottleMethod('info');
+Logger.prototype.warnThrottle = makeThrottleMethod('warn');
+Logger.prototype.errorThrottle = makeThrottleMethod('error');
+Logger.prototype.fatalThrottle = makeThrottleMethod('fatal');
+
+Logger.prototype.traceOnce = makeOnceMethod('trace');
+Logger.prototype.debugOnce = makeOnceMethod('debug');
+Logger.prototype.infoOnce = makeOnceMethod('info');
+Logger.prototype.warnOnce = makeOnceMethod('warn');
+Logger.prototype.errorOnce = makeOnceMethod('error');
+Logger.prototype.fatalOnce = makeOnceMethod('fatal');
+
+/**
+ * Attaches throttled logging functions to this object for each level method
+ * (info, debug, etc)
+ * e.g.
+ *  logger.infoThrottle(1000, 'Hi');
+ *  logger.debugThrottle(1000, 'Hi');
+ * Logs are throttled by a String key taken from the second argument (first
+ * should always be throttle time in ms). So if you're logging something with
+ * variable values, using format strings should be preferred since it will
+ * throttle appropriately while composition will not.
+ * e.g.
+ *   let i = 0;
+ *   setInterval(() => {
+ *     logger.infoThrottle(1000, 'Counter: %d', i); // prints once second
+ *     logger.infoThrottle(1000, 'Counter: ' + i);  // prints twice a second
+ *     ++i;
+ *   }, 500);
+ *
+ * @param methods {Set.<String>}
+ */
+function makeThrottleMethod(method: LogMethod): ThrottledMethodType {
+  // there's currently a bug using arguments in a () => {} function
+  return function(throttleTimeMs: number, ...args: ThrottleArgs) {
+    // If the desired log level is enabled and the message
+    // isn't being throttled, then log the message.
+    if (this._logger[method].call(this._logger) && !this._throttle(throttleTimeMs, args)) {
+      this._logger[method].apply(this._logger, args);
+      return true;
+    }
+    return false;
+  }
+}
+
+function makeOnceMethod(method: LogMethod): (...a: ThrottleArgs)=>boolean {
+  return function(...args: ThrottleArgs) {
+    if (this._logger[method].call(this._logger) && this._once(args)) {
+      this._logger.method.apply(this._logger, args);
+      return true;
+    }
+    return false;
+  }
 }
 
 // Utility function to help hash messages when we throttle them.

@@ -1,4 +1,4 @@
-import * as timeUtils from '../utils/time_utils.js';
+import * as timeUtils from '../utils/time_utils';
 import { RosTime } from '../types/RosTypes';
 
 let simTimeSub = null;

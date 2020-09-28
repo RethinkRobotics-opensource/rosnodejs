@@ -1,8 +1,20 @@
-const xmlrpc = require('xmlrpc-rosnodejs');
-const EventEmitter = require('events').EventEmitter;
+import * as xmlrpc from 'xmlrpc-rosnodejs';
+import { EventEmitter } from 'events';
+import * as XmlrpcTypes from '../../src/types/XmlrpcTypes';
 
-class RosMasterStub extends EventEmitter {
-  constructor(host, port) {
+type Callback = (e: any, resp: any[])=>void;
+
+export default class RosMasterStub extends EventEmitter {
+  _host: string;
+  _port: number;
+  _apiMap: {[key: string]: (err: any, params: any[], callback: Callback)=>void};
+  _providedApis: Set<string> = new Set();
+  _clientCache: { service: any, sub: any, pub: any };
+  _params: {[key: string]: any} = {};
+  verbose = true;
+  _server: xmlrpc.Server;
+
+  constructor(host: string, port: number) {
     super();
 
     this._host = host;
@@ -10,7 +22,6 @@ class RosMasterStub extends EventEmitter {
 
     this._apiMap = {
       getUri: this._onGetUri.bind(this),
-      getParam: this._onGetParam.bind(this),
       registerService: this._onRegisterService.bind(this),
       unregisterService: this._onUnregisterService.bind(this),
       registerSubscriber: this._onRegisterSubscriber.bind(this),
@@ -24,27 +35,23 @@ class RosMasterStub extends EventEmitter {
       getParamNames: this._getParamNames.bind(this)
     };
 
-    this._providedApis = new Set();
-
     this._clientCache = {
       service: null,
       sub: null,
       pub: null
     };
 
-    this._params = {};
-
-    this.verbose = true;
-
     this.listen();
   }
 
   listen() {
+    console.log('create server on %s:%s', this._host, this._port);
     this._server = xmlrpc.createServer({host: this._host, port: this._port}, () => {
       this.emit('ready');
+      console.log('master listening on %s:%s', this._host, this._port);
     });
 
-    this._server.on('NotFound', (method, params) => {
+    this._server.on('NotFound', (method) => {
       if (this.verbose) {
         console.error('Method %s does not exist', method);
       }
@@ -55,13 +62,15 @@ class RosMasterStub extends EventEmitter {
     this._params = {};
     this._providedApis.clear();
     this.removeAllListeners();
-    return new Promise((resolve, reject) => {
-      this._server.close(resolve);
-      this._server = null;
-    });
+    if (this._server) {
+      return new Promise<void>((resolve) => {
+        this._server.close(resolve);
+        this._server = null;
+      });
+    }
   }
 
-  provide(api) {
+  provide(api: string) {
     const method = this._apiMap[api];
     if (method && !this._providedApis.has(api)) {
       this._server.on(api, (err, params, callback) => {
@@ -78,64 +87,61 @@ class RosMasterStub extends EventEmitter {
     });
   }
 
-  _onGetUri(err, params, callback) {
+  _onGetUri(err: any, params: any[], callback: Callback) {
     const resp = [ 1, '', `${this._host}:${this._port}`];
     callback(null, resp);
   }
 
-  _onGetParam(err, params, callback) {
+  _onGetParam(err: any, params: any[], callback: Callback) {
     const resp = [0, '', 'Not implemented in stub'];
     callback(null, resp);
   }
 
-  _onRegisterService(err, params, callback) {
+  _onRegisterService(err: any, params: any[], callback: Callback) {
     this._clientCache.service = params[2];
 
-    const resp = [1, 'You did it!', []];
-    callback(null, resp);
+    callback(null, [1, 'You did it!', []]);
   }
 
-  _onUnregisterService(err, params, callback) {
-    const resp = [1, 'You did it!', this._clientCache.service ? 1 : 0];
-    callback(null, resp);
+  _onUnregisterService(err: any, params: any[], callback: Callback) {
+    callback(null, [1, 'You did it!', this._clientCache.service ? 1 : 0]);
     this._clientCache.service = null;
   }
 
-  _onLookupService(err, params, callback) {
+  _onLookupService(err: any, params: any[], callback: Callback) {
     const { service } = this._clientCache;
     if (service) {
-      const resp = [1, "you did it", service];
-      callback(null, resp);
+      callback(null, [1, "you did it", service]);
     }
     else {
-      const resp = [-1, "no provider", ""];
-      callback(null, resp);
+      callback(null, [-1, "no provider", ""]);
     }
   }
 
-  _onRegisterSubscriber(err, params, callback) {
+  _onRegisterSubscriber(err: any, params: any[], callback: Callback) {
     this._clientCache.sub = params[3];
 
-    const resp =  [1, 'You did it!', []];
+    const resp: XmlrpcTypes.RegisterSubscriber['Resp'] =  [1, 'You did it!', []];
     if (this._clientCache.pub) {
       resp[2].push(this._clientCache.pub);
     }
     callback(null, resp);
   }
 
-  _onUnregisterSubscriber(err, params, callback) {
-    const resp =  [1, 'You did it!', this._clientCache.sub ? 1 : 0];
+  _onUnregisterSubscriber(err: any, params: any[], callback: Callback) {
+    const resp: XmlrpcTypes.UnregisterSubscriber['Resp'] =  [1, 'You did it!', this._clientCache.sub ? 1 : 0];
     callback(null, resp);
     this._clientCache.sub = null;
   }
 
-  _onRegisterPublisher(err, params, callback) {
+  _onRegisterPublisher(err: any, params: any[], callback: Callback) {
     const pubInfo = params[3];
+    const topic = params[1];
     this._clientCache.pub = pubInfo;
 
-    const resp =  [1, 'You did it!', []];
+    const resp: XmlrpcTypes.RegisterPublisher['Resp'] =  [1, 'You did it!', []];
     if (this._clientCache.sub) {
-      resp[2].push(pubInfo);
+      resp[2].push(this._clientCache.sub);
       let subAddrParts = this._clientCache.sub.replace('http://', '').split(':');
       let client = xmlrpc.createClient({host: subAddrParts[0], port: subAddrParts[1]});
       let data = [1, topic, [pubInfo]];
@@ -144,8 +150,8 @@ class RosMasterStub extends EventEmitter {
     callback(null, resp);
   }
 
-  _onUnregisterPublisher(err, params, callback) {
-    const resp =  [1, 'You did it!', this._clientCache.pub ? 1 : 0];
+  _onUnregisterPublisher(err: any, params: any[], callback: Callback) {
+    const resp: XmlrpcTypes.UnregisterPublisher['Resp'] =  [1, 'You did it!', this._clientCache.pub ? 1 : 0];
     callback(null, resp);
     this._clientCache.pub = null;
   }
@@ -154,51 +160,42 @@ class RosMasterStub extends EventEmitter {
   // NOTE: this is NOT a spec ParamServer implementation,
   // but it provides simple stubs for calls
 
-  _deleteParam(err, params, callback) {
+  _deleteParam(err: any, params: any[], callback: Callback) {
     const key = params[1];
     if (this._params.hasOwnProperty(key)) {
       delete this._params[key];
-      const resp = [1, 'delete value for ' + key, 1];
-      callback(null, resp);
+      callback(null, [1, 'delete value for ' + key, 1]);
     }
     else {
-      const resp = [0, 'no value for ' + key, 1];
-      callback(null, resp);
+      callback(null, [0, 'no value for ' + key, 1]);
     }
   }
 
-  _setParam(err, params, callback) {
+  _setParam(err: any, params: any[], callback: Callback) {
     const key = params[1];
     const val = params[2];
     this._params[key] = val;
-    const resp = [1, 'set value for ' + key, 1];
-    callback(null, resp);
+    callback(null, [1, 'set value for ' + key, 1]);
   }
 
-  _getParam(err, params, callback) {
+  _getParam(err: any, params: any[], callback: Callback) {
     const key = params[1];
     const val = this._params[key];
     if (val !== undefined) {
-      const resp = [1, 'data for ' + key, val];
-      callback(null, resp);
+      callback(null, [1, 'data for ' + key, val]);
     }
     else {
-      const resp = [0, 'no data for ' + key, null];
-      callback(null, resp);
+      callback(null, [0, 'no data for ' + key, null]);
     }
   }
 
-  _hasParam(err, params, callback) {
+  _hasParam(err: any, params: any[], callback: Callback) {
     const key = params[1];
-    const resp = [1, 'check param ' + key, this._params.hasOwnProperty(key)];
-    callback(null, resp);
+    callback(null, [1, 'check param ' + key, this._params.hasOwnProperty(key)]);
   }
 
-  _getParamNames(err, params, callback) {
+  _getParamNames(err: any, params: any[], callback: Callback) {
     const names = Object.keys(this._params);
-    const resp = [1, 'get param names', names];
-    callback(null, resp);
+    callback(null, [1, 'get param names', names]);
   }
 }
-
-module.exports = RosMasterStub;

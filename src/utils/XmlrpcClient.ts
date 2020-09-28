@@ -2,6 +2,7 @@
 import * as Events from 'events';
 import * as xmlrpc from 'xmlrpc-rosnodejs';
 import * as XmlTypes from '../types/XmlrpcTypes';
+import type Logger from './log/Logger';
 type XmlrpcCallOptions = XmlTypes.XmlrpcCallOptions;
 
 const CONNECTION_REFUSED='ECONNREFUSED';
@@ -60,13 +61,13 @@ function makeCall<TReq = any, TResp = any>(method: string, data: TReq, options: 
 
 export default class XmlrpcClient extends Events.EventEmitter {
   private _xmlrpcClient: any;
-  private _log: any;
+  private _log: Logger;
   private _callQueue: XmlrpcCall<any, any>[];
   private _timeout: number;
   private _timeoutId: NodeJS.Timer|null;
   private _failedAttempts: number;
 
-  constructor(clientAddressInfo: { host: string, port: number }, log: any) {
+  constructor(clientAddressInfo: { host: string, port: number }, log: Logger) {
     super();
 
     this._xmlrpcClient = xmlrpc.createClient(clientAddressInfo);
@@ -98,9 +99,9 @@ export default class XmlrpcClient extends Events.EventEmitter {
 
   clear(): void {
     this._log.info('Clearing xmlrpc client queue...');
-    if (this._callQueue.length !== 0) {
-      this._callQueue[0].reject(new Error('Clearing call queue - probably shutting down...'));
-    }
+    // for (const call of this._callQueue) {
+    //   call.reject(new Error('Clearing call queue - probably shutting down...'));
+    // }
     clearTimeout(this._timeoutId);
     this._callQueue = [];
   }

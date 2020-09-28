@@ -15,10 +15,9 @@
  *    limitations under the License.
  */
 
-import * as msgUtils from '../utils/message_utils';
 import timeUtils from '../lib/Time';
 import Logging from '../lib/LoggingManager';
-import { ActionMsgs, ActionConstructor } from '../types/Message';
+import { ActionMsgs } from '../types/Message';
 import { RosTime } from '../types/RosTypes';
 const log = Logging.getLogger('ros.rosnodejs');
 

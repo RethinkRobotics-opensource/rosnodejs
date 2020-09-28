@@ -9,7 +9,6 @@ type PackageEntry = {
   messages: {[key: string]: MessageEntry};
   services: {[key: string]: MessageEntry};
   actions: {[key: string]: MessageEntry};
-  [key: string]: any;
 }
 
 export type MsgPackageCache = {
@@ -65,7 +64,18 @@ async function findMessagesInPackageDirectory(dir: string): Promise<PackageEntry
   };
 
   for await (const message of getMessages(dir)) {
-    packageEntry[message.type] = message;
+    switch(message.type) {
+      case 'message':
+        packageEntry.messages[message.name] = message;
+        break;
+      case 'service':
+        packageEntry.services[message.name] = message;
+        break;
+      case 'action':
+        packageEntry.actions[message.name] = message;
+        break;
+    }
+
   }
 
   return packageEntry;

@@ -14,10 +14,9 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
- 
-/// <reference path="../../../types.d.ts"/>
+
 import * as bunyan from 'bunyan';
-import * as timeUtils from '../time_utils.js';
+import * as timeUtils from '../time_utils';
 
 let RosgraphLogMsg: any;
 

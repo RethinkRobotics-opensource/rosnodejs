@@ -17,7 +17,7 @@
 
 import * as msgUtils from '../utils/message_utils';
 import { EventEmitter } from 'events';
-import * as Ultron from 'ultron';
+import Ultron = require('ultron');
 
 import ActionServerInterface, { ActionServerInterfaceOptions } from '../lib/ActionServerInterface';
 import GoalHandle from './GoalHandle';
@@ -45,7 +45,7 @@ export default class ActionServer<G,F,R> extends EventEmitter {
   _statusListTimeout: RosTime = { secs: 5, nsecs: 0 };
   _shutdown: boolean = false;
   _started: boolean = false;
-  _ultron: Ultron.Ultron;
+  _ultron: Ultron;
   _asInterface: ActionServerInterface<G,F,R>;
   _messageTypes: MessageLookup<G,F,R>;
   _statusFreqInt?: NodeJS.Timer;
@@ -57,7 +57,7 @@ export default class ActionServer<G,F,R> extends EventEmitter {
 
     this._lastCancelStamp = Time.epoch();
 
-    this._ultron = new Ultron.Ultron(ThisNode);
+    this._ultron = new Ultron(ThisNode);
   }
 
   start() {

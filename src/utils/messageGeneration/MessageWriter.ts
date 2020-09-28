@@ -116,9 +116,9 @@ function writeRequires(w: IndentedWriter, spec: MsgSpec, isSrv: boolean, previou
         if (!previousDeps.has(fieldMsgType) && !localDeps.has(fieldMsgType)) {
           localDeps.add(fieldMsgType);
           if (isSrv) {
-            w.write('import * as %s from \'../msg/%s.js\');', fieldMsgType, fieldMsgType);
+            w.write('const %s = require(\'../msg/%s.js\');', fieldMsgType, fieldMsgType);
           } else {
-            w.write('import * as %s from \'./%s.js\');', fieldMsgType, fieldMsgType);
+            w.write('const %s = require(\'./%s.js\');', fieldMsgType, fieldMsgType);
           }
         }
       }
@@ -177,6 +177,9 @@ function getDefaultValue(field: Field, packageName: string): any {
 }
 
 function writeMsgConstructorField(w: IndentedWriter, spec: MsgSpec, field: Field) {
+  if (spec.getFullMessageName().includes("test_msgs")) {
+    console.log('x');
+  }
   w.write('if (initObj.hasOwnProperty(\'%s\')) {', field.name).indent();
   w.write('this.%s = initObj.%s;', field.name, field.name).dedent();
   w.write('}');

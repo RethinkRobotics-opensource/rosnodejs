@@ -362,7 +362,9 @@ export default class PublisherImpl<M> extends EventEmitter {
       }
     }
     catch(err) {
-      this._log.error('Error while registering publisher %s: %s', this.getTopic(), err);
+      if (!this._nodeHandle.isShutdown()) {
+        this._log.error('Error while registering publisher %s: %s', this.getTopic(), err);
+      }
     }
   }
 }

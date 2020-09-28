@@ -15,12 +15,12 @@
  *    limitations under the License.
  */
 
-import { CommState } from './ClientStates.js';
+import { CommState } from './ClientStates';
 
 import { EventEmitter } from 'events';
 
 import Logging from '../lib/LoggingManager';
-import { ActionConstructor, ActionMsgs } from '../types/Message';
+import { ActionMsgs } from '../types/Message';
 import type ActionClientInterface from '../lib/ActionClientInterface';
 const log = Logging.getLogger('actionlib_nodejs');
 

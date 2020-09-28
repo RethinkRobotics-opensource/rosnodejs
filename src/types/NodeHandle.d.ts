@@ -1,6 +1,6 @@
 import { MessageConstructor, ServiceConstructor } from "./Message";
 import { IPublisher } from "./Publisher";
-import { ISubscriber } from "./Subscriber";
+import { ISubscriber, Transport } from "./Subscriber";
 import { IServiceServer, ServerCallback } from "./ServiceServer";
 import { IServiceClient } from "./ServiceClient";
 
@@ -9,12 +9,13 @@ export type AdvertiseOptions = {
   tcpNoDelay?: boolean;
   queueSize?: number;
   throttleMs?: number;
+  resolve?: boolean;
 }
 
 export type SubscribeOptions = {
   queueSize?: number;
   throttleMs?: number;
-  transports?: string[];
+  transports?: Transport[];
   dgramSize?: number;
 }
 
@@ -32,12 +33,12 @@ export interface INodeHandle {
   subscribe<M>(
     topic: string,
     type: string|MessageConstructor<M>,
-    callback: (d: M, len?: number, nodeUri?: string)=>void,
+    callback?: (d: M, len?: number, nodeUri?: string)=>void,
     options?: SubscribeOptions): ISubscriber<M>;
   advertiseService<Req,Res>(
     service: string,
     type: string|ServiceConstructor<Req,Res>,
-    callback: ServerCallback<Req,Res>
+    callback?: ServerCallback<Req,Res>
   ): IServiceServer;
   serviceClient<Req,Res>(
     service: string,

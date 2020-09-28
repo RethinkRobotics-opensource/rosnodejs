@@ -17,7 +17,7 @@
 
 import * as BN from 'bn.js';
 import * as Buffer from 'buffer';
-import { RosTime } from './encoding_utils.js';
+import { RosTime } from './encoding_utils';
 
 /*-----------------------------------------------------------------------------
  * Primitive Deserialization Functions
@@ -179,7 +179,7 @@ function UInt8ArrayDeserializer(buffer: Buffer, bufferOffset: number[], arrayLen
 
 //-----------------------------------------------------------------------------
 
-const PrimitiveDeserializers = {
+const Deserialize = {
   string: StringDeserializer,
   float32: Float32Deserializer,
   float64: Float64Deserializer,
@@ -195,28 +195,25 @@ const PrimitiveDeserializers = {
   char: UInt8Deserializer,
   byte: Int8Deserializer,
   time: TimeDeserializer,
-  duration: TimeDeserializer
-};
+  duration: TimeDeserializer,
+  Array: {
+    string: DefaultArrayDeserializer.bind(null, StringDeserializer),
+    float32: DefaultArrayDeserializer.bind(null, Float32Deserializer),
+    float64: DefaultArrayDeserializer.bind(null, Float64Deserializer),
+    bool: DefaultArrayDeserializer.bind(null, BoolDeserializer),
+    int8: DefaultArrayDeserializer.bind(null, Int8Deserializer),
+    int16: DefaultArrayDeserializer.bind(null, Int16Deserializer),
+    int32: DefaultArrayDeserializer.bind(null, Int32Deserializer),
+    int64: DefaultArrayDeserializer.bind(null, Int64Deserializer),
+    uint8: UInt8ArrayDeserializer,
+    uint16: DefaultArrayDeserializer.bind(null, UInt16Deserializer),
+    uint32: DefaultArrayDeserializer.bind(null, UInt32Deserializer),
+    uint64: DefaultArrayDeserializer.bind(null, UInt64Deserializer),
+    char: UInt8ArrayDeserializer,
+    byte: DefaultArrayDeserializer.bind(null, Int8Deserializer),
+    time: DefaultArrayDeserializer.bind(null, TimeDeserializer),
+    duration: DefaultArrayDeserializer.bind(null, TimeDeserializer)
+  }
+}
 
-const ArrayDeserializers = {
-  string: DefaultArrayDeserializer.bind(null, StringDeserializer),
-  float32: DefaultArrayDeserializer.bind(null, Float32Deserializer),
-  float64: DefaultArrayDeserializer.bind(null, Float64Deserializer),
-  bool: DefaultArrayDeserializer.bind(null, BoolDeserializer),
-  int8: DefaultArrayDeserializer.bind(null, Int8Deserializer),
-  int16: DefaultArrayDeserializer.bind(null, Int16Deserializer),
-  int32: DefaultArrayDeserializer.bind(null, Int32Deserializer),
-  int64: DefaultArrayDeserializer.bind(null, Int64Deserializer),
-  uint8: UInt8ArrayDeserializer,
-  uint16: DefaultArrayDeserializer.bind(null, UInt16Deserializer),
-  uint32: DefaultArrayDeserializer.bind(null, UInt32Deserializer),
-  uint64: DefaultArrayDeserializer.bind(null, UInt64Deserializer),
-  char: UInt8ArrayDeserializer,
-  byte: DefaultArrayDeserializer.bind(null, Int8Deserializer),
-  time: DefaultArrayDeserializer.bind(null, TimeDeserializer),
-  duration: DefaultArrayDeserializer.bind(null, TimeDeserializer)
-};
-
-//-----------------------------------------------------------------------------
-
-export const Deserialize = Object.assign({}, PrimitiveDeserializers, {Array: ArrayDeserializers});
+export default Deserialize;

@@ -17,10 +17,9 @@
 
 /// <reference path="../../types.d.ts"/>
 import { EventEmitter } from 'events'
-import * as Ultron from 'ultron'
-import { rebroadcast } from '../utils/event_utils.js'
+import Ultron = require('ultron');
+import { rebroadcast } from '../utils/event_utils'
 import type PublisherImpl from './impl/PublisherImpl';
-import { MessageConstructor } from '../types/Message';
 
 /**
  * @class Publisher
@@ -31,14 +30,14 @@ export default class Publisher<M> extends EventEmitter {
   _impl: PublisherImpl<M>;
   _topic: string;
   _type: string;
-  _ultron: Ultron.Ultron;
+  _ultron: Ultron;
 
   constructor(impl: PublisherImpl<M>) {
     super();
 
     ++impl.count;
     this._impl = impl;
-    this._ultron = new Ultron.Ultron(impl);
+    this._ultron = new Ultron(impl);
 
     this._topic = impl.getTopic();
     this._type = impl.getType();

@@ -46,14 +46,15 @@ export interface ActionConstructor<
 }
 
 export namespace StdMsgs {
-  interface Header {
+  export interface Header {
     seq: number;
     stamp: RosTime;
     frame_id: string;
   }
 }
+
 export namespace ActionMsgs {
-  enum Status {
+  export enum Status {
     PENDING = 0,
     ACTIVE = 1,
     PREEMPTED = 2,
@@ -66,35 +67,35 @@ export namespace ActionMsgs {
     LOST = 9
   }
 
-  interface GoalID {
+  export interface GoalID {
     stamp: RosTime;
     id: string;
   }
 
-  interface GoalStatus {
+  export interface GoalStatus {
     goal_id: GoalID;
     status: Status;
     text: string;
   }
 
-  interface GoalStatusArray {
+  export interface GoalStatusArray {
     header: StdMsgs.Header;
     status_list: GoalStatus[];
   }
 
-  interface ActionGoal<T extends Message> {
+  export interface ActionGoal<T extends Message> {
     header: StdMsgs.Header;
     goal_id: GoalID;
     goal: T;
   }
 
-  interface ActionResult<T extends Message> {
+  export interface ActionResult<T extends Message> {
     header: StdMsgs.Header;
     status: GoalStatus;
     result: T;
   }
 
-  interface ActionFeedback<T extends Message> {
+  export interface ActionFeedback<T extends Message> {
     header: StdMsgs.Header;
     status: GoalStatus;
     feedback: T;

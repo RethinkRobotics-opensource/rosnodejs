@@ -1,10 +1,8 @@
-'use strict';
-
-const chai = require('chai');
-const expect = chai.expect;
-const serialize = require('../lib/base_serialize.js');
-const deserialize = require('../lib/base_deserialize.js');
-const BN = require('bn.js');
+import {describe, it} from 'mocha';
+import { expect } from 'chai';
+import serialize from '../lib/base_serialize';
+import deserialize from '../lib/base_deserialize';
+import * as BN from 'bn.js';
 
 describe('Deserialization Tests', () => {
   it('Uint8', () => {

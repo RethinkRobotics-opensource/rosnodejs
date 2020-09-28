@@ -121,7 +121,7 @@ export default class NodeHandle implements INodeHandle {
   subscribe<M>(
     topic: string,
     type: string|MessageConstructor<M>,
-    callback: (msg: M, len?: number, nodeUri?: string)=>void,
+    callback?: (msg: M, len?: number, nodeUri?: string)=>void,
     options: SubscribeOptions = {}
   ): ISubscriber<M> {
     if (!topic) {

@@ -1,5 +1,5 @@
-import { Serialize, SerializeT } from '../../ros_msg_utils/lib/base_serialize';
-import { Deserialize, DeserializeT } from '../../ros_msg_utils/lib/base_deserialize';
+import Serialize from '../../ros_msg_utils/lib/base_serialize';
+import Deserialize from '../../ros_msg_utils/lib/base_deserialize';
 import * as BN from 'bn.js';
 
 /* map of all primitive types and their default values */
@@ -97,8 +97,8 @@ function parseType(msgType: string, field: Field): void {
   // else
   if (isArray(msgType)) {
     field.isArray = true;
-    var constantLength = msgType.endsWith('[]');
-    var splits = msgType.split('[');
+    const constantLength = !msgType.endsWith('[]');
+    const splits = msgType.split('[');
     if (splits.length > 2) {
       throw new Error(`Only support 1-dimensional array types: ${msgType}`);
     }

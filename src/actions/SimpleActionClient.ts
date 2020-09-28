@@ -16,7 +16,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Ultron } from 'ultron';
+import Ultron = require('ultron');
 
 import ActionClient from './ActionClient';
 import { CommState, SimpleGoalState, SimpleClientGoalState } from './ClientStates';

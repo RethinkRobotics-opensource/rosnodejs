@@ -40,7 +40,6 @@ import type Logger from '../utils/log/Logger';
 import type * as XmlrpcTypes from '../types/XmlrpcTypes';
 import type Spinner from '../types/Spinner';
 import { PublisherOptions } from '../types/Publisher';
-import { MessageConstructor, ServiceConstructor } from '../types/Message';
 import { SubscriberOptions, SubscriberCallback } from '../types/Subscriber';
 import { ServerOptions, ServerCallback, IServiceServer } from '../types/ServiceServer';
 import { ServiceClientOptions } from '../types/ServiceClient';
@@ -413,8 +412,8 @@ export default class RosNode extends EventEmitter implements IRosNode {
   private _setupTcprosServer(tcprosPort: number=null): Promise<void> {
     let _createServer = (callback: ()=>void) => {
       const server = net.createServer((connection) => {
-        const conName = connection.remoteAddress + ":" + connection.remotePort;
-        this._debugLog.info('Node %s got connection from %s', this.getNodeName(), conName);
+        const uri = connection.remoteAddress + ":" + connection.remotePort;
+        this._debugLog.info('Node %s got connection from %s', this.getNodeName(), uri);
 
         // data from connections will be TCPROS encoded, so use a
         // DeserializeStream to handle any chunking
@@ -435,7 +434,7 @@ export default class RosNode extends EventEmitter implements IRosNode {
             const topic = header.topic;
             const pub = this._publishers[topic];
             if (pub) {
-              pub.handleSubscriberConnection(connection, conName, header);
+              pub.handleSubscriberConnection(connection, uri, header);
             }
             else {
               // presumably this just means we shutdown the publisher after this
@@ -448,7 +447,7 @@ export default class RosNode extends EventEmitter implements IRosNode {
             const service = header.service;
             const serviceProvider = this._services[service];
             if (serviceProvider) {
-              serviceProvider.handleClientConnection(connection, conName, deserializeStream, header);
+              serviceProvider.handleClientConnection(connection, uri, deserializeStream, header);
             }
           }
         });

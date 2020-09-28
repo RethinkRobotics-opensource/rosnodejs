@@ -5,7 +5,7 @@ export default class IndentedWriter {
   private _indentation: number = 0;
 
   write(...args: any[]): IndentedWriter {
-    let formattedStr = util.format.apply(this,...args);
+    let formattedStr = util.format.apply(this, args);
     for (let i = 0; i < this._indentation; ++i) {
       this._str += '  ';
     }

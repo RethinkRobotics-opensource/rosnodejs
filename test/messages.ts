@@ -1,12 +1,10 @@
-'use strict';
-
-const chai = require('chai');
-const expect = chai.expect;
-const rosnodejs = require('../src/index.js');
+import { expect } from 'chai';
+import rosnodejs from '../src/index';
 
 describe('messages', function () {
-
   it('real messages', function() {
+    this.timeout(10000);
+    this.slow(5000);
     expect(rosnodejs.require('geometry_msgs')).to.not.be.empty;
     expect(rosnodejs.require('geometry_msgs').msg).to.not.be.empty;
     expect(rosnodejs.require('geometry_msgs').msg).to.have.keys(
@@ -18,7 +16,7 @@ describe('messages', function () {
       'TwistWithCovariance','TwistWithCovarianceStamped','Vector3',
       'Vector3Stamped','Wrench','WrenchStamped'
     );
-    expect(rosnodejs.require('geometry_msgs').srv).to.be.empty;
+    expect(rosnodejs.require('geometry_msgs').srv).to.be.undefined;
 
     expect(rosnodejs.require('std_msgs')).to.not.be.empty;
     expect(rosnodejs.require('std_msgs').msg).to.not.be.empty;
@@ -30,10 +28,10 @@ describe('messages', function () {
       'Float32MultiArray','Int16MultiArray','Int8','Time','UInt64','ColorRGBA',
       'Float64','Int32','Int8MultiArray','UInt16','UInt64MultiArray'
     )
-    expect(rosnodejs.require('std_msgs').srv).to.be.empty;
+    expect(rosnodejs.require('std_msgs').srv).to.be.undefined;
 
     expect(rosnodejs.require('std_srvs')).to.not.be.empty;
-    expect(rosnodejs.require('std_srvs').msg).to.be.empty;
+    expect(rosnodejs.require('std_srvs').msg).to.be.undefined;
     expect(rosnodejs.require('std_srvs').srv).to.not.be.empty;
     expect(rosnodejs.require('std_srvs').srv).to.have.keys(
       'Empty','SetBool','Trigger'

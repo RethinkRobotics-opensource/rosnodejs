@@ -3,19 +3,21 @@ import * as path from 'path';
 
 import * as packages   from './packages';
 import * as fieldsUtil from './fields';
-import IndentedWriter from './IndentedWriter.js';
-import * as MsgSpec from './MessageSpec.js';
+import IndentedWriter from './IndentedWriter';
+import * as MsgSpec from './MessageSpec';
 
 enum LoadStatus {
   LOADING,
   LOADED
 }
 
+type MessageEntry<T extends MsgSpec.RosMsgSpec> = { file: string, spec: T }
+type MessageCache<T extends MsgSpec.RosMsgSpec> = {[key: string]: MessageEntry<T> };
 type PackageMap = {
   [key: string]: {
-    messages: {[key: string]: { file: string, spec: MsgSpec.MsgSpec }};
-    services: {[key: string]: { file: string, spec: MsgSpec.SrvSpec }};
-    actions: {[key: string]: { file: string, spec: MsgSpec.ActionSpec }};
+    messages: MessageCache<MsgSpec.MsgSpec>;
+    services: MessageCache<MsgSpec.SrvSpec>;
+    actions: MessageCache<MsgSpec.ActionSpec>;
     localDeps: Set<string>; // this is only local package dependencies
   }
 };
@@ -151,7 +153,7 @@ export default class MessageManager {
     if (this.packageHasServices(packageName)) {
       const srvDir = path.join(packageDir, 'srv');
       await createDirectory(srvDir);
-      await this.createServiceIndex.bind(this, packageName, srvDir);
+      await this.createServiceIndex(packageName, srvDir);
     }
     await this.createPackageIndex(packageName, packageDir);
   }
@@ -252,52 +254,53 @@ export default class MessageManager {
   private _loadMessagesInCache(packageCache: packages.MsgPackageCache): void {
     this.log('Loading messages...');
 
+    this._packageCache = {};
     for (const packageName in packageCache) {
       const packageInfo = packageCache[packageName];
       const packageDeps = new Set<string>();
 
-      const messages: any = {};
+      const messages: MessageCache<MsgSpec.MsgSpec> = {};
       for (const message in packageInfo.messages) {
         const { file } = packageInfo.messages[message];
         this.log('Loading message %s from %s', message, file);
-        const msgSpec = MsgSpec.create(this, packageName, message, MsgSpec.MSG_TYPE, file);
+        const spec = MsgSpec.create(this, packageName, message, MsgSpec.MSG_TYPE, file);
 
-        msgSpec.getMessageDependencies(packageDeps);
+        spec.getMessageDependencies(packageDeps);
 
-        messages[message] = { msgSpec, file }
+        messages[message] = { spec, file }
       }
 
-      const services: any = {};
+      const services: MessageCache<MsgSpec.SrvSpec> = {};
       for (const message in packageInfo.services) {
         const { file } = packageInfo.services[message];
         this.log('Loading service %s from %s', message, file);
-        const msgSpec = MsgSpec.create(this, packageName, message, MsgSpec.SRV_TYPE, file);
+        const spec = MsgSpec.create(this, packageName, message, MsgSpec.SRV_TYPE, file);
 
-        msgSpec.getMessageDependencies(packageDeps);
+        spec.getMessageDependencies(packageDeps);
 
-        services[message] = { msgSpec, file };
+        services[message] = { spec, file };
       }
 
-      const actions: any = {};
+      const actions: MessageCache<MsgSpec.ActionSpec> = {};
       for (const message in packageInfo.actions) {
         const { file } = packageInfo.actions[message];
         this.log('Loading action %s from %s', message, file);
-        const msgSpec = MsgSpec.create(this, packageName, message, MsgSpec.ACTION_TYPE, file);
+        const spec = MsgSpec.create(this, packageName, message, MsgSpec.ACTION_TYPE, file);
 
         // cache the individual messages for later lookup (needed when writing files)
         const packageMsgs = packageInfo.messages;
-        msgSpec.getMessages().forEach((spec) => {
+        spec.getMessages().forEach((spec) => {
           // only write this action if it doesn't exist yet - this should be expected if people
           // have already run catkin_make, as it will generate action message definitions that
           // will just get loaded as regular messages
           if (!packageMsgs.hasOwnProperty(spec.messageName)) {
-            messages[spec.messageName] = { file: null, msgSpec: spec };
+            messages[spec.messageName] = { file: null, spec };
           }
         });
 
-        msgSpec.getMessageDependencies(packageDeps);
+        spec.getMessageDependencies(packageDeps);
 
-        actions[message] = { msgSpec, file };
+        actions[message] = { spec, file };
       }
 
       this._packageCache[packageName] = {
@@ -325,7 +328,7 @@ function sortPackageList(packageList: string[], cache: PackageMap): string[] {
     return deps;
   }
 
-  packageList.sort((pkgA: string, pkgB: string): number => {
+  packageList.sort(function sorter(pkgA: string, pkgB: string): number {
     let aDeps = getDeps(pkgA);
     let bDeps = getDeps(pkgB);
 

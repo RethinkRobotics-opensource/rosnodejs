@@ -16,7 +16,7 @@
  */
 
 import Logging from './LoggingManager';
-import type XmlrpcClient from '../utils/XmlrpcClient.js';
+import type XmlrpcClient from '../utils/XmlrpcClient';
 import type Logger from '../utils/log/Logger';
 import * as XmlTypes from '../types/XmlrpcTypes';
 type XmlrpcCallOptions = XmlTypes.XmlrpcCallOptions;
