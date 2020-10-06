@@ -331,6 +331,10 @@ class NodeHandle {
     return this._node.getMasterUri();
   }
 
+  getServiceHeader(serviceName) {
+    return this._node.getServiceHeader(serviceName);
+  }
+
   /**
    * @typedef {Object} TopicList
    * @property {{name: string, type: string}[]} topics Array of topics

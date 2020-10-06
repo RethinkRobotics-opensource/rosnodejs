@@ -299,6 +299,41 @@ class RosNode extends EventEmitter {
     return this._masterApi.getSystemState(this._nodeName, options);
   }
 
+  /** Services currently do not declare their type with the master, so instead
+    we probe the service for its headers. Just like in
+  https://github.com/ros/ros_comm/blob/6292d54dc14395531bffb2e165f3954fb0ef2c34/tools/rosservice/src/rosservice/__init__.py#L94-L98
+  */
+  getServiceHeader(serviceName) {
+    return new Promise((resolve, reject) => {
+
+      this.lookupService(serviceName).then((resp) => {
+        const serviceUri = resp[2];
+        const serviceHost = NetworkUtils.getAddressAndPortFromUri(serviceUri);
+
+        const client = net.connect(serviceHost, () => {
+          const serviceClientHeader = tcprosUtils.createServiceClientHeader(
+            this._nodeName, serviceName, '*', '*', false);
+
+          let deserializer = new DeserializeStream();
+          client.$deserializeStream = deserializer;
+          client.pipe(deserializer);
+
+          deserializer.once('message', (msg) => {
+            const header = tcprosUtils.parseTcpRosHeader(msg);
+            resolve(header);
+          });
+
+          client.on('error', (err) => {
+            this._log.warn(`Service Client ${this.getService()} error: ${err}`);
+            reject(err);
+          });
+
+          client.write(serviceClientHeader);
+        });
+      }).catch(reject);
+    });
+  }
+
   /**
    * Delays xmlrpc calls until our servers are set up
    * Since we need their ports for most of our calls.
