@@ -569,7 +569,8 @@ describe('Protocol Test', () => {
       const subImpl = new SubscriberImpl({
           topic,
           type: 'std_msgs/String',
-          typeClass: rosnodejs.require('std_msgs').msg.String
+          typeClass: rosnodejs.require('std_msgs').msg.String,
+          transports: ['TCPROS']
         },
         nh._node);
 
