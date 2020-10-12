@@ -37,9 +37,11 @@ describe('Services Tests', () => {
   });
 
   describe('get type', () => {
-    it('can get the type', async function() {
-      const p = await rn.getServiceHeader('/rosout/get_loggers');
-      expect(p.type).to.equal('roscpp/GetLoggers');
+    it('can get the type', function(done) {
+      rn.getServiceHeader('/rosout/get_loggers').then((p) => {
+        expect(p.type).to.equal('roscpp/GetLoggers');
+        done();
+      });
     });
   });
 });
