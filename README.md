@@ -38,7 +38,7 @@ pub.publish({ data: "hi" });
 ```
 ## Services
 ```
-const service = nh.advertiseService('/add_two_ints', 'beginner_tutorials/AddTwoInts', (req, resp) => {
+const service = nh.advertiseService('/add_two_ints', 'beginner_tutorials/AddTwoInts', (req, res) => {
   res.sum = req.a + req.b;
   return true;
 });
@@ -100,7 +100,7 @@ const sub = nh.subscribe('/chatter', StringMsg, (msg) => { ... });
 const pub = nh.advertise('/chatter', StringMsg);
 
 const AddTwoInts = rosnodejs.require('beginner_tutorials').srv.AddTwoInts;
-const service = nh.advertiseService('/add_two_ints', AddTwoInts, (req, resp) => { ... });
+const service = nh.advertiseService('/add_two_ints', AddTwoInts, (req, res) => { ... });
 const client = nh.serviceClient('/add_two_ints', AddTwoInts);
 ```
 ## Actions (Experimental)
