@@ -115,6 +115,7 @@ class RosMasterStub extends EventEmitter {
   }
 
   _onRegisterPublisher(err, params, callback) {
+    const topic = params[1];
     const pubInfo = params[3];
     this._clientCache.pub = pubInfo;
 
