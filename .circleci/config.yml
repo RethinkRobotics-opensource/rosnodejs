@@ -36,6 +36,18 @@ jobs:
       - run:
           name: npm publish
           command: npm publish
+  test:
+    docker:
+      - image: node:8.12.0
+        environment:
+          NODE_ENV: test
+    steps:
+      - attach_workspace:
+          at: ./
+      - run:
+          name: npm test
+          command: |
+            npm test
 
 workflows:
   version: 2
@@ -43,6 +55,8 @@ workflows:
     jobs:
       - build:
           context: 6rs-circle
+          requires:
+            - test
       - publish:
           context: 6rs-circle
           requires:
