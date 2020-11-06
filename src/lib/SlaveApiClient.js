@@ -17,7 +17,7 @@
 
 "use strict";
 
-let xmlrpc = require('xmlrpc');
+let xmlrpc = require('@sixriver/xmlrpc');
 
 //-----------------------------------------------------------------------
 

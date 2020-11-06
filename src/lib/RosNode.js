@@ -18,7 +18,7 @@
 "use strict"
 
 let net = require('net');
-let xmlrpc = require('xmlrpc');
+let xmlrpc = require('@sixriver/xmlrpc');
 let MasterApiClient  = require('./MasterApiClient.js');
 let SlaveApiClient = require('./SlaveApiClient.js');
 let ParamServerApiClient = require('./ParamServerApiClient.js');
