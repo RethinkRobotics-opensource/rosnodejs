@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('@sixriver/xmlrpc');
 const rosnodejs = require('../src/index.js');
 const Master = require('./utils/MasterStub.js');
 

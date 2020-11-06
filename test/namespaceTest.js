@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('@sixriver/xmlrpc');
 const namespaceUtils = require('../src/utils/namespace_utils.js');
 const NodeHandle = require('../src/lib/NodeHandle.js');
 

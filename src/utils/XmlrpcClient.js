@@ -1,6 +1,6 @@
 'use strict';
 const EventEmitter = require('events');
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('@sixriver/xmlrpc');
 
 const CONNECTION_REFUSED='ECONNREFUSED';
 const TRY_AGAIN_LIST = [1, 2, 2, 4, 4, 4, 4, 8, 8, 8, 8, 16, 16, 32, 64, 128, 256, 512, 1024, 2048];
