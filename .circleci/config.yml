@@ -48,6 +48,8 @@ jobs:
           name: npm test
           command: |
             npm test
+          environment:
+            CMAKE_PREFIX_PATH: ''
 
 workflows:
   version: 2
