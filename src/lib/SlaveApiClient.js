@@ -22,10 +22,10 @@ let xmlrpc = require('xmlrpc');
 //-----------------------------------------------------------------------
 
 class SlaveApiClient {
-  requests = new Set();
-
+  
   constructor(host, port) {
     this._xmlrpcClient = xmlrpc.createClient({host: host, port: port});
+    this.requests = new Set();
   };
 
   requestTopic(callerId, topic, protocols) {
