@@ -55,9 +55,12 @@ workflows:
     jobs:
       - build:
           context: 6rs-circle
+      - test:
+          context: 6rs-circle
           requires:
-            - test
+            - build
       - publish:
           context: 6rs-circle
           requires:
             - build
+            - test
