@@ -22,6 +22,7 @@ let xmlrpc = require('xmlrpc');
 //-----------------------------------------------------------------------
 
 class SlaveApiClient {
+  requests = new Set();
 
   constructor(host, port) {
     this._xmlrpcClient = xmlrpc.createClient({host: host, port: port});
@@ -30,7 +31,8 @@ class SlaveApiClient {
   requestTopic(callerId, topic, protocols) {
     let data = [callerId, topic, protocols];
     return new Promise((resolve, reject) => {
-      this._xmlrpcClient.methodCall('requestTopic', data, (err, resp) => {
+      let request = this._xmlrpcClient.methodCall('requestTopic', data, (err, resp) => {
+        this.requests.delete(request);
         if (err || resp[0] !== 1) {
           reject(err, resp);
         }
@@ -38,8 +40,17 @@ class SlaveApiClient {
           resolve(resp);
         }
       });
+
+      this.requests.add(request);
     });
   };
+
+  shutdown() {
+    // we should abort any outstanding requests that we haven't heard back from
+    this.requests.forEach((request)=>{
+      request.abort();
+    });
+  }
 };
 
 //-----------------------------------------------------------------------
