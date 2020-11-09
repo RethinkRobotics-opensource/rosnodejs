@@ -47,6 +47,8 @@ jobs:
       - run:
           name: set up ros
           command: |
+            sudo apt-get install software-properties-common &&\
+            sudo apt-get update &&\
             echo $ARTIFACTORY_PUB_KEY > sudo apt-key add - &&\
             sudo add-apt-repository "deb https://6rs-machine:$ARTIFACTORY_6RS_SECRET@sixriver.jfrog.io/sixriver/debian xenial main" &&\
             sudo apt-get update && sudo apt-get install ros-kinetic-ros-base
