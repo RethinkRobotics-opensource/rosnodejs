@@ -47,6 +47,8 @@ jobs:
       - run:
           name: set up ros
           command: |
+            sed -i 's#http://securityfoo.ubuntu.com/ubuntu/#https://sixriver.jfrog.io/sixriver/security-ubuntu#g' /etc/apt/sources.list &&\
+            sed -i 's#http://archive.ubuntu.com/ubuntu/#https://sixriver.jfrog.io/sixriver/ubuntu/#g' /etc/apt/sources.list &&\
             sudo apt-get update && sudo apt-get install ros-kinetic-ros-base
       - run:
           name: npm test
