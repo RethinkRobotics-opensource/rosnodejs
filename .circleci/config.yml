@@ -44,11 +44,10 @@ jobs:
     steps:
       - attach_workspace:
           at: ./
-      # - run:
-      #     name: set up ros
-      #     command: |
-      #       curl -sSL 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC1CF6E31E6BADE8868B172B4F42ED6FBAB17C654' | sudo apt-key add -
-      #       sudo apt-get update && sudo apt-get install ros-kinetic-ros-base
+      - run:
+          name: set up ros
+          command: |
+            sudo apt-get update && sudo apt-get install ros-kinetic-ros-base
       - run:
           name: npm test
           command: |
