@@ -47,9 +47,8 @@ jobs:
       - run:
           name: set up ros
           command: |
-            sudo sed -i 's#http://securityfoo.ubuntu.com/ubuntu/#https://sixriver.jfrog.io/sixriver/security-ubuntu#g' /etc/apt/sources.list &&\
-            sudo sed -i 's#http://archive.ubuntu.com/ubuntu/#https://sixriver.jfrog.io/sixriver/ubuntu/#g' /etc/apt/sources.list &&\
-            sudo cat /etc/apt/sources.list &&\
+            sudo apt-key add $ARTIFACTORY_PUB_KEY &&\
+            sudo add-apt-repository "deb https://6rs-machine:AKCp5Zk9VxXDJ8JzMbHqGbMn3psSQ4PyrHhW3mBQ9qB2GpKr9Jy7qk5yefzDS93MbQffhBFkx@sixriver.jfrog.io/sixriver/debian xenial main" &&\
             sudo apt-get update && sudo apt-get install ros-kinetic-ros-base
       - run:
           name: npm test
