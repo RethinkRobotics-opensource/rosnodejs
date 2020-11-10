@@ -55,7 +55,7 @@ jobs:
             bash install_nvm.sh &&\
             echo "sourcing .profile" &&\
             source ~/.profile &&\
-            echo "nvm setup done" &&\
+            echo "nvm setup done"
       - run:
           name: install node
           command: |
