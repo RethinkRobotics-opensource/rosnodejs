@@ -47,7 +47,7 @@ jobs:
       - persist_to_workspace:
           root: /
           paths:
-            - opt/ros/kinetic/*
+            - /opt/ros/kinetic/*
       - attach_workspace:
           at: ./
   test:
