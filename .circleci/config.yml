@@ -68,6 +68,11 @@ jobs:
       - run:
           name: npm test
           command: |
+            echo "set env var" &&\
+            export NVM_DIR="$HOME/.nvm" &&\
+            echo "run nvm script" &&\
+            sh ~/.nvm/nvm.sh &&\
+            echo "run test" &&\
             npm test
 
 workflows:
