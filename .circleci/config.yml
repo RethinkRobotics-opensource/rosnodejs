@@ -55,10 +55,10 @@ jobs:
             bash install_nvm.sh &&\
             echo "sourcing .profile" &&\
             source ~/.profile &&\
-            echo "sourcing .bashrc" &&\
-            source ~/.bashrc &&\
             echo "nvm setup done" &&\
-            export NVM_DIR="$HOME/.nvm" &&\
+      - run:
+          name: install node
+          command: |
             echo "try install node" &&\
             nvm install 8.12.0
       - run:
