@@ -53,7 +53,10 @@ jobs:
             sudo apt install -q -y curl &&\
             curl -sL https://raw.githubusercontent.com/creationix/nvm/v0.33.8/install.sh -o install_nvm.sh &&\
             bash install_nvm.sh &&\
+            echo "sourcing .profile" &&\
             source ~/.profile &&\
+            echo "sourcing .bashrc" &&\
+            source ~/.bashrc &&\
             echo "nvm setup done" &&\
             export NVM_DIR="$HOME/.nvm" &&\
             echo "try install node" &&\
