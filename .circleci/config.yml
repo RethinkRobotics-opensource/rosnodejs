@@ -41,25 +41,22 @@ jobs:
       - image: ros:kinetic-ros-core-xenial
         environment:
           NODE_ENV: test
+          CMAKE_PREFIX_PATH: /opt/ros/kinetic
+          ROS_PACKAGE_PATH: /opt/ros/kinetic/share
     steps:
       - attach_workspace:
           at: ./
       - run:
-          name: set up ros
+          name: setup node
           command: |
-            sudo apt-get install software-properties-common &&\
-            sudo apt-get update &&\
-            echo $ARTIFACTORY_PUB_KEY > sudo apt-key add - &&\
-            sudo apt-get install apt-transport-https --force-yes &&\
-            sudo apt-key adv --keyserver sixriver.jfrog.io --recv-keys 8809ADE4AAC27665 &&\
-            sudo add-apt-repository "deb https://6rs-machine:AKCp5Zk9VxXDJ8JzMbHqGbMn3psSQ4PyrHhW3mBQ9qB2GpKr9Jy7qk5yefzDS93MbQffhBFkx@sixriver.jfrog.io/sixriver/debian xenial main" &&\
-            sudo apt-get update && sudo apt-get install ros-kinetic-ros-base
+            curl -sL https://raw.githubusercontent.com/creationix/nvm/v0.33.8/install.sh -o install_nvm.sh &&\
+            bash install_nvm.sh &&\
+            source ~/.profile &&\
+            nvm install 8.12.0
       - run:
           name: npm test
           command: |
             npm test
-          environment:
-            CMAKE_PREFIX_PATH: /opt/ros/kinetic
 
 workflows:
   version: 2
