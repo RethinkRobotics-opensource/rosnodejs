@@ -49,6 +49,8 @@ jobs:
       - run:
           name: setup node
           command: |
+            sudo apt update &&\
+            sudo apt install curl &&\
             curl -sL https://raw.githubusercontent.com/creationix/nvm/v0.33.8/install.sh -o install_nvm.sh &&\
             bash install_nvm.sh &&\
             source ~/.profile &&\
