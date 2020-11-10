@@ -61,7 +61,7 @@ jobs:
             echo "set env var" &&\
             export NVM_DIR="$HOME/.nvm" &&\
             echo "run nvm script" &&\
-            sh ~/.nvm/nvm.sh &&\
+            source ~/.nvm/nvm.sh &&\
             echo "try install node" &&\
             echo "run bash completion" &&\
             source ~/.nvm/bash_completion &&\
