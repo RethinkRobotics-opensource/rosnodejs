@@ -45,9 +45,9 @@ jobs:
           ROS_PACKAGE_PATH: /opt/ros/kinetic/share
     steps:
       - persist_to_workspace:
-          root: /
+          root: /opt
           paths:
-            - opt/ros/kinetic/*
+            - ros/kinetic/*
       - attach_workspace:
           at: ./
   test:
@@ -59,10 +59,11 @@ jobs:
           ROS_PACKAGE_PATH: /opt/ros/kinetic/share
     steps:
       - attach_workspace:
-          at: /
+          at: /opt
       - run:
           name: npm test
           command: |
+            echo 'curr directory: ' && pwd  &&\
             npm test
 
 workflows:
