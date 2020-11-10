@@ -59,7 +59,7 @@ jobs:
           ROS_PACKAGE_PATH: /opt/ros/kinetic/share
     steps:
       - attach_workspace:
-          at: /opt
+          at: ./
       - run:
           name: npm test
           command: |
