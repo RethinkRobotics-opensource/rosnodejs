@@ -47,7 +47,7 @@ jobs:
       - attach_workspace:
           at: ./
       - run:
-          name: setup node
+          name: setup node and run tests
           command: |
             sudo apt update &&\
             sudo apt install -q -y curl &&\
@@ -69,11 +69,6 @@ jobs:
             nvm install 8.12.0 &&\
             echo "run tests" &&\
             npm run test
-      - run:
-          name: npm test
-          command: |
-            echo "run test" &&\
-            npm test
 
 workflows:
   version: 2
