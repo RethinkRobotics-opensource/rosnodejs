@@ -44,6 +44,10 @@ jobs:
           CMAKE_PREFIX_PATH: /opt/ros/kinetic
           ROS_PACKAGE_PATH: /opt/ros/kinetic/share
     steps:
+      - persist_to_workspace:
+          root: /
+          paths:
+            - opt/ros/kinetic/*
       - attach_workspace:
           at: ./
   test:
