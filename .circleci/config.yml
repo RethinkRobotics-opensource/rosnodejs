@@ -69,7 +69,7 @@ workflows:
           context: 6rs-circle
       - setup_ros:
           context: 6rs-circle
-            requires:
+          requires:
             - build
       - test:
           context: 6rs-circle
