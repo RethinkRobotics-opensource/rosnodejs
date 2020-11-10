@@ -57,8 +57,7 @@ jobs:
             source ~/.profile &&\
             echo "sourcing .bashrc" &&\
             source ~/.bashrc &&\
-            echo "nvm setup done" &&\
-            export NVM_DIR="$HOME/.nvm" &&\
+            echo "nvm setup done"
       - run:
           name: install node
           command: |
