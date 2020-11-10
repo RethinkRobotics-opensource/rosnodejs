@@ -65,7 +65,12 @@ jobs:
             echo "try install node" &&\
             echo "run bash completion" &&\
             source ~/.nvm/bash_completion &&\
-            nvm install 8.12.0
+            echo "install node" &&\
+            nvm install 8.12.0 &&\
+            echo "change dirs" &&\
+            cd ./project &&\
+            echo "run tests" &&\
+            npm run test
       - run:
           name: npm test
           command: |
