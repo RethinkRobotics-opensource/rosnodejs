@@ -27,7 +27,7 @@ const Socket = require('net').Socket;
 const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
-const AbortedError = require('../SlaveApiClient');
+const {AbortedError} = require('../SlaveApiClient');
 
 const protocols = [['TCPROS']];
 
