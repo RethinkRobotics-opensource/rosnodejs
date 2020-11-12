@@ -22,6 +22,11 @@ let xmlrpc = require('@sixriver/xmlrpc');
 //-----------------------------------------------------------------------
 
 class AbortedError extends Error {
+    constructor() {
+        super();
+
+        Object.setPrototypeOf(this, AbortedError.prototype);
+    }
 }
 
 class SlaveApiClient {
