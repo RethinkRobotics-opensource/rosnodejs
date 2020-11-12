@@ -989,7 +989,7 @@ describe('Protocol Test', () => {
       // unregister the mocha uncaughtException handler otherwise throwing an error in a nextTick
       // will fail the test even though we're expecting to throw the error
       const mochaUncaughtExceptionHandler = process.listeners('uncaughtException')[0];
-      process.off('uncaughtException', mochaUncaughtExceptionHandler);
+      process.removeListener('uncaughtException', mochaUncaughtExceptionHandler);
       process.prependOnceListener('uncaughtException', (err)=>{
         assert.equal(err.message, 'Node should not have initialized!');
       });
