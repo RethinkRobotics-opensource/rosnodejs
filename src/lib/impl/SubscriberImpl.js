@@ -27,6 +27,7 @@ const Socket = require('net').Socket;
 const EventEmitter = require('events');
 const Logging = require('../Logging.js');
 const {REGISTERING, REGISTERED, SHUTDOWN} = require('../../utils/ClientStates.js');
+const AbortedError = require('../SlaveApiClient');
 
 const protocols = [['TCPROS']];
 
@@ -207,8 +208,11 @@ class SubscriberImpl extends EventEmitter {
         this._handleTopicRequestResponse(resp, pubUri);
       })
       .catch((err, resp) => {
-        // there was an error in the topic request
-        this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
+        // don't warn if we have rejected this promise due to aborteding the http.request call
+        if(!(err instanceof AbortedError)) {
+          // there was an error in the topic request
+          this._log.warn('Error requesting topic on %s: %s, %s', this.getTopic(), err, resp);
+        }
       });
   }
 

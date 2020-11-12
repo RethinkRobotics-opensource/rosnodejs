@@ -44,8 +44,13 @@ class RosMasterStub extends EventEmitter {
     this._providedApis.clear();
     this.removeAllListeners();
     return new Promise((resolve, reject) => {
-      this._server.close(resolve);
-      this._server = null;
+      if(this._server) {
+        this._server.close(resolve);
+        this._server = null; 
+      }
+      else {
+        resolve();
+      }
     });
   }
 
