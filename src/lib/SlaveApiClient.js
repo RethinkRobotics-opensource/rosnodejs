@@ -25,6 +25,7 @@ class AbortedError extends Error {
     constructor() {
         super();
 
+        // this is necessary to support using "instanceof" with older versions of JS
         Object.setPrototypeOf(this, AbortedError.prototype);
     }
 }
@@ -41,10 +42,7 @@ class SlaveApiClient {
     return new Promise((resolve, reject) => {
       let request = this._xmlrpcClient.methodCall('requestTopic', data, (err, resp) => {
         this.requests.delete(request);
-        if(err instanceof AbortedError) {
-          reject(err);
-        }
-        else if (err || resp[0] !== 1) {
+        if (err || resp[0] !== 1) {
           reject(err, resp);
         }
         else {
@@ -58,7 +56,7 @@ class SlaveApiClient {
 
   shutdown() {
     // we should abort any outstanding requests that we haven't heard back from
-    this.requests.forEach((request)=>{
+    this.requests.forEach((request) => {
       request.destroy(new AbortedError());
     });
     this.requests.clear();
