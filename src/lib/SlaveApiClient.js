@@ -17,20 +17,31 @@
 
 "use strict";
 
-let xmlrpc = require('xmlrpc');
+let xmlrpc = require('@sixriver/xmlrpc');
 
 //-----------------------------------------------------------------------
 
-class SlaveApiClient {
+class AbortedError extends Error {
+    constructor() {
+        super();
 
+        // this is necessary to support using "instanceof" with older versions of JS
+        Object.setPrototypeOf(this, AbortedError.prototype);
+    }
+}
+
+class SlaveApiClient {
+  
   constructor(host, port) {
     this._xmlrpcClient = xmlrpc.createClient({host: host, port: port});
+    this.requests = new Set();
   };
 
   requestTopic(callerId, topic, protocols) {
     let data = [callerId, topic, protocols];
     return new Promise((resolve, reject) => {
-      this._xmlrpcClient.methodCall('requestTopic', data, (err, resp) => {
+      let request = this._xmlrpcClient.methodCall('requestTopic', data, (err, resp) => {
+        this.requests.delete(request);
         if (err || resp[0] !== 1) {
           reject(err, resp);
         }
@@ -38,10 +49,23 @@ class SlaveApiClient {
           resolve(resp);
         }
       });
+
+      this.requests.add(request);
     });
   };
+
+  shutdown() {
+    // we should abort any outstanding requests that we haven't heard back from
+    this.requests.forEach((request) => {
+      request.destroy(new AbortedError());
+    });
+    this.requests.clear();
+  }
 };
 
 //-----------------------------------------------------------------------
 
-module.exports = SlaveApiClient;
+module.exports = {
+  SlaveApiClient,
+  AbortedError
+}

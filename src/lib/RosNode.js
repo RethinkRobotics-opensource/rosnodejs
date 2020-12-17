@@ -18,9 +18,9 @@
 "use strict"
 
 let net = require('net');
-let xmlrpc = require('xmlrpc');
+let xmlrpc = require('@sixriver/xmlrpc');
 let MasterApiClient  = require('./MasterApiClient.js');
-let SlaveApiClient = require('./SlaveApiClient.js');
+let {SlaveApiClient} = require('./SlaveApiClient.js');
 let ParamServerApiClient = require('./ParamServerApiClient.js');
 let Subscriber = require('./Subscriber.js');
 let Publisher = require('./Publisher.js');
@@ -72,6 +72,8 @@ class RosNode extends EventEmitter {
     this._subscribers = {};
 
     this._services = {};
+
+    this._slaveApis = new Set();
 
     this._setupTcprosServer(options.tcprosPort)
     .then(this._setupSlaveApi.bind(this, options.xmlrpcPort));
@@ -347,6 +349,7 @@ class RosNode extends EventEmitter {
     // so we create an xmlrpc client here instead of having a single one
     // for this object, like we do with the MasterApiClient
     let slaveApi = new SlaveApiClient(remoteAddress, remotePort);
+    this._slaveApis.add(slaveApi);
     return slaveApi.requestTopic(this._nodeName, topic, protocols);
   }
 
@@ -675,6 +678,14 @@ class RosNode extends EventEmitter {
         this._masterApi.getXmlrpcClient().clear();
       };
 
+      const clearOutstandingClients = () => {
+        this._slaveApis.forEach((slaveApi)=>{
+          slaveApi.shutdown();
+        });
+
+        this._slaveApis.clear();
+      };
+
       const shutdownServer = (server, name) => {
         return new Promise((resolve) => {
           const timeout = setTimeout(() => {
@@ -703,6 +714,8 @@ class RosNode extends EventEmitter {
 
       // clear out any existing calls that may block us when we try to unregister
       clearXmlrpcQueues();
+
+      clearOutstandingClients();
 
       // remove all publishers, subscribers, and services.
       // remove subscribers first so that master doesn't send

@@ -25,7 +25,7 @@ jobs:
 
   publish:
     docker:
-      - image: node:8.12.0
+      - image: circleci/node:8.12.0
     steps:
       - attach_workspace:
           at: ./
@@ -36,6 +36,39 @@ jobs:
       - run:
           name: npm publish
           command: npm publish
+  test:
+    docker:
+      - image: ros:kinetic-ros-core-xenial
+        environment:
+          NODE_ENV: test
+          CMAKE_PREFIX_PATH: /opt/ros/kinetic
+          ROS_PACKAGE_PATH: /opt/ros/kinetic/share
+    steps:
+      - attach_workspace:
+          at: ./
+      - run:
+          name: setup node and run tests
+          command: |
+            sudo apt update &&\
+            sudo apt install -q -y curl &&\
+            curl -sL https://raw.githubusercontent.com/creationix/nvm/v0.33.8/install.sh -o ~/install_nvm.sh &&\
+            bash ~/install_nvm.sh &&\
+            echo "sourcing .profile" &&\
+            source ~/.profile &&\
+            echo "sourcing .bashrc" &&\
+            source ~/.bashrc &&\
+            echo "nvm setup done"
+            echo "set env var" &&\
+            export NVM_DIR="$HOME/.nvm" &&\
+            echo "run nvm script" &&\
+            source ~/.nvm/nvm.sh &&\
+            echo "try install node" &&\
+            echo "run bash completion" &&\
+            source ~/.nvm/bash_completion &&\
+            echo "install node" &&\
+            nvm install 8.12.0 &&\
+            echo "run tests" &&\
+            npm run test
 
 workflows:
   version: 2
@@ -43,7 +76,12 @@ workflows:
     jobs:
       - build:
           context: 6rs-circle
+      - test:
+          context: 6rs-circle
+          requires:
+            - build
       - publish:
           context: 6rs-circle
           requires:
             - build
+            - test

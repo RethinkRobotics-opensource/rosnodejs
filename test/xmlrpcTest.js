@@ -6,7 +6,7 @@ const expect = chai.expect;
 const rosnodejs = require('../src/index.js');
 const Subscriber = require('../src/lib/Subscriber.js');
 const SubscriberImpl = require('../src/lib/impl/SubscriberImpl.js');
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('@sixriver/xmlrpc');
 const netUtils = require('../src/utils/network_utils.js');
 const MasterStub = require('./utils/MasterStub.js');
 
@@ -928,21 +928,24 @@ describe('Protocol Test', () => {
 
   describe('Shutdown', () => {
     let masterStub;
-    before((done) => {
+    beforeEach((done) => {
       stopMasterStub(() => {
         masterStub = new MasterStub('localhost', MASTER_PORT);
-        masterStub.provideAll();
-      });
+        masterStub.on('ready', function(){
+          masterStub.provideAll();
 
-      return rosnodejs.shutdown()
-      .then(() => {
-        rosnodejs.reset();
-        done();
+          rosnodejs.shutdown()
+          .then(() => {
+            rosnodejs.reset();
+            done();
+          });
+
+        });
       });
     });
 
-    after(() => {
-      masterStub.shutdown();
+    afterEach(() => {
+      return masterStub.shutdown();
     });
 
     it('Shutdown after successful start with master running', function(done) {
@@ -982,10 +985,18 @@ describe('Protocol Test', () => {
       });
     });
 
-    it('Shutdown when unable to connect to master', function(done) {
+    it('Shutdown when unable to connect to master', async function() {
+      // unregister the mocha uncaughtException handler otherwise throwing an error in a nextTick
+      // will fail the test even though we're expecting to throw the error
+      const mochaUncaughtExceptionHandler = process.listeners('uncaughtException')[0];
+      process.removeListener('uncaughtException', mochaUncaughtExceptionHandler);
+      process.prependOnceListener('uncaughtException', (err)=>{
+        assert.equal(err.message, 'Node should not have initialized!');
+      });
+
       rosnodejs.initNode(nodeName, initArgs)
       .then(() => {
-        throwNext('Node should not have initialized!');
+          throwNext('Node should not have initialized!');
       });
 
       let gotEvent = false;
@@ -993,20 +1004,21 @@ describe('Protocol Test', () => {
         gotEvent = true;
       });
 
-      setTimeout(() => {
-        rosnodejs.shutdown()
-        .then(() => {
-          rosnodejs.reset();
-          expect(gotEvent).to.be.true;
-          done();
-        });
-      }, 500);
+      await new Promise((resolve)=>{
+        setTimeout(() => {
+          rosnodejs.shutdown()
+          .then(() => {
+            rosnodejs.reset();
+            expect(gotEvent).to.be.true;
+
+            process.on('uncaughtException', mochaUncaughtExceptionHandler);
+            resolve();
+          });
+        }, 500);
+      });
     });
 
     it('Spinner is cleared out when shutdown', function(done) {
-      masterStub.listen();
-      masterStub.provideAll();
-
       let gotEvent = false;
 
       rosnodejs.initNode(nodeName, initArgs)
@@ -1019,8 +1031,7 @@ describe('Protocol Test', () => {
         .then(() => {
           rosnodejs.reset();
           expect(gotEvent).to.be.true;
-          expect(nh._node._spinner._spinTimer.clientCallQueue).to.be.empty;
-          expect
+          expect(nh._node._spinner._spinTimer.clientCallQueue).to.be.undefined;
           done();
         });
       });

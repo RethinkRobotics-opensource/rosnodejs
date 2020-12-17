@@ -2,7 +2,7 @@
 
 const chai = require('chai');
 const expect = chai.expect;
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('@sixriver/xmlrpc');
 const rosnodejs = require('../src/index.js');
 const Master = require('./utils/MasterStub.js');
 
@@ -17,7 +17,7 @@ describe('OnTheFly', function () {
     master = new Master('localhost', MASTER_PORT);
     master.provideAll();
 
-    return rosnodejs.initNode('/testNode', {
+    rosnodejs.initNode('/testNode', {
       rosMasterUri: `http://localhost:${MASTER_PORT}`,
       onTheFly: true,
       logging: {skipRosLogging: true}})
@@ -27,8 +27,11 @@ describe('OnTheFly', function () {
   });
 
   after(() => {
-    rosnodejs.reset();
-    return master.shutdown();
+    return rosnodejs.shutdown()
+    .then(()=>{
+      rosnodejs.reset();
+      return master.shutdown();
+    });
   });
 
   const geometry_msgs = rosnodejs.require('geometry_msgs').msg;
@@ -47,7 +50,7 @@ describe('OnTheFly', function () {
       ]
     });
 
-  it('serialize/deserialize', (done) => {
+  it('serialize/deserialize', () => {
     const size = geometry_msgs.PoseWithCovariance.getMessageSize(msg);
     const buffer = new Buffer(size);
     geometry_msgs.PoseWithCovariance.serialize(msg, buffer, 0);
@@ -55,7 +58,5 @@ describe('OnTheFly', function () {
     const read = geometry_msgs.PoseWithCovariance.deserialize(buffer);
     expect(read.covariance.length == msg.covariance.length
       && read.covariance.every((v,i)=> v === msg.covariance[i])).to.be.true;
-
-    done();
   });
 });
