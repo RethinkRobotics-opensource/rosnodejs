@@ -38,6 +38,6 @@
     "moment": "^2.24.0",
     "ultron": "1.1.0",
     "walker": "1.0.7",
-    "@sixriver/xmlrpc": "1.4.0-lingeringHttpRequest.1"
+    "@sixriver/xmlrpc": "1.4.0"
   }
 }
