@@ -51,19 +51,19 @@ class ActionClientInterface extends EventEmitter {
                                    'actionlib_msgs/GoalID',
                                    cancelOptions);
 
-    const statusOptions = Object.assign({ queueSize: 1 }, options.status);
+    const statusOptions = Object.assign({ queueSize: 25 }, options.status);
     this._statusSub = nh.subscribe(this._actionServer + '/status',
                                    'actionlib_msgs/GoalStatusArray',
                                    (msg) => { this._handleStatus(msg); },
                                    statusOptions);
 
-    const feedbackOptions = Object.assign({ queueSize: 1 }, options.feedback);
+    const feedbackOptions = Object.assign({ queueSize: 25 }, options.feedback);
     this._feedbackSub = nh.subscribe(this._actionServer + '/feedback',
                                      this._actionType + 'Feedback',
                                      (msg) => { this._handleFeedback(msg); },
                                      feedbackOptions);
 
-    const resultOptions = Object.assign({ queueSize: 1 }, options.result);
+    const resultOptions = Object.assign({ queueSize: 25 }, options.result);
     this._resultSub = nh.subscribe(this._actionServer + '/result',
                                    this._actionType + 'Result',
                                    (msg) => { this._handleResult(msg); },
