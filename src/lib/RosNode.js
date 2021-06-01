@@ -450,6 +450,7 @@ class RosNode extends EventEmitter {
   _setupTcprosServer(tcprosPort=null) {
     let _createServer = (callback) => {
       const server = net.createServer((connection) => {
+	connection.on("error",()=>{}) //add this incase of ECONNRESET crash the whole program
         let conName = connection.remoteAddress + ":"
           + connection.remotePort;
         connection.name = conName;
