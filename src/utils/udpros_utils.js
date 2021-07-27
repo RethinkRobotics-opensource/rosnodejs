@@ -41,11 +41,7 @@ function serializeStringFields(fields) {
   fields.forEach((field) => {
     length += (field.length + 4);
   });
-<<<<<<< HEAD
-  let buffer = new Buffer(length);
-=======
   let buffer = Buffer.allocUnsafe(length);
->>>>>>> edf87af3bb5c58258d28d4da88b7cccd6165778e
   let offset = 0
 
   fields.forEach((field) => {
@@ -205,19 +201,11 @@ let UdprosUtils = {
     let msgBuffer;
     let offset = 0;
     if (prependMessageLength) {
-<<<<<<< HEAD
-      msgBuffer = new Buffer(msgSize + 4);
-      offset = base_serializers.uint32(msgSize, msgBuffer, 0);
-    }
-    else {
-      msgBuffer = new Buffer(msgSize);
-=======
       msgBuffer = Buffer.allocUnsafe(msgSize + 4);
       offset = base_serializers.uint32(msgSize, msgBuffer, 0);
     }
     else {
       msgBuffer = Buffer.allocUnsafe(msgSize);
->>>>>>> edf87af3bb5c58258d28d4da88b7cccd6165778e
     }
 
     MessageClass.serialize(message, msgBuffer, offset);
@@ -229,11 +217,7 @@ let UdprosUtils = {
     if (prependResponseInfo) {
       if (success) {
         const respSize = ResponseClass.getMessageSize(response);
-<<<<<<< HEAD
-        responseBuffer = new Buffer(respSize + 5);
-=======
         responseBuffer = Buffer.allocUnsafe(respSize + 5);
->>>>>>> edf87af3bb5c58258d28d4da88b7cccd6165778e
 
         // add the success byte
         base_serializers.uint8(1, responseBuffer, 0);
@@ -245,21 +229,13 @@ let UdprosUtils = {
         const errorMessage = 'Unable to handle service call';
         const errLen = errorMessage.length;
         // FIXME: check that we don't need the extra 4 byte message len here
-<<<<<<< HEAD
-        responseBuffer = new Buffer(5 + errLen);
-=======
         responseBuffer = Buffer.allocUnsafe(5 + errLen);
->>>>>>> edf87af3bb5c58258d28d4da88b7cccd6165778e
         base_serializers.uint8(0, responseBuffer, 0);
         base_serializers.string(errorMessage, responseBuffer, 1);
       }
     }
     else {
-<<<<<<< HEAD
-      responseBuffer = new Buffer(ResponseClass.getMessageSize(response));
-=======
       responseBuffer = Buffer.allocUnsafe(ResponseClass.getMessageSize(response));
->>>>>>> edf87af3bb5c58258d28d4da88b7cccd6165778e
     }
 
     return responseBuffer;
@@ -270,11 +246,7 @@ let UdprosUtils = {
   },
 
   serializeString(str) {
-<<<<<<< HEAD
-    const buf = new Buffer(str.length + 4);
-=======
     const buf = Buffer.allocUnsafe(str.length + 4);
->>>>>>> edf87af3bb5c58258d28d4da88b7cccd6165778e
     base_serializers.string(str, buf, 0);
     return buf;
   },
