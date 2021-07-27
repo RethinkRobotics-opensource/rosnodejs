@@ -282,7 +282,7 @@ class SubscriberImpl extends EventEmitter {
     }
     if(this._udp){
       let header = UdprosUtils.createSubHeader(this._nodeHandle.getNodeName(), this._messageHandler.md5sum(), this.getTopic(), this.getType())
-      protocols.push(['UDPROS', header, info.host, this._port, this._dgramSize || 1500])
+      protocols.push(['UDPROS', header, NetworkUtils.getHost(), this._port, this._dgramSize || 1500])
     }
     if(this._udpFirst){
       protocols.reverse();

@@ -563,7 +563,7 @@ class RosNode extends EventEmitter {
             '',
             [
               'UDPROS',
-              NetworkUtils.getHost(), //maybe wrong
+              host,
               port,
               ++this._connections, //connection Id
               dgramSize,
