@@ -75,7 +75,7 @@ function Int32Serializer(value, buffer, bufferOffset) {
 
 function Int64Serializer(value, buffer, bufferOffset) {
   if (!BN.isBN(value)) {
-    value = new BN(value, 'le');
+    value = new BN(value);
   }
 
   value = value.toTwos(64);

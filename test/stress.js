@@ -1,6 +1,6 @@
 
 const chai = require('chai');
-const xmlrpc = require('xmlrpc');
+const xmlrpc = require('xmlrpc-rosnodejs');
 const rosnodejs = require('rosnodejs');
 
 const TOPIC = '/topic';

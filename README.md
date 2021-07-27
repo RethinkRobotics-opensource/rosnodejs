@@ -38,7 +38,7 @@ pub.publish({ data: "hi" });
 ```
 ## Services
 ```
-const service = nh.advertiseService('/add_two_ints', 'beginner_tutorials/AddTwoInts', (req, resp) => {
+const service = nh.advertiseService('/add_two_ints', 'beginner_tutorials/AddTwoInts', (req, res) => {
   res.sum = req.a + req.b;
   return true;
 });
@@ -72,8 +72,10 @@ rosnodejs.loadAllPackages();
 - On the fly - all versions of ROS and Node.js 4.5+. When generating on the fly, messages can not be required until the node has initialized.
 ```
 const rosnodejs = require('rosnodejs');
-await rosnodejs.initNode('my_node', { onTheFly: true })
-const stdMsgs = rosnodejs.require('std_msgs');
+rosnodejs.initNode('my_node', { onTheFly: true }).then(() => {
+  const stdMsgs = rosnodejs.require('std_msgs');
+  ...
+}
 ```
 
 | |Pre-Kinetic|Kinetic & Later|
@@ -92,12 +94,13 @@ const SetCameraInfo = sensorMsgs.srv.SetCameraInfo;
 const setRequest = new SetCameraInfo.Request();
 
 // messages can be used when advertising/subscribing
+const nh = rosnodejs.nh;
 const StringMsg = rosnodejs.require('std_msgs').msg.String;
 const sub = nh.subscribe('/chatter', StringMsg, (msg) => { ... });
 const pub = nh.advertise('/chatter', StringMsg);
 
 const AddTwoInts = rosnodejs.require('beginner_tutorials').srv.AddTwoInts;
-const service = nh.advertiseService('/add_two_ints', AddTwoInts, (req, resp) => { ... });
+const service = nh.advertiseService('/add_two_ints', AddTwoInts, (req, res) => { ... });
 const client = nh.serviceClient('/add_two_ints', AddTwoInts);
 ```
 ## Actions (Experimental)
