@@ -241,7 +241,7 @@ class PublisherImpl extends EventEmitter {
         if (this.getLatching()) {
           this._lastSentMsg = serializedMsg;
         }
-        msgCount = msgCount > 254 ? 0 : msgCount++;
+        msgCount = msgCount > 253 ? 0 : msgCount++;
       });
     }
     catch (err) {
