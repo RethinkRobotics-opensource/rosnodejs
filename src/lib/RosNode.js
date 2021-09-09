@@ -599,14 +599,14 @@ class RosNode extends EventEmitter {
             '',
             [
               'UDPROS',
-              host,
-              port,
+              NetworkUtils.getHost(),
+              this._udprosPort,
               ++this._connections, //connection Id
               dgramSize,
               UdprosUtils.createPubHeader(this.getNodeName(), typeClass.md5sum(), typeClass.messageDefinition(), topic, header.type)
             ]
           ]
-          pub.addUdpSubscriber(resp[2])
+          pub.addUdpSubscriber(resp[2],host,port)
           callback(null, resp)
         }
       }
