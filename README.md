@@ -4,7 +4,7 @@
 `npm install rosnodejs`
 
 ## Start a node
-```
+```js
 const rosnodejs = require('rosnodejs');
 rosnodejs.initNode('/my_node')
 .then(() => {
@@ -13,7 +13,7 @@ rosnodejs.initNode('/my_node')
 ```
 
 ## Publish/Subscribe
-```
+```js
 const nh = rosnodejs.nh;
 const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
   console.log('Got msg on chatter: %j', msg);
@@ -24,7 +24,7 @@ pub.publish({ data: "hi" });
 ```
 ### Udp transport (Experimental)
 
-```
+```js
 const nh = rosnodejs.nh;
 const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
   console.log('Got msg on chatter: %j', msg);
@@ -37,7 +37,7 @@ const pub = nh.advertise('/chatter', 'std_msgs/String');
 pub.publish({ data: "hi" });
 ```
 ## Services
-```
+```js
 const service = nh.advertiseService('/add_two_ints', 'beginner_tutorials/AddTwoInts', (req, res) => {
   res.sum = req.a + req.b;
   return true;
@@ -48,7 +48,7 @@ client.call({a: 1, b: 2});
 ```
 
 ## Params
-```
+```js
 nh.setParam('val', 2);
 nh.getParam('val')
 .then((val) => {
@@ -59,18 +59,18 @@ nh.getParam('val')
 
 Messages can be generated in a number of ways depending on the versions of ROS and Node.js you're using.
 - catkin - works in ROS Kinetic and later for Node.js v6+.
-```
+```sh
 $ catkin_make
 OR
 $ catkin build
 ```
 - `loadAllPackages()` - One-time "build" call available through `rosnodejs` for versions of ROS before Kinetic and Node.js v6+. Should be called separately and in advance of processes attempting to use messages.
-```
+```js
 const rosnodejs = require('rosnodejs');
 rosnodejs.loadAllPackages();
 ```
 - On the fly - all versions of ROS and Node.js 4.5+. When generating on the fly, messages can not be required until the node has initialized.
-```
+```js
 const rosnodejs = require('rosnodejs');
 rosnodejs.initNode('my_node', { onTheFly: true }).then(() => {
   const stdMsgs = rosnodejs.require('std_msgs');
@@ -84,7 +84,7 @@ rosnodejs.initNode('my_node', { onTheFly: true }).then(() => {
 |Node.js < v6|on the fly|on the fly|
 
 ## Using Messages
-```
+```js
 const sensorMsgs = rosnodejs.require('sensor_msgs');
 
 const image = new sensorMsgs.msg.Image();
@@ -104,7 +104,7 @@ const service = nh.advertiseService('/add_two_ints', AddTwoInts, (req, res) => {
 const client = nh.serviceClient('/add_two_ints', AddTwoInts);
 ```
 ## Actions (Experimental)
-```
+```js
 const nh = rosnodejs.nh;
 const as = new rosnodejs.ActionServer({
   nh,
@@ -130,20 +130,20 @@ ac.sendGoal({edges: 3, radius: 1});
 
 Start:
 
-```
+```sh
 roscore
 rosrun turtlesim turtlesim_node
 rosrun turtle_actionlib shape_server
 ```
 
 Then run
-```
+```sh
 node src/examples/turtle.js
 ```
 
 or, if you are running an older version of node:
 
-```
+```sh
 npm run compile
 node dist/examples/turtle.js
 ```
