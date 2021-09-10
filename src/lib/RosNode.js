@@ -596,7 +596,7 @@ class RosNode extends EventEmitter {
           let dgramSize = params[2][0][4];
           let resp = [
             1,
-            ' ',
+            ' ', // this string must not be empty, otherwise the subscriber will not understand the response
             [
               'UDPROS',
               NetworkUtils.getHost(),
