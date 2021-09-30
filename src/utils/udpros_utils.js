@@ -81,16 +81,18 @@ let UdprosUtils = {
    * Creates a UDPROS connection header for a publisher to send.
    * @param callerId {string} node publishing this topic
    * @param md5sum {string} md5 of the message
-   * @param type {string} type of the message
    * @param messageDefinition {string} trimmed message definition.
+   * @param topic {string} topic name
+   * @param type {string} type of the message
    *          rosbag relies on this being sent although it is not mentioned in the spec.
    */
-  createPubHeader(callerId, md5sum, type, messageDefinition) {
+  createPubHeader(callerId, md5sum, messageDefinition, topic, type) {
     const fields = [
       callerIdPrefix + callerId,
       md5Prefix + md5sum,
+      messageDefinitionPrefix + messageDefinition,
+      topicPrefix + topic,
       typePrefix + type,
-      messageDefinitionPrefix + messageDefinition
     ];
 
 
@@ -267,7 +269,6 @@ let UdprosUtils = {
     let opCode = buff.readUInt8(4)
     let msgId = buff.readUInt8(5)
     let blkN = buff.readUInt16LE(6)
-
     return {
       connectionId,
       opCode,

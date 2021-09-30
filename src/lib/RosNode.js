@@ -596,17 +596,17 @@ class RosNode extends EventEmitter {
           let dgramSize = params[2][0][4];
           let resp = [
             1,
-            '',
+            ' ', // this string must not be empty, otherwise the subscriber will not understand the response
             [
               'UDPROS',
-              NetworkUtils.getHost(), //maybe wrong
-              port,
+              NetworkUtils.getHost(),
+              this._udprosPort,
               ++this._connections, //connection Id
               dgramSize,
               UdprosUtils.createPubHeader(this.getNodeName(), typeClass.md5sum(), typeClass.messageDefinition(), topic, header.type)
             ]
           ]
-          pub.addUdpSubscriber(resp[2])
+          pub.addUdpSubscriber(resp[2],host,port)
           callback(null, resp)
         }
       }

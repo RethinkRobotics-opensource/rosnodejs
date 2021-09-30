@@ -241,7 +241,7 @@ class PublisherImpl extends EventEmitter {
         if (this.getLatching()) {
           this._lastSentMsg = serializedMsg;
         }
-        msgCount++;
+        msgCount = msgCount > 254 ? 0 : ++msgCount;
       });
     }
     catch (err) {
@@ -362,13 +362,13 @@ class PublisherImpl extends EventEmitter {
     this.emit('connection', header, socket.name);
   }
 
-  addUdpSubscriber(resp){
+  addUdpSubscriber(resp,host,port){
     if(Object.keys(this._udpSubClients).length === 0){
       this.udpSocket = Udp.createSocket('udp4');
     }
     this._udpSubClients[resp[3]] = {
-      port: resp[2],
-      host: resp[1],
+      port: port,
+      host: host,
       dgramSize: resp[4],
       connId: resp[3]
     }
