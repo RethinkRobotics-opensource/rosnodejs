@@ -1,6 +1,6 @@
 {
   "name": "rosnodejs",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "description": "Native ROS for nodejs",
   "main": "dist/index.js",
   "keywords": [
@@ -20,7 +20,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/RethinkRobotics-opensource/rosnodejs"
+    "url": "git://github.com/RethinkRobotics-opensource/rosnodejs.git"
   },
   "devDependencies": {
     "babel-cli": "^6.18.0",
@@ -38,5 +38,12 @@
     "ultron": "1.1.1",
     "walker": "1.0.7",
     "xmlrpc-rosnodejs": "1.4.0"
+  },
+  "bugs": {
+    "url": "https://github.com/RethinkRobotics-opensource/rosnodejs/issues"
+  },
+  "homepage": "https://github.com/RethinkRobotics-opensource/rosnodejs#readme",
+  "directories": {
+    "test": "test"
   }
 }
