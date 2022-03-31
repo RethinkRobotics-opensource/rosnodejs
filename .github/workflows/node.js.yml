@@ -1,0 +1,68 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Node.js CI
+
+on:
+  push:
+    branches: [ devel ]
+  pull_request:
+    branches: [ devel ]
+    
+env:
+  ROS_DISTRO: melodic
+  CI_SOURCE_PATH: $(pwd)
+  ROSINSTALL_FILE: $GITHUB_PATH/dependencies.rosinstall
+  CATKIN_OPTIONS: $GITHUB_PATH/catkin.options
+  ROS_PARALLEL_JOBS: '-j8 -l6'
+  # Set the python path manually to include /usr/-/python2.7/dist-packages
+  # as this is where apt-get installs python packages.
+  PYTHONPATH: $PYTHONPATH:/usr/lib/python2.7/dist-
+
+jobs:
+  build:
+
+    runs-on: bionic
+    container: melodic-ros-core
+
+    strategy:
+      matrix:
+        node-version: [10.x, 12.x, 14.x, 16.x, 18.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+  # Create a catkin workspace with the package under integration.
+    - run: mkdir -p ~/catkin_ws/src
+    - run: cd ~/catkin_ws/src
+    - run: catkin_init_workspace
+    # Create the devel/setup.bash (run catkin_make with an empty workspace) and
+    # source it to set the path variables.
+    - run: cd ~/catkin_ws
+    - run: catkin_make
+    - run: source devel/setup.bash
+    # Install required message packages
+    - run: git clone https://github.com/ros/std_msgs.git src/std_msgs
+    - run: git clone https://github.com/ros/common_msgs src/common_msgs
+    - run: git clone https://github.com/RethinkRobotics-opensource/test_msgs.git src/test_msgs
+    - run: git clone https://github.com/ros/ros_comm_msgs.git src/ros_comm_msgs
+    # Install all dependencies, using wstool first and rosdep second.
+    # wstool looks for a ROSINSTALL_FILE defined in the environment variables.
+    - run: cd ~/catkin_ws/src
+    - run: wstool init
+    - run: if [[ -f $ROSINSTALL_FILE ]] ; then wstool merge $ROSINSTALL_FILE ; fi
+    - run: wstool up
+    # package dependencies: install using rosdep.
+    - run: cd ~/catkin_ws
+    - run: rosdep install -y --from-paths src --ignore-src --rosdistro $ROS_DISTRO
+    - run: source devel/setup.bash
+    - run: cd $CI_SOURCE_PATH
+    - run: npm install
+    - run: npm run compile
+    - run: npm run generate
+    - run: npm test
