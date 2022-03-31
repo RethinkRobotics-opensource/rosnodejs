@@ -42,6 +42,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         # cache: 'npm' unable to cache without package-lock
   # Create a catkin workspace with the package under integration.
+    - run: sudo apt-get install python-catkin-tools
     - run: mkdir -p ~/catkin_ws/src
     - run: cd ~/catkin_ws/src
     - run: source /opt/ros/$ROS_DISTRO/setup.bash
