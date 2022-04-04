@@ -11,7 +11,6 @@ on:
     
 env:
   ROS_DISTRO: melodic
-  CI_SOURCE_PATH: $(pwd)
   ROSINSTALL_FILE: $GITHUB_PATH/dependencies.rosinstall
   CATKIN_OPTIONS: $GITHUB_PATH/catkin.options
   ROS_PARALLEL_JOBS: '-j8 -l6'
@@ -68,7 +67,7 @@ jobs:
       run: |
           cd ~/catkin_ws
           source devel/setup.bash
-          cd $CI_SOURCE_PATH
+          cd $GITHUB_WORKSPACE
           npm install
           npm run compile
           npm run generate
