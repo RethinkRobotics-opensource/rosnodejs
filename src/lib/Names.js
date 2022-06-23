@@ -49,7 +49,7 @@ class Names {
     for (let i = 1; i < len; ++i) {
       if (!isValidCharInName(name[i])) {
         if (throwError) {
-          throw new Error(`Character [${c}] at element [${i}] is not valid in Graph Resource Name [${name}].  Valid characters are a-z, A-Z, 0-9, / and _.`);
+          throw new Error(`Character [${name[i]}] at element [${i}] is not valid in Graph Resource Name [${name}].  Valid characters are a-z, A-Z, 0-9, / and _.`);
         }
         // else
         return false;
