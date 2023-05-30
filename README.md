@@ -22,6 +22,17 @@ const sub = nh.subscribe('/chatter', 'std_msgs/String', (msg) => {
 const pub = nh.advertise('/chatter', 'std_msgs/String');
 pub.publish({ data: "hi" });
 ```
+
+The `advertise` function takes an options object as optional third argument:
+```js
+{
+  queueSize: 1,
+  latching: false //
+  throttleMs: 0
+}
+```
+If you plan to publish messages right after another in the same function, set `throttleMs: -1`. Otherwise only the last message will be sent.
+
 ### Udp transport (Experimental)
 
 ```js
