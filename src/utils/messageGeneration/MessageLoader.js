@@ -394,6 +394,9 @@ class MessageManager {
       const depIndex = dependencyChain.indexOf(depName);
       if (depIndex === -1) {
         // this dependency is not yet in the list anywhere
+        if (!packageCache[depName]) {
+          throw Error(`Missing dependency ${depName}, required by ${packageName}`);
+        }
         const insertionIndex = this._recurseDependencyChain(dependencyChain, depName);
         if (insertionIndex > maxInsertionIndex) {
           maxInsertionIndex = insertionIndex;
