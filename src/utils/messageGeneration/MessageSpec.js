@@ -264,13 +264,17 @@ class RosMsgSpec {
 
     const deps = this.getFullDependencies();
     const sep = '='.repeat(80);
-    w.write(this.fileContents.trim())
+
+    // escape backticks in string
+    const sanitize = (string) => string.trim().replace(/`/g, '\\`');
+
+    w.write(sanitize(this.fileContents))
       .newline();
 
     deps.forEach((dep) => {
       w.write(sep)
         .write(`MSG: ${dep.getFullMessageName()}`)
-        .write(dep.fileContents.trim())
+        .write(sanitize(dep.fileContents))
         .newline();
     });
 
